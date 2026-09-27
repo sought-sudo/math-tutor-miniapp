@@ -1,0 +1,55 @@
+<view class="page">
+  <view class="card grid">
+    <view class="g-item">
+      <view class="g-num">{{stats.week}}</view>
+      <view class="g-lbl">本周练习</view>
+    </view>
+    <view class="g-item">
+      <view class="g-num">{{accuracyText}}</view>
+      <view class="g-lbl">正确率</view>
+    </view>
+    <view class="g-item">
+      <view class="g-num">{{stats.activeCount}}</view>
+      <view class="g-lbl">待复习错题</view>
+    </view>
+    <view class="g-item">
+      <view class="g-num">{{stats.masteredCount}}</view>
+      <view class="g-lbl">已掌握错题</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="label">最近 7 天练习情况</view>
+    <view class="chart">
+      <view wx:for="{{bars}}" wx:key="date" class="bar-col">
+        <view class="bar-count">{{item.count}}</view>
+        <view class="bar" style="height: {{item.h}}rpx"></view>
+        <view class="bar-label">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="label">错题知识点分布（待复习）</view>
+    <block wx:if="{{kbars.length}}">
+      <view wx:for="{{kbars}}" wx:key="name" class="krow">
+        <view class="kname">{{item.name}}</view>
+        <view class="ktrack"><view class="kfill" style="width: {{item.w}}%"></view></view>
+        <view class="kcount">{{item.count}}道</view>
+      </view>
+    </block>
+    <view wx:else class="empty">🎉 没有待复习的错题，真棒！</view>
+  </view>
+
+  <view class="card">
+    <view class="label">👨‍👩‍👧 给家长的话</view>
+    <view class="advice">{{advice}}</view>
+  </view>
+
+  <view class="card note-card">
+    <view class="note">📌 练习数据只保存在这台设备的小程序里，不会上传到网络。</view>
+    <view class="btn btn-ghost btn-small reset-btn" bindtap="reset">重置所有数据</view>
+  </view>
+
+  <bottom-nav current="report" />
+</view>

@@ -1,0 +1,97 @@
+.summary {
+  display: flex;
+  text-align: center;
+}
+
+.s-item {
+  flex: 1;
+}
+
+.s-num {
+  font-size: 52rpx;
+  font-weight: 800;
+  color: #FF8A00;
+}
+
+.s-num.green {
+  color: #14A98C;
+}
+
+.s-lbl {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.tabs {
+  display: flex;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 6rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.04);
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  border-radius: 999rpx;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.tab.on {
+  background: linear-gradient(135deg, #FFB400, #FF8A00);
+  color: #fff;
+  font-weight: 800;
+}
+
+.w-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.w-times {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.w-problem {
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1.7;
+  margin-bottom: 12rpx;
+}
+
+.w-ans {
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.w-ans.bad {
+  color: #FF6B6B;
+  text-decoration: line-through;
+}
+
+.w-ans.good {
+  color: #14A98C;
+}
+
+.w-btns {
+  display: flex;
+  margin-top: 16rpx;
+}
+
+.w-btns .btn {
+  margin-right: 14rpx;
+}
+
+.w-btns .btn:last-child {
+  margin-right: 0;
+}
+
+.mastered-item {
+  opacity: 0.85;
+}

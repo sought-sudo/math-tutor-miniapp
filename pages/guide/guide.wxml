@@ -1,0 +1,79 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading">
+    <view class="loading-icon">🤔</view>
+    <view>小助手正在读题…</view>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{isRetry}}" class="retry-banner">💪 错题重练：认真想一想，这次一定能做对！</view>
+
+    <view class="card problem-card">
+      <view class="tag">{{knowledge}}</view>
+      <view class="problem-text">{{problem}}</view>
+      <view wx:if="{{note}}" class="note">{{note}}</view>
+    </view>
+
+    <view class="progress">已解锁 {{revealed}} / {{steps.length}} 步</view>
+
+    <view class="steps">
+      <view
+        wx:for="{{steps}}"
+        wx:key="title"
+        class="step {{index < revealed ? 'open' : ''}} {{index === revealed ? 'current' : ''}}"
+      >
+        <view wx:if="{{index < revealed}}" class="step-body">
+          <view class="step-title">{{item.title}}</view>
+          <view class="step-content">{{item.content}}</view>
+        </view>
+        <view wx:elif="{{index === revealed}}" class="step-locked">
+          <view class="lock-text">💡 第 {{index + 1}} 步已准备好</view>
+          <view class="btn btn-primary btn-small" bindtap="onReveal">看这一步</view>
+        </view>
+        <view wx:else class="step-locked dim">
+          <view class="lock-text">🔒 第 {{index + 1}} 步</view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{allRevealed && phase === 'solving'}}" class="card answer-card">
+      <block wx:if="{{checkMode === 'input'}}">
+        <view class="ask">✏️ 该你啦！把答案写下来：</view>
+        <input
+          class="answer-input"
+          type="digit"
+          bindinput="onInput"
+          value="{{userAnswer}}"
+          placeholder="输入答案，不带单位也可以"
+        />
+        <view class="btn btn-primary" bindtap="onSubmit">提交答案</view>
+      </block>
+      <block wx:else>
+        <view class="ask">✏️ 在草稿纸上算一算，然后自己核对：</view>
+        <view class="selfcheck">
+          <view class="btn btn-green sc-btn" data-ok="1" bindtap="onSelfCheck">😄 我做对啦</view>
+          <view class="btn btn-warn sc-btn" data-ok="0" bindtap="onSelfCheck">😟 我做错了</view>
+        </view>
+      </block>
+    </view>
+
+    <view wx:if="{{phase === 'right'}}" class="card result-card ok">
+      <view class="result-icon">🎉</view>
+      <view class="result-title">{{praise}}</view>
+      <view class="result-sub">用时 {{seconds}} 秒 · 已记入今日练习</view>
+      <view class="result-row">
+        <view class="btn btn-primary" bindtap="onAgain">再来一题</view>
+        <view class="btn btn-ghost" bindtap="onHome">回首页</view>
+      </view>
+    </view>
+
+    <view wx:if="{{phase === 'wrong'}}" class="card result-card no">
+      <view class="result-icon">📕</view>
+      <view class="result-title">{{praise}}</view>
+      <view class="answer-line">✅ 正确答案：{{rightAnswerText || '见上面步骤'}}</view>
+      <view class="result-row">
+        <view class="btn btn-primary" bindtap="onAgain">再来一题</view>
+        <view class="btn btn-ghost" bindtap="onHome">回首页</view>
+      </view>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "数学小助手",
+  "usingComponents": {
+    "bottom-nav": "/components/bottom-nav/index"
+  }
+}

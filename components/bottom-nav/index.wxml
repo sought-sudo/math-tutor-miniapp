@@ -1,0 +1,12 @@
+<view class="nav">
+  <view
+    wx:for="{{items}}"
+    wx:key="key"
+    class="nav-item {{current === item.key ? 'on' : ''}}"
+    data-url="{{item.url}}"
+    bindtap="go"
+  >
+    <view class="nav-icon">{{item.icon}}</view>
+    <view class="nav-label">{{item.label}}</view>
+  </view>
+</view>

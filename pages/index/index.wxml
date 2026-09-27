@@ -1,0 +1,54 @@
+<view class="page">
+  <view class="card hero">
+    <view class="hero-left">
+      <view class="hello">{{greeting}}，小数学家！</view>
+      <view class="sub">今天也要坚持练习哦 🦁</view>
+    </view>
+    <view class="hero-icon">🦁</view>
+  </view>
+
+  <view class="stats-row">
+    <view class="card stat">
+      <view class="num">{{stats.today}}</view>
+      <view class="lbl">今日已练(题)</view>
+    </view>
+    <view class="card stat">
+      <view class="num">{{accuracyText}}</view>
+      <view class="lbl">正确率</view>
+    </view>
+    <view class="card stat">
+      <view class="num">{{stats.activeCount}}</view>
+      <view class="lbl">待复习错题</view>
+    </view>
+  </view>
+
+  <view class="grid">
+    <view class="card feature" bindtap="goCamera">
+      <view class="f-icon">📷</view>
+      <view class="f-title">拍照识题</view>
+      <view class="f-desc">拍下题目，AI 帮你认</view>
+    </view>
+    <view class="card feature" bindtap="goPractice">
+      <view class="f-icon">🧮</view>
+      <view class="f-title">每日练习</view>
+      <view class="f-desc">随机出题，分步引导</view>
+    </view>
+    <view class="card feature" bindtap="goWrong">
+      <view class="f-icon">📕</view>
+      <view class="f-title">错题本</view>
+      <view class="f-desc">错题自动收集</view>
+    </view>
+    <view class="card feature" bindtap="goReport">
+      <view class="f-icon">📊</view>
+      <view class="f-title">家长报告</view>
+      <view class="f-desc">看看孩子的进步</view>
+    </view>
+  </view>
+
+  <view class="card tip">
+    <view class="tip-title">💡 今日小贴士</view>
+    <view class="tip-text">{{tip}}</view>
+  </view>
+
+  <bottom-nav current="home" />
+</view>

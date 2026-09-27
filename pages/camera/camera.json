@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "拍照识题",
+  "usingComponents": {
+    "bottom-nav": "/components/bottom-nav/index"
+  }
+}

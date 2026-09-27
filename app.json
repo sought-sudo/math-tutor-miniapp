@@ -1,0 +1,24 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/camera/camera",
+    "pages/guide/guide",
+    "pages/wrongbook/wrongbook",
+    "pages/report/report"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#FFB400",
+    "navigationBarTitleText": "数学小助手",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#FFF8EC",
+    "backgroundTextStyle": "light"
+  },
+  "permission": {
+    "scope.camera": {
+      "desc": "用于拍摄题目照片，识别数学题"
+    }
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,77 @@
+.camera-box {
+  height: 660rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #2b2b2b;
+  margin-bottom: 16rpx;
+}
+
+.camera,
+.camera-img {
+  width: 100%;
+  height: 100%;
+}
+
+.scanning {
+  text-align: center;
+  color: #FF8A00;
+  font-size: 28rpx;
+  font-weight: 700;
+  padding: 8rpx 0 16rpx;
+}
+
+.tip-line {
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+  padding: 8rpx 0 16rpx;
+}
+
+.actions {
+  display: flex;
+  margin-bottom: 24rpx;
+}
+
+.act {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.act:last-child {
+  margin-right: 0;
+}
+
+.recog-input {
+  width: 100%;
+  height: 160rpx;
+  background: #FFF9EE;
+  border: 2rpx solid #FFE3B3;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+  font-size: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.sample {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #FFF9EE;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.sample-text {
+  flex: 1;
+  font-size: 28rpx;
+  margin-right: 16rpx;
+}
+
+.sample-go {
+  color: #FF8A00;
+  font-weight: 700;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}

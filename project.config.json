@@ -1,0 +1,22 @@
+{
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "math-tutor-miniapp",
+  "libVersion": "3.3.4",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

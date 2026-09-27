@@ -1,0 +1,161 @@
+.loading {
+  text-align: center;
+  padding: 160rpx 0;
+  color: #999;
+}
+
+.loading-icon {
+  font-size: 88rpx;
+  margin-bottom: 20rpx;
+}
+
+.retry-banner {
+  background: #E8F8F2;
+  color: #14A98C;
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  font-size: 26rpx;
+  margin-bottom: 20rpx;
+}
+
+.problem-card {
+  border-left: 10rpx solid #FFB400;
+}
+
+.problem-text {
+  font-size: 34rpx;
+  font-weight: 700;
+  margin-top: 14rpx;
+  line-height: 1.7;
+}
+
+.progress {
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.step {
+  background: #fff;
+  border-radius: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.step.open {
+  border-left: 8rpx solid #35D0AA;
+}
+
+.step.current {
+  border: 2rpx dashed #FFB400;
+}
+
+.step-body {
+  padding: 24rpx 28rpx;
+}
+
+.step-title {
+  font-weight: 800;
+  color: #FF8A00;
+  margin-bottom: 10rpx;
+  font-size: 30rpx;
+}
+
+.step-content {
+  color: #444;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.step-locked {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx;
+}
+
+.step-locked.dim {
+  opacity: 0.55;
+}
+
+.lock-text {
+  color: #999;
+  font-size: 28rpx;
+}
+
+.answer-card .ask {
+  font-weight: 800;
+  margin-bottom: 20rpx;
+}
+
+.answer-input {
+  background: #FFF9EE;
+  border: 2rpx solid #FFE3B3;
+  border-radius: 16rpx;
+  padding: 18rpx 24rpx;
+  font-size: 36rpx;
+  margin-bottom: 20rpx;
+}
+
+.selfcheck {
+  display: flex;
+}
+
+.sc-btn {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.sc-btn:last-child {
+  margin-right: 0;
+}
+
+.result-card {
+  text-align: center;
+}
+
+.result-card.ok {
+  background: #F0FBF7;
+}
+
+.result-card.no {
+  background: #FFF6F3;
+}
+
+.result-icon {
+  font-size: 80rpx;
+}
+
+.result-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  margin: 10rpx 0;
+}
+
+.result-sub {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 20rpx;
+}
+
+.answer-line {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #14A98C;
+  margin-bottom: 20rpx;
+}
+
+.result-row {
+  display: flex;
+}
+
+.result-row .btn {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.result-row .btn:last-child {
+  margin-right: 0;
+}

@@ -1,0 +1,39 @@
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  display: flex;
+  padding: 10rpx 0;
+  padding-bottom: calc(10rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #999;
+}
+
+.nav-item.on {
+  color: #FF8A00;
+}
+
+.nav-icon {
+  font-size: 40rpx;
+  line-height: 1.2;
+}
+
+.nav-label {
+  font-size: 22rpx;
+  margin-top: 2rpx;
+  font-weight: 600;
+}
+
+.nav-item.on .nav-label {
+  font-weight: 800;
+}

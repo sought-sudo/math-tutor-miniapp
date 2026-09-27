@@ -1,0 +1,46 @@
+<view class="page">
+  <view class="camera-box">
+    <camera wx:if="{{!imgPath}}" class="camera" device-position="back" flash="off"></camera>
+    <image wx:else class="camera-img" src="{{imgPath}}" mode="aspectFill"></image>
+  </view>
+
+  <view wx:if="{{recognizing}}" class="scanning">🔍 AI 正在识别题目…</view>
+  <view wx:else class="tip-line">📐 把题目放进框里拍清楚，光线要充足哦</view>
+
+  <view class="actions">
+    <view wx:if="{{!imgPath}}" class="btn btn-primary act" bindtap="takePhoto">📷 拍 照</view>
+    <view wx:else class="btn btn-ghost act" bindtap="onReset">↺ 重拍一张</view>
+    <view class="btn btn-blue act" bindtap="chooseAlbum">🖼️ 从相册选择</view>
+  </view>
+
+  <view wx:if="{{imgPath}}" class="card">
+    <view class="label">识别的题目（可以手动修改）</view>
+    <textarea
+      class="recog-input"
+      bindinput="onInput"
+      value="{{recogText}}"
+      placeholder="输入或粘贴题目，例如：计算：125×8+25×4=?"
+      maxlength="200"
+    ></textarea>
+    <view wx:if="{{demoNotice}}" class="note">
+      ℹ️ 演示模式：未配置 OCR 接口，请手动输入题目，或用首页的"每日练习"体验。
+    </view>
+    <view class="btn btn-primary" bindtap="startGuide">开始辅导 🚀</view>
+  </view>
+
+  <view wx:if="{{!imgPath}}" class="card">
+    <view class="label">没有题目？先用示例题体验：</view>
+    <view
+      wx:for="{{samples}}"
+      wx:key="problem"
+      class="sample"
+      data-index="{{index}}"
+      bindtap="useSample"
+    >
+      <view class="sample-text">{{item.problem}}</view>
+      <view class="sample-go">去辅导 →</view>
+    </view>
+  </view>
+
+  <bottom-nav current="camera" />
+</view>

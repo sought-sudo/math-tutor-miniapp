@@ -1,0 +1,59 @@
+<view class="page">
+  <view class="card summary">
+    <view class="s-item">
+      <view class="s-num">{{actives.length}}</view>
+      <view class="s-lbl">待复习</view>
+    </view>
+    <view class="s-item">
+      <view class="s-num green">{{mastered.length}}</view>
+      <view class="s-lbl">已掌握</view>
+    </view>
+  </view>
+
+  <view class="tabs">
+    <view class="tab {{tab === 'active' ? 'on' : ''}}" data-tab="active" bindtap="switchTab">待复习</view>
+    <view class="tab {{tab === 'mastered' ? 'on' : ''}}" data-tab="mastered" bindtap="switchTab">已掌握</view>
+  </view>
+
+  <block wx:if="{{tab === 'active'}}">
+    <view wx:if="{{!actives.length}}" class="card">
+      <view class="empty">📭 还没有错题，太棒了！</view>
+      <view class="empty-sub">做错的题会自动收进来，记得常来复习</view>
+    </view>
+    <view wx:for="{{actives}}" wx:key="id" class="card wrong-item">
+      <view class="w-top">
+        <view class="tag">{{item.knowledge}}</view>
+        <view class="w-times">错 {{item.times}} 次 · {{item.lastAt}}</view>
+      </view>
+      <view class="w-problem">{{item.problem}}</view>
+      <view class="w-ans bad">✗ 我的答案：{{item.myAnswer}}</view>
+      <view class="w-ans good">✓ 正确答案：{{item.rightAnswer}}</view>
+      <view class="w-btns">
+        <view class="btn btn-primary btn-small" data-id="{{item.id}}" bindtap="retry">再练一次</view>
+        <view class="btn btn-green btn-small" data-id="{{item.id}}" bindtap="master">掌握啦</view>
+        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="remove">删除</view>
+      </view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view wx:if="{{!mastered.length}}" class="card">
+      <view class="empty">🌱 还没有掌握的错题</view>
+      <view class="empty-sub">继续加油，做对的错题会出现在这里</view>
+    </view>
+    <view wx:for="{{mastered}}" wx:key="id" class="card wrong-item mastered-item">
+      <view class="w-top">
+        <view class="tag">{{item.knowledge}}</view>
+        <view class="w-times">✓ {{item.masteredAt}} 掌握</view>
+      </view>
+      <view class="w-problem">{{item.problem}}</view>
+      <view class="w-ans good">✓ 正确答案：{{item.rightAnswer}}</view>
+      <view class="w-btns">
+        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="remove">删除</view>
+      </view>
+    </view>
+    <view wx:if="{{mastered.length}}" class="btn btn-ghost" bindtap="clearMastered">清空已掌握</view>
+  </block>
+
+  <bottom-nav current="wrong" />
+</view>

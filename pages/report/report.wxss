@@ -1,0 +1,104 @@
+.grid {
+  display: flex;
+  text-align: center;
+}
+
+.g-item {
+  flex: 1;
+}
+
+.g-num {
+  font-size: 48rpx;
+  font-weight: 800;
+  color: #FF8A00;
+}
+
+.g-lbl {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-top: 20rpx;
+}
+
+.bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 13%;
+}
+
+.bar-count {
+  font-size: 20rpx;
+  color: #999;
+  margin-bottom: 6rpx;
+}
+
+.bar {
+  width: 36rpx;
+  background: linear-gradient(180deg, #FFC53D, #FF9F1C);
+  border-radius: 10rpx 10rpx 0 0;
+}
+
+.bar-label {
+  font-size: 20rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+
+.krow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18rpx;
+}
+
+.kname {
+  width: 220rpx;
+  font-size: 24rpx;
+  color: #555;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktrack {
+  flex: 1;
+  height: 26rpx;
+  background: #FFF1DC;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.kfill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFC53D, #FF8A00);
+  border-radius: 999rpx;
+}
+
+.kcount {
+  width: 90rpx;
+  text-align: right;
+  font-size: 24rpx;
+  color: #FF8A00;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.advice {
+  font-size: 28rpx;
+  color: #444;
+  line-height: 1.9;
+}
+
+.note-card {
+  text-align: center;
+}
+
+.reset-btn {
+  margin-top: 20rpx;
+}

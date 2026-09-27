@@ -1,0 +1,7 @@
+# 行尾与编码统一，保证 Windows / macOS / Linux 各设备克隆后一致
+* text=auto
+*.js   text eol=lf
+*.json text eol=lf
+*.wxml text eol=lf
+*.wxss text eol=lf
+*.md   text eol=lf
