@@ -14,7 +14,7 @@
 在任意装有 Git 的设备上：
 
 ```bash
-git clone https://github.com/<用户名>/math-tutor-miniapp.git
+git clone https://github.com/sought-sudo/math-tutor-miniapp.git
 ```
 
 也可以在仓库主页点绿色「Code」按钮 →「Download ZIP」下载压缩包解压。项目已带 `.gitattributes` 统一行尾，Windows / macOS / Linux 克隆后都能直接在微信开发者工具中导入运行（AppID 使用测试号或游客模式即可）。
