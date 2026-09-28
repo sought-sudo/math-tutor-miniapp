@@ -123,6 +123,61 @@
     }).catch(function () {});
   }
 
+  // ---------------- AI 能力（搜题/错题讲解走大模型，失败回退本地引擎） ----------------
+
+  var aiReady = false;
+
+  function refreshStatus() {
+    var base = getApiBase();
+    if (location.protocol === 'file:' && !base) return;
+    fetch(base + '/api/status')
+      .then(function (r) { return r.json(); })
+      .then(function (j) { aiReady = !!(j && j.ok && j.llm); })
+      .catch(function () { aiReady = false; });
+  }
+
+  function fetchTutor(payload) {
+    var base = getApiBase();
+    return new Promise(function (resolve, reject) {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+        reject(new Error('timeout'));
+      }, 20000);
+      fetch(base + '/tutor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: ctrl ? ctrl.signal : undefined
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        clearTimeout(timer);
+        if (j && j.ok && j.steps && j.steps.length) {
+          resolve({
+            source: 'ai',
+            problem: payload.problem,
+            knowledge: j.knowledge || '综合',
+            answer: j.answer,
+            displayAnswer: j.displayAnswer || String(j.answer),
+            steps: j.steps.map(function (s, i) {
+              return { title: s.title || ('第' + (i + 1) + '步'), content: s.content || '' };
+            }),
+            note: '',
+            reason: j.reason || ''
+          });
+        } else {
+          reject(new Error((j && j.error) || 'AI 讲解不可用'));
+        }
+      }).catch(function (e) {
+        clearTimeout(timer);
+        reject(e);
+      });
+    });
+  }
+
+  function localSolve(problem) {
+    return S.solveText(problem) || S.genericGuide(problem);
+  }
+
   // ---------------- 视图切换 ----------------
 
   var currentView = 'home';
@@ -243,8 +298,116 @@
       }, { retry: true, wrongId: item.id });
       return;
     }
-    var res = S.solveText(problem) || S.genericGuide(problem);
-    applyResult(res, { retry: false });
+    // 新题目（搜题/拍照/输入）：AI 优先，超时或失败回退本地引擎
+    if (aiReady) {
+      applyResultLoading(problem);
+      fetchTutor({ problem: problem }).then(function (res) {
+        applyResult(res, { retry: false });
+      }).catch(function () {
+        applyResult(localSolve(problem), { retry: false });
+      });
+    } else {
+      applyResult(localSolve(problem), { retry: false });
+    }
+  }
+
+  function applyResultLoading(problem) {
+    showView('guide');
+    guide = { loading: true };
+    $('retry-banner').style.display = 'none';
+    $('guide-knowledge').textContent = 'AI 讲解中';
+    $('guide-problem').textContent = problem;
+    $('guide-note').style.display = 'none';
+    $('guide-progress').textContent = '';
+    $('guide-steps').innerHTML =
+      '<div class="card"><div class="loading-line">🤖 小助手正在读题、组织讲解步骤…</div></div>';
+    $('guide-answer').style.display = 'none';
+    $('guide-result').style.display = 'none';
+    $('explain-box').style.display = 'none';
+  }
+
+  // AI 错题讲解：先分析错因（结合我的答案），再分步讲解；结果缓存在错题上
+  function explainWrong(item) {
+    showView('guide');
+    guide = {
+      mode: 'explain',
+      loading: false,
+      item: item,
+      problem: item.problem,
+      knowledge: item.knowledge,
+      steps: [],
+      revealed: 0,
+      wrongId: item.id,
+      retry: false,
+      note: '',
+      startTs: Date.now()
+    };
+    $('guide-knowledge').textContent = item.knowledge;
+    $('guide-problem').textContent = item.problem;
+    $('guide-note').style.display = 'none';
+    $('retry-banner').style.display = 'block';
+    $('retry-banner').textContent = '🤖 AI 错题讲解：看看错在哪里、怎么一步步做对';
+    $('guide-answer').style.display = 'none';
+    $('guide-result').style.display = 'none';
+    $('explain-compare-my').textContent = '✗ 我的答案：' + (item.myAnswer || '未作答');
+    $('explain-compare-right').textContent = '✓ 正确答案：' + (item.rightAnswer || '见步骤');
+    $('explain-reason').style.display = 'none';
+    $('explain-box').style.display = 'block';
+
+    var cached = item.explain && item.explain.steps && item.explain.steps.length ? item.explain : null;
+    if (cached) {
+      guide.steps = cached.steps;
+      guide.knowledge = cached.knowledge || item.knowledge;
+      $('guide-knowledge').textContent = guide.knowledge;
+      if (cached.reason) showReason(cached.reason);
+      renderGuide();
+      return;
+    }
+    $('guide-progress').textContent = '';
+    $('guide-steps').innerHTML =
+      '<div class="card"><div class="loading-line">🤖 AI 正在分析这道错题…</div></div>';
+    if (aiReady) {
+      fetchTutor({
+        problem: item.problem,
+        myAnswer: item.myAnswer,
+        rightAnswer: item.rightAnswer,
+        mode: 'wrong'
+      }).then(function (res) {
+        guide.steps = res.steps;
+        guide.knowledge = res.knowledge || item.knowledge;
+        $('guide-knowledge').textContent = guide.knowledge;
+        item.explain = { steps: res.steps, knowledge: guide.knowledge, reason: res.reason || '' };
+        saveWrongs(getWrongs());
+        if (res.reason) showReason(res.reason);
+        renderGuide();
+      }).catch(function () {
+        var res = explainFallback(item);
+        guide.steps = res.steps;
+        guide.knowledge = res.knowledge || item.knowledge;
+        $('guide-knowledge').textContent = guide.knowledge;
+        renderGuide();
+      });
+    } else {
+      var res = explainFallback(item);
+      guide.steps = res.steps;
+      guide.knowledge = res.knowledge || item.knowledge;
+      $('guide-knowledge').textContent = guide.knowledge;
+      renderGuide();
+    }
+  }
+
+  // AI 不可用时的讲解回退：优先用错题本存好的练习步骤，其次本地引擎
+  function explainFallback(item) {
+    if (item.steps && item.steps.length) {
+      return { steps: item.steps, knowledge: item.knowledge };
+    }
+    var r = localSolve(item.problem);
+    return { steps: r.steps, knowledge: r.knowledge };
+  }
+
+  function showReason(reason) {
+    $('explain-reason').textContent = '💡 错因分析：' + reason;
+    $('explain-reason').style.display = 'block';
   }
 
   function applyResult(res, opts) {
@@ -254,6 +417,7 @@
     if (!steps.length) steps.push({ title: '提示', content: '跟着老师教的思路自己列式算一算，再对答案。' });
     var rightNum = typeof res.answer === 'number' ? res.answer : extractNumber(res.answer);
     guide = {
+      mode: 'practice',
       problem: res.problem,
       knowledge: res.knowledge || '综合',
       note: res.note || '',
@@ -269,6 +433,8 @@
     };
     showView('guide');
     $('retry-banner').style.display = guide.retry ? 'block' : 'none';
+    $('retry-banner').textContent = '💪 错题重练：认真想一想，这次一定能做对！';
+    $('explain-box').style.display = 'none';
     $('guide-knowledge').textContent = guide.knowledge;
     $('guide-problem').textContent = guide.problem;
     $('guide-note').style.display = guide.note ? 'block' : 'none';
@@ -278,18 +444,22 @@
   }
 
   function renderGuide() {
-    $('guide-progress').textContent = '已解锁 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
+    var explain = guide.mode === 'explain';
+    var shown = explain ? guide.steps.length : guide.revealed;
+    $('guide-progress').textContent = explain
+      ? '讲解共 ' + guide.steps.length + ' 步'
+      : '已解锁 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
     var box = $('guide-steps');
     box.innerHTML = '';
     guide.steps.forEach(function (s, i) {
       var div = document.createElement('div');
       div.className = 'step' +
-        (i < guide.revealed ? ' open' : '') +
-        (i === guide.revealed ? ' current' : '');
-      if (i < guide.revealed) {
+        (i < shown ? ' open' : '') +
+        (!explain && i === shown ? ' current' : '');
+      if (i < shown) {
         div.innerHTML = '<div class="step-body"><div class="step-title">' + esc(s.title) + '</div>' +
           '<div class="step-content">' + esc(s.content) + '</div></div>';
-      } else if (i === guide.revealed) {
+      } else if (!explain && i === shown) {
         div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 第 ' + (i + 1) + ' 步已准备好</div>' +
           '<button class="btn btn-primary btn-sm reveal-btn">看这一步</button></div>';
         div.querySelector('.reveal-btn').addEventListener('click', function () {
@@ -440,9 +610,11 @@
         : '错 ' + item.times + ' 次 · ' + esc(item.lastAt || '');
       var btns = item.status === 'active'
         ? '<button class="btn btn-primary btn-sm w-btn" data-act="retry">再练一次</button>' +
+          '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
           '<button class="btn btn-green btn-sm w-btn" data-act="master">掌握啦</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>'
-        : '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
+        : '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
+          '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
       div.innerHTML =
         '<div class="w-top"><div class="tag">' + esc(item.knowledge) + '</div><div class="w-times">' + top + '</div></div>' +
         '<div class="w-problem">' + esc(item.problem) + '</div>' +
@@ -459,6 +631,8 @@
   function wrongAction(act, item) {
     if (act === 'retry') {
       startGuide(item.problem);
+    } else if (act === 'explain') {
+      explainWrong(item);
     } else if (act === 'master') {
       if (!confirm('确认这道题已经会做了吗？')) return;
       var ws = getWrongs();
@@ -527,6 +701,10 @@
   $('btn-self-no').addEventListener('click', function () { finish(false, ''); });
   $('btn-again').addEventListener('click', newPractice);
   $('btn-home').addEventListener('click', function () { showView('home'); });
+  $('btn-explain-retry').addEventListener('click', function () {
+    if (guide && guide.item) startGuide(guide.item.problem);
+  });
+  $('btn-explain-back').addEventListener('click', function () { showView('wrong'); });
 
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });
   $('tab-mastered').addEventListener('click', function () { wrongTab = 'mastered'; refreshWrong(); });
@@ -553,12 +731,14 @@
   });
   $('api-input').addEventListener('change', function () {
     setApiBase(this.value.trim().replace(/\/$/, ''));
+    refreshStatus();
     refreshParent();
   });
 
   // ---------------- 启动 ----------------
 
   refreshSamples();
+  refreshStatus();
   refreshHome();
   showView('home');
 })();

@@ -11,6 +11,9 @@ Page({
   data: {
     loading: true,
     isRetry: false,
+    explainMode: false,
+    explainReason: '',
+    myAnswerText: '',
     problem: '',
     knowledge: '',
     note: '',
@@ -30,10 +33,17 @@ Page({
   onLoad(options) {
     this.startTs = Date.now();
     this.wrongId = (options && options.wrongId) || '';
+    this.explainMode = !!(options && options.mode === 'explain');
 
     if (this.wrongId) {
       const item = storage.getWrongById(this.wrongId);
       if (item) {
+        if (this.explainMode) {
+          // AI 错题讲解模式
+          this.setData({ isRetry: true, explainMode: true, myAnswerText: item.myAnswer || '未作答' });
+          this.startExplain(item);
+          return;
+        }
         this.setData({ isRetry: true });
         // 重练直接用错题本里存好的题目和步骤，保证讲解一致
         if (item.steps && item.steps.length) {
@@ -61,6 +71,72 @@ Page({
     } else {
       this.newPractice();
     }
+  },
+
+  // 错题 AI 讲解：优先大模型（分析错因+分步），失败回退错题本存好的步骤
+  startExplain(item) {
+    this.setData({
+      loading: true,
+      problem: item.problem,
+      knowledge: item.knowledge,
+      rightAnswerText: item.rightAnswer || '见步骤'
+    });
+    ai.explain(item.problem, item.myAnswer, item.rightAnswer).then((res) => {
+      if (res && res.steps && res.steps.length) {
+        this.applyResult({
+          source: 'ai',
+          problem: item.problem,
+          knowledge: res.knowledge || item.knowledge,
+          answer: item.rightNum,
+          displayAnswer: item.rightAnswer,
+          steps: res.steps,
+          note: ''
+        });
+        this.setData({ explainReason: res.reason || '' });
+      } else if (item.steps && item.steps.length) {
+        this.applyResult({
+          source: 'local',
+          problem: item.problem,
+          knowledge: item.knowledge,
+          answer: item.rightNum,
+          displayAnswer: item.rightAnswer,
+          steps: item.steps,
+          note: ''
+        });
+      } else {
+        this.startSolve(item.problem);
+      }
+    });
+  },
+
+  // 讲解页点"再练一次"：切回重练模式（用错题本步骤引导作答）
+  onExplainRetry() {
+    const item = storage.getWrongById(this.wrongId);
+    if (!item) {
+      this.onBack();
+      return;
+    }
+    this.explainMode = false;
+    this.setData({ explainMode: false, explainReason: '' });
+    if (item.steps && item.steps.length) {
+      this.applyResult({
+        source: 'local',
+        problem: item.problem,
+        knowledge: item.knowledge,
+        answer: item.rightNum,
+        displayAnswer: item.rightAnswer,
+        steps: item.steps,
+        note: ''
+      });
+    } else {
+      this.startSolve(item.problem);
+    }
+  },
+
+  onBack() {
+    wx.navigateBack({
+      fail: () => wx.reLaunch({ url: '/pages/wrongbook/wrongbook' })
+    });
   },
 
   newPractice() {
@@ -95,8 +171,8 @@ Page({
       knowledge: res.knowledge || '综合',
       note: res.note || '',
       steps: steps,
-      revealed: 0,
-      allRevealed: false,
+      revealed: this.explainMode ? steps.length : 0,
+      allRevealed: this.explainMode ? true : false,
       checkMode: this.rightNum !== null && this.rightNum !== undefined ? 'input' : 'self',
       phase: 'solving',
       wrongTimes: 0,

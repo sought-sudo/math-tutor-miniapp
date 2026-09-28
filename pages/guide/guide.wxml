@@ -5,7 +5,8 @@
   </view>
 
   <block wx:else>
-    <view wx:if="{{isRetry}}" class="retry-banner">💪 错题重练：认真想一想，这次一定能做对！</view>
+    <view wx:if="{{isRetry && !explainMode}}" class="retry-banner">💪 错题重练：认真想一想，这次一定能做对！</view>
+    <view wx:if="{{explainMode}}" class="retry-banner">🤖 AI 错题讲解：看看错在哪里、怎么一步步做对</view>
 
     <view class="card problem-card">
       <view class="tag">{{knowledge}}</view>
@@ -13,7 +14,8 @@
       <view wx:if="{{note}}" class="note">{{note}}</view>
     </view>
 
-    <view class="progress">已解锁 {{revealed}} / {{steps.length}} 步</view>
+    <view wx:if="{{!explainMode}}" class="progress">已解锁 {{revealed}} / {{steps.length}} 步</view>
+    <view wx:else class="progress">讲解共 {{steps.length}} 步</view>
 
     <view class="steps">
       <view
@@ -35,7 +37,17 @@
       </view>
     </view>
 
-    <view wx:if="{{allRevealed && phase === 'solving'}}" class="card answer-card">
+    <view wx:if="{{explainMode}}" class="card explain-card">
+      <view wx:if="{{explainReason}}" class="explain-reason">💡 错因分析：{{explainReason}}</view>
+      <view class="g-ans bad">✗ 我的答案：{{myAnswerText}}</view>
+      <view class="g-ans good">✓ 正确答案：{{rightAnswerText}}</view>
+      <view class="result-row">
+        <view class="btn btn-primary" bindtap="onExplainRetry">再练一次</view>
+        <view class="btn btn-ghost" bindtap="onBack">返回错题本</view>
+      </view>
+    </view>
+
+    <view wx:if="{{allRevealed && phase === 'solving' && !explainMode}}" class="card answer-card">
       <block wx:if="{{checkMode === 'input'}}">
         <view class="ask">✏️ 该你啦！把答案写下来：</view>
         <input

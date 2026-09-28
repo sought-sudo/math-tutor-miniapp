@@ -257,6 +257,14 @@ const TUTOR_SYSTEM =
   '"steps": [{"title": "第1步", "content": "讲解内容"}]}。' +
   '要求：步骤 4~6 步，每步只讲一个要点，语言亲切易懂、适合小学生；answer 尽量是纯数字；不要输出 JSON 以外的内容。';
 
+const TUTOR_WRONG_SYSTEM =
+  '你是小学四年级数学辅导老师。学生这道题做错了，请先分析错因、再分步讲解。只返回 JSON：' +
+  '{"answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
+  '"reason": "一句话指出学生可能错在哪里", ' +
+  '"steps": [{"title": "第1步", "content": "讲解内容"}]}。' +
+  '要求：reason 要具体、温和（结合学生写的答案分析，如抄错数、运算顺序错、单位遗漏等）；' +
+  '步骤 4~6 步，每步只讲一个要点，语言亲切易懂、适合小学生；不要输出 JSON 以外的内容。';
+
 const OCR_SYSTEM =
   '你是 OCR 识别助手。识别图片中的数学题，只输出题目文字本身，不要任何解释。如果图中没有数学题，输出：未识别到题目。';
 
@@ -341,14 +349,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // AI 分步讲解
+    // 能力探测（学生端网页据此决定走 AI 还是本地引擎）
+    if (req.method === 'GET' && req.url === '/api/status') {
+      const llmReady = !!(LLM_BASE_URL && LLM_API_KEY);
+      send(res, 200, { ok: true, llm: llmReady, ocr: llmReady });
+      return;
+    }
+
+    // AI 分步讲解（mode: 'wrong' 时结合学生的错误答案先分析错因）
     if (req.method === 'POST' && req.url === '/tutor') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem) throw new Error('缺少参数 problem');
+      const wrongMode = body.mode === 'wrong';
+      const userMsg = wrongMode
+        ? '题目：' + body.problem + '\n学生写的答案：' + (body.myAnswer || '未作答') +
+          '\n正确答案：' + (body.rightAnswer || '未知') +
+          '\n请先指出学生可能错在哪里（reason 字段），再分步讲解正确做法。'
+        : body.problem;
       const content = await chat(
         [
-          { role: 'system', content: TUTOR_SYSTEM },
-          { role: 'user', content: body.problem }
+          { role: 'system', content: wrongMode ? TUTOR_WRONG_SYSTEM : TUTOR_SYSTEM },
+          { role: 'user', content: userMsg }
         ],
         LLM_MODEL
       );

@@ -138,6 +138,20 @@ textarea { resize: vertical; min-height: 72px; }
 .step-locked.dim { opacity: 0.55; }
 .lock-text { color: #999; font-size: 14px; }
 
+.loading-line { text-align: center; color: #FF8A00; font-weight: 700; font-size: 15px; padding: 10px 0; }
+
+.explain-box .explain-reason {
+  background: #FFF4E0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #B26A00;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+.explain-box .w-ans { font-size: 14px; margin-bottom: 4px; }
+.explain-box .result-row { margin-top: 12px; }
+
 .answer-card .ask { font-weight: 800; margin-bottom: 12px; }
 .answer-card input { font-size: 18px; margin-bottom: 12px; }
 .selfcheck { display: flex; gap: 10px; }

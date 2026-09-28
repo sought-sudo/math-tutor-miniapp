@@ -147,6 +147,35 @@
   margin-bottom: 20rpx;
 }
 
+.explain-card .explain-reason {
+  background: #FFF4E0;
+  border-radius: 16rpx;
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: #B26A00;
+  margin-bottom: 14rpx;
+  line-height: 1.7;
+}
+
+.g-ans {
+  font-size: 28rpx;
+  line-height: 1.6;
+  margin-bottom: 4rpx;
+}
+
+.g-ans.bad {
+  color: #FF6B6B;
+  text-decoration: line-through;
+}
+
+.g-ans.good {
+  color: #14A98C;
+}
+
+.explain-card .result-row {
+  margin-top: 16rpx;
+}
+
 .result-row {
   display: flex;
 }

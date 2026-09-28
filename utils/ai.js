@@ -55,8 +55,51 @@ function sampleProblems(n) {
   return solver.sampleProblems(n);
 }
 
+// 错题 AI 讲解：结合学生答案先分析错因再分步讲解；未配置/失败返回 null（调用方回退本地步骤）
+function explain(problem, myAnswer, rightAnswer) {
+  return new Promise((resolve) => {
+    if (!problem) {
+      resolve(null);
+      return;
+    }
+    if (config.llm.enabled && config.llm.baseUrl) {
+      wx.request({
+        url: config.llm.baseUrl.replace(/\/$/, '') + '/tutor',
+        method: 'POST',
+        data: {
+          problem: problem,
+          myAnswer: myAnswer,
+          rightAnswer: rightAnswer,
+          mode: 'wrong'
+        },
+        timeout: 20000,
+        success: (res) => {
+          const d = res.data || {};
+          if (d && d.ok && Array.isArray(d.steps) && d.steps.length) {
+            resolve({
+              source: 'ai',
+              knowledge: d.knowledge || '综合',
+              steps: d.steps.map((s, i) => ({
+                title: s.title || '第' + (i + 1) + '步',
+                content: s.content || ''
+              })),
+              reason: d.reason || ''
+            });
+          } else {
+            resolve(null);
+          }
+        },
+        fail: () => resolve(null)
+      });
+    } else {
+      resolve(null);
+    }
+  });
+}
+
 module.exports = {
   solve: solve,
   generatePractice: generatePractice,
-  sampleProblems: sampleProblems
+  sampleProblems: sampleProblems,
+  explain: explain
 };
