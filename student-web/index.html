@@ -187,6 +187,23 @@
       </div>
     </section>
 
+    <!-- 对话式 AI 辅导（引导式状态机） -->
+    <section id="view-chat" class="view" style="display:none">
+      <div class="chat-head">
+        <div class="chat-avatar">👩‍🏫</div>
+        <div class="chat-info">
+          <div class="chat-name">数学小老师</div>
+          <div class="chat-state" id="chat-state">打招呼中</div>
+        </div>
+      </div>
+      <div class="chat-bubbles" id="chat-bubbles"></div>
+      <div class="chat-quick" id="chat-quick"></div>
+      <div class="chat-input-row" id="chat-input-row">
+        <input id="chat-input" placeholder="和老师说说你的想法…">
+        <button class="btn btn-primary btn-sm" id="chat-send">发送</button>
+      </div>
+    </section>
+
     <!-- 底部导航（引导页隐藏） -->
     <nav class="nav" id="bottom-nav">
       <div class="nav-item on" data-nav="home"><div class="nav-icon">🏠</div><div class="nav-label">首页</div></div>

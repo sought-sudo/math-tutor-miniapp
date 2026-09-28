@@ -29,6 +29,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const tutorEngine = require('./tutor-engine');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
@@ -278,6 +279,69 @@ const TUTOR_VARIANT_SYSTEM =
 const OCR_SYSTEM =
   '你是 OCR 识别助手。识别图片中的数学题，只输出题目文字本身，不要任何解释。如果图中没有数学题，输出：未识别到题目。';
 
+// ---------------- 引导式对话辅导（状态机） ----------------
+
+const chatSessions = new Map(); // sessionId -> 会话（2 小时过期）
+
+function getChatSession(id) {
+  const sess = chatSessions.get(id);
+  if (!sess) return null;
+  if (Date.now() - sess.createdAt > 2 * 3600 * 1000) {
+    chatSessions.delete(id);
+    return null;
+  }
+  return sess;
+}
+
+async function tutorChatStep(body) {
+  let sess = body.sessionId ? getChatSession(body.sessionId) : null;
+  if (!sess) {
+    sess = tutorEngine.createSession({
+      problem: body.problem,
+      knowledge: body.knowledge,
+      myAnswer: body.myAnswer,
+      rightAnswer: body.rightAnswer,
+      answer: body.answer,
+      steps: body.steps
+    });
+    sess.createdAt = Date.now();
+    chatSessions.set(sess.id, sess);
+  }
+  const studentText = String(body.message || '');
+  const check = tutorEngine.checkAnswer(sess.state === 'DEFORM' ? sess.variantAnswer : sess.answer, studentText);
+
+  let out = null;
+  if (LLM_BASE_URL && LLM_API_KEY) {
+    try {
+      const content = await chat(
+        [
+          { role: 'system', content: tutorEngine.buildSystemPrompt(sess, check) },
+          { role: 'user', content: tutorEngine.buildUserMessage(sess, studentText, check) }
+        ],
+        LLM_MODEL
+      );
+      const j = parseJson(content);
+      if (j && j.state && j.tutorText && tutorEngine.isValidTransition(sess.state, j.state)) {
+        if (studentText) sess.history.push({ role: 'student', text: studentText });
+        sess.history.push({ role: 'tutor', text: j.tutorText });
+        sess.state = j.state;
+        out = {
+          state: sess.state,
+          tutorText: j.tutorText,
+          quickReplies: (j.quickReplies || []).slice(0, 4),
+          extra: null
+        };
+      }
+    } catch (e) {
+      // 大模型失败 → 走确定性引擎
+    }
+  }
+  if (!out) {
+    out = tutorEngine.step(sess, studentText, check);
+  }
+  return Object.assign({ sessionId: sess.id }, out);
+}
+
 // ---------------- 服务器 ----------------
 
 const server = http.createServer(async (req, res) => {
@@ -363,6 +427,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/status') {
       const llmReady = !!(LLM_BASE_URL && LLM_API_KEY);
       send(res, 200, { ok: true, llm: llmReady, ocr: llmReady });
+      return;
+    }
+
+    // 引导式对话辅导（状态机）：sessionId 为空时创建新会话并返回开场白
+    if (req.method === 'POST' && req.url === '/tutor-chat') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.problem && !body.sessionId) throw new Error('缺少题目或会话 id');
+      const out = await tutorChatStep(body);
+      send(res, 200, Object.assign({ ok: true }, out));
       return;
     }
 

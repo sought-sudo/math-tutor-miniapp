@@ -190,16 +190,222 @@
     return S.solveText(problem) || S.genericGuide(problem);
   }
 
+  // ---------------- 对话式 AI 辅导（引导式状态机） ----------------
+
+  var chat = { sessionId: '', state: '', busy: false, ctx: null };
+
+  var STATE_LABELS = {
+    GREETING: '打招呼',
+    READ_PROBLEM: '读题理解',
+    ACTIVATE_KNOWLEDGE: '知识点',
+    STUDENT_ATTEMPT: '听你说思路',
+    DIAGNOSE: '找卡点',
+    SCAFFOLD: '提示闯关',
+    VERIFY: '复述验证',
+    REFLECT: '方法总结',
+    DEFORM: '变形题',
+    REVIEW: '复习收尾'
+  };
+
+  function chatApi(payload) {
+    var base = getApiBase();
+    return fetch(base + '/tutor-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function startChatSession(ctx) {
+    chat.ctx = ctx;
+    chat.sessionId = '';
+    chat.busy = true;
+    showView('chat');
+    $('chat-bubbles').innerHTML = '';
+    $('chat-quick').innerHTML = '';
+    $('chat-state').textContent = '打招呼中';
+    $('chat-input-row').style.display = 'flex';
+    addTypingBubble();
+    chatApi({
+      sessionId: '',
+      problem: ctx.problem,
+      knowledge: ctx.knowledge || '',
+      myAnswer: ctx.myAnswer || '',
+      rightAnswer: ctx.rightAnswer || '',
+      answer: ctx.answer,
+      steps: ctx.steps || []
+    }).then(function (j) {
+      removeTypingBubble();
+      chat.busy = false;
+      if (j && j.ok) {
+        chat.sessionId = j.sessionId;
+        renderTutorTurn(j);
+      } else {
+        chatFallback(ctx);
+      }
+    }).catch(function () {
+      removeTypingBubble();
+      chat.busy = false;
+      chatFallback(ctx);
+    });
+  }
+
+  function chatFallback(ctx) {
+    alert('对话辅导需要后端服务（运行 node server/server.js）。已切换为本地分步讲解。');
+    if (ctx.wrongId) {
+      var item = getWrongs().find(function (w) { return w.id === ctx.wrongId; });
+      if (item) {
+        lessonWrong(item);
+        return;
+      }
+    }
+    startGuide(ctx.problem);
+  }
+
+  function sendChat(text) {
+    var msg = String(text || '').trim();
+    if (!msg || chat.busy) return;
+    addStudentBubble(msg);
+    $('chat-quick').innerHTML = '';
+    $('chat-input').value = '';
+    chat.busy = true;
+    addTypingBubble();
+    chatApi({ sessionId: chat.sessionId, message: msg }).then(function (j) {
+      removeTypingBubble();
+      chat.busy = false;
+      if (j && j.ok) renderTutorTurn(j);
+    }).catch(function () {
+      removeTypingBubble();
+      chat.busy = false;
+      addTutorBubble('网络开小差了，请再发一次 🙏');
+    });
+  }
+
+  function addTypingBubble() {
+    var div = document.createElement('div');
+    div.className = 'bubble tutor typing';
+    div.id = 'typing-bubble';
+    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">老师正在打字…</div>';
+    $('chat-bubbles').appendChild(div);
+    scrollChat();
+  }
+
+  function removeTypingBubble() {
+    var el = document.getElementById('typing-bubble');
+    if (el) el.remove();
+  }
+
+  function addTutorBubble(text) {
+    var div = document.createElement('div');
+    div.className = 'bubble tutor';
+    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">' + esc(text).replace(/\n/g, '<br>') + '</div>';
+    $('chat-bubbles').appendChild(div);
+    scrollChat();
+  }
+
+  function addStudentBubble(text) {
+    var div = document.createElement('div');
+    div.className = 'bubble student';
+    div.innerHTML = '<div class="bubble-text">' + esc(text) + '</div>';
+    $('chat-bubbles').appendChild(div);
+    scrollChat();
+  }
+
+  function scrollChat() {
+    $('chat-bubbles').scrollTop = $('chat-bubbles').scrollHeight;
+  }
+
+  function renderTutorTurn(j) {
+    chat.state = j.state;
+    $('chat-state').textContent = STATE_LABELS[j.state] || j.state;
+    addTutorBubble(j.tutorText);
+    if (j.extra) {
+      if (j.extra.knowledgeCard) renderChatKnowledgeCard(j.extra.knowledgeCard);
+      if (j.extra.variant) renderChatVariantCard(j.extra.variant);
+      if (j.extra.complete) renderChatComplete(j.extra);
+    }
+    if (j.extra && j.extra.complete) {
+      $('chat-input-row').style.display = 'none';
+      $('chat-quick').innerHTML = '';
+    } else {
+      renderQuickReplies(j.quickReplies || []);
+    }
+  }
+
+  function renderChatKnowledgeCard(k) {
+    var div = document.createElement('div');
+    div.className = 'chat-card knowledge-card';
+    div.innerHTML = '<div class="k-title">📚 知识点 · ' + esc(k.name) + '</div>' +
+      '<div class="k-line"><b>是什么：</b>' + esc(k.desc) + '</div>' +
+      '<div class="k-line"><b>怎么做：</b>' + esc(k.method) + '</div>' +
+      (k.mistakes ? '<div class="k-mistake">⚠️ 容易错：' + esc(k.mistakes) + '</div>' : '');
+    $('chat-bubbles').appendChild(div);
+    scrollChat();
+  }
+
+  function renderChatVariantCard(v) {
+    var div = document.createElement('div');
+    div.className = 'chat-card variant-card';
+    div.innerHTML = '<div class="vc-title">📝 变形题</div><div class="vc-problem">' + esc(v.problem) + '</div>' +
+      '<div class="vc-hint">把答案写在下面输入框里 👇</div>';
+    $('chat-bubbles').appendChild(div);
+    scrollChat();
+  }
+
+  function renderChatComplete(ex) {
+    var div = document.createElement('div');
+    div.className = 'chat-card complete-card';
+    var html = '<div class="cc-title">🎉 今天的学习完成啦！</div>';
+    if (ex.parentScript) {
+      html += '<div class="cc-script"><b>给家长的小脚本：</b>' + esc(ex.parentScript.question) + '</div>';
+    }
+    if (ex.reviewDue) {
+      html += '<div class="cc-review">⏰ 复习提醒：' + esc(ex.reviewDue) + ' 再来复习一遍</div>';
+    }
+    html += '<div class="result-row"><button class="btn btn-primary btn-sm" id="chat-again">再来一题</button>' +
+      '<button class="btn btn-ghost btn-sm" id="chat-home">回首页</button></div>';
+    div.innerHTML = html;
+    $('chat-bubbles').appendChild(div);
+    div.querySelector('#chat-again').addEventListener('click', newPractice);
+    div.querySelector('#chat-home').addEventListener('click', function () { showView('home'); });
+    scrollChat();
+    // 完成效果：变形题通过 → 原错题标记已掌握；否则记复习提醒
+    var ctx = chat.ctx;
+    if (ctx && ctx.wrongId) {
+      var item = getWrongs().find(function (w) { return w.id === ctx.wrongId; });
+      if (item) {
+        if (ex.masteredOriginal) {
+          markWrongMastered(ctx.wrongId);
+        } else if (ex.reviewDue) {
+          item.reviewDue = ex.reviewDue;
+          saveWrongs(getWrongs());
+        }
+      }
+    }
+  }
+
+  function renderQuickReplies(list) {
+    var box = $('chat-quick');
+    box.innerHTML = '';
+    (list || []).forEach(function (qr) {
+      var b = document.createElement('button');
+      b.className = 'qr-btn';
+      b.textContent = qr;
+      b.addEventListener('click', function () { sendChat(qr); });
+      box.appendChild(b);
+    });
+  }
+
   // ---------------- 视图切换 ----------------
 
   var currentView = 'home';
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide'].forEach(function (v) {
+    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
-    $('bottom-nav').style.display = name === 'guide' ? 'none' : 'flex';
+    $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
     document.querySelectorAll('.nav-item').forEach(function (el) {
       el.classList.toggle('on', el.dataset.nav === name);
     });
@@ -281,7 +487,7 @@
       var div = document.createElement('div');
       div.className = 'sample';
       div.innerHTML = '<div class="sample-text">' + esc(p.problem) + '</div><div class="sample-go">去辅导 →</div>';
-      div.addEventListener('click', function () { startGuide(p.problem); });
+      div.addEventListener('click', function () { startChatSession({ problem: p.problem, knowledge: p.knowledge }); });
       box.appendChild(div);
     });
   }
@@ -758,7 +964,16 @@
     if (act === 'retry') {
       startGuide(item.problem);
     } else if (act === 'lesson') {
-      lessonWrong(item);
+      // 错题重练 → 对话式 AI 辅导（状态机）
+      startChatSession({
+        problem: item.problem,
+        knowledge: item.knowledge,
+        myAnswer: item.myAnswer,
+        rightAnswer: item.rightAnswer,
+        answer: item.rightNum,
+        steps: item.steps,
+        wrongId: item.id
+      });
     } else if (act === 'variant') {
       variantPractice(item.problem, item.knowledge, item.id);
     } else if (act === 'master') {
@@ -822,8 +1037,15 @@
   $('alb-file').addEventListener('change', function (e) { handleImage(e.target.files[0]); });
   $('btn-start-guide').addEventListener('click', function () {
     var t = $('recog-input').value.trim();
-    if (!t) { alert('请先输入或识别题目'); return; }
-    startGuide(t);
+    if (!t) { alert('先写一道题目吧 ✍️'); return; }
+    // 拍照/搜题 → 对话式 AI 辅导（状态机）；本地引擎已知答案时传给后端用于判题
+    var r = localSolve(t);
+    startChatSession({
+      problem: t,
+      knowledge: r.knowledge || '',
+      answer: r.answer,
+      steps: r.steps || []
+    });
   });
   $('btn-submit').addEventListener('click', submitAnswer);
   $('answer-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAnswer(); });
@@ -839,6 +1061,14 @@
     if (!guide) return;
     var origin = guide.variantOf || (guide.task === 'retry' ? guide.wrongId : '');
     variantPractice(guide.problem, guide.knowledge, origin);
+  });
+
+  // 对话辅导
+  $('chat-send').addEventListener('click', function () {
+    sendChat($('chat-input').value);
+  });
+  $('chat-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') sendChat($('chat-input').value);
   });
 
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });

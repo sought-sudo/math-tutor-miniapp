@@ -359,3 +359,100 @@ textarea { resize: vertical; min-height: 72px; }
 @media (min-width: 700px) {
   .wrap { padding-top: 24px; }
 }
+
+/* 对话式 AI 辅导 */
+.chat-head {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 3px 14px rgba(255, 159, 28, 0.08);
+}
+.chat-avatar { font-size: 34px; margin-right: 12px; }
+.chat-name { font-weight: 800; font-size: 16px; }
+.chat-state {
+  font-size: 12px;
+  color: #FF8A00;
+  background: #FFF4E0;
+  border-radius: 999px;
+  padding: 2px 10px;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+.chat-bubbles {
+  height: calc(100vh - 300px);
+  min-height: 300px;
+  overflow-y: auto;
+  padding: 4px 2px 12px;
+}
+
+.bubble { display: flex; margin-bottom: 12px; }
+.bubble.tutor { justify-content: flex-start; }
+.bubble.student { justify-content: flex-end; }
+.bubble-avatar { font-size: 28px; margin-right: 8px; flex-shrink: 0; }
+.bubble-text {
+  max-width: 78%;
+  background: #fff;
+  border-radius: 4px 16px 16px 16px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.bubble.student .bubble-text {
+  background: linear-gradient(135deg, #FFB400, #FF8A00);
+  color: #fff;
+  border-radius: 16px 16px 4px 16px;
+}
+.bubble.typing .bubble-text { color: #999; }
+
+.chat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 0 0 12px 36px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.chat-card.knowledge-card { background: linear-gradient(135deg, #FFFBF0, #FFF6E3); border: 1px solid #FFE9C9; }
+.chat-card.variant-card { background: #F0FBF7; border: 1px solid #C9EFE2; }
+.chat-card.complete-card { background: linear-gradient(135deg, #F0FBF7, #E4F7F0); border: 1px solid #C9EFE2; text-align: center; }
+.vc-title { font-weight: 800; color: #14A98C; margin-bottom: 6px; }
+.vc-problem { font-size: 14px; font-weight: 700; line-height: 1.7; margin-bottom: 6px; }
+.vc-hint { font-size: 12px; color: #999; }
+.cc-title { font-size: 16px; font-weight: 800; color: #14A98C; }
+.cc-script { font-size: 13px; color: #555; margin: 8px 0; line-height: 1.7; text-align: left; }
+.cc-review { font-size: 12px; color: #FF8A00; margin-bottom: 12px; }
+.complete-card .result-row { margin-top: 4px; }
+
+.chat-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 12px; }
+.qr-btn {
+  background: #fff;
+  border: 1px solid #FFD08A;
+  color: #FF8A00;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.qr-btn:active { transform: scale(0.96); }
+
+.chat-input-row {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  border-radius: 20px 20px 0 0;
+}
+.chat-input-row input { flex: 1; }
