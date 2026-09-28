@@ -31,6 +31,8 @@ const fs = require('fs');
 const path = require('path');
 const tutorEngine = require('./tutor-engine');
 const db = require('./db');
+const solver = require('../utils/solver');
+const deformService = require('./services/deformService');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
@@ -532,15 +534,61 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem) throw new Error('缺少参数 problem');
       const wrongMode = body.mode === 'wrong';
-      const userMsg = wrongMode
-        ? '题目：' + body.problem + '\n学生写的答案：' + (body.myAnswer || '未作答') +
+
+      // 判错模式：讲解失败也保证有输出，并自动生成一道变形题作为下一题返回
+      if (wrongMode) {
+        const userMsg =
+          '题目：' + body.problem + '\n学生写的答案：' + (body.myAnswer || '未作答') +
           '\n正确答案：' + (body.rightAnswer || '未知') +
-          '\n请先指出学生可能错在哪里（reason 字段），再分步讲解正确做法。'
-        : body.problem;
+          '\n请先指出学生可能错在哪里（reason 字段），再分步讲解正确做法。';
+        let result = null;
+        if (LLM_BASE_URL && LLM_API_KEY) {
+          try {
+            const content = await chat(
+              [
+                { role: 'system', content: TUTOR_WRONG_SYSTEM },
+                { role: 'user', content: userMsg }
+              ],
+              LLM_MODEL
+            );
+            const j = parseJson(content);
+            if (j && Array.isArray(j.steps) && j.steps.length) {
+              result = Object.assign({ ok: true }, j);
+            }
+          } catch (e) {
+            // 模型失败 → 本地讲解
+          }
+        }
+        if (!result) {
+          const local = solver.solveText(body.problem) || solver.genericGuide(body.problem);
+          result = {
+            ok: true,
+            source: 'local',
+            answer: local.answer,
+            displayAnswer: local.displayAnswer || body.rightAnswer || '',
+            knowledge: body.knowledge || local.knowledge || '综合',
+            reason: '',
+            steps: local.steps || []
+          };
+        }
+        // 做错后：自动生成变形题，作为下一题返回
+        const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+        const variants = await deformService.generateVariants(chatFn, {
+          problem: body.problem,
+          knowledge: result.knowledge || body.knowledge || '',
+          errorType: body.errorType || ''
+        });
+        if (variants.length) {
+          result.nextProblem = variants[0];
+        }
+        send(res, 200, result);
+        return;
+      }
+
       const content = await chat(
         [
-          { role: 'system', content: wrongMode ? TUTOR_WRONG_SYSTEM : TUTOR_SYSTEM },
-          { role: 'user', content: userMsg }
+          { role: 'system', content: TUTOR_SYSTEM },
+          { role: 'user', content: body.problem }
         ],
         LLM_MODEL
       );

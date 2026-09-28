@@ -143,6 +143,15 @@ math-tutor-miniapp/
 
 当前仅存数据、返回数据，未做可视化。
 
+## 错题变形服务（deformService）
+
+`server/services/deformService.js`：输入原题、知识点、错误类型，输出最多 3 道变形题 `{ stem, answer, knowledge_point, difficulty }`。
+
+- 生成：DeepSeek（提示词：三年级数学教研员，同知识点/换场景/同难度，只输出 JSON）
+- 规则校验：知识点一致、**数字范围不超原题**、题干简短（≤120 字）、答案齐全、不超纲
+- 兜底：模型不可用/输出不合格时自动回退本地引擎生成器
+- 接入：`POST /api/tutor`（`mode: 'wrong'`）判错后自动生成一道变形题，作为 `nextProblem` 字段随讲解一起返回；未配置模型时该接口也返回本地讲解 + 本地变形题
+
 ## 三种运行模式
 
 ### 模式一：纯本地演示（默认，开箱即用）
