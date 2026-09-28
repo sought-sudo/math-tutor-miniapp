@@ -77,18 +77,29 @@
         <div class="problem-text" id="guide-problem"></div>
         <div class="note" id="guide-note" style="display:none"></div>
       </div>
+
+      <div class="card knowledge-card" id="knowledge-card" style="display:none">
+        <div class="k-title">📚 知识点 · <span id="knowledge-name"></span></div>
+        <div class="k-line"><b>是什么：</b><span id="knowledge-desc"></span></div>
+        <div class="k-line"><b>怎么做：</b><span id="knowledge-method"></span></div>
+        <div class="k-mistake" id="knowledge-mistakes" style="display:none"></div>
+      </div>
+      <div class="card explain-box" id="explain-box" style="display:none">
+        <div class="explain-reason" id="explain-reason" style="display:none"></div>
+        <div class="w-ans bad" id="explain-compare-my"></div>
+        <div class="w-ans good" id="explain-compare-right"></div>
+      </div>
       <div class="progress">
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
         <div class="progress-text" id="guide-progress"></div>
       </div>
       <div id="guide-steps"></div>
-      <div class="card explain-box" id="explain-box" style="display:none">
-        <div class="explain-reason" id="explain-reason" style="display:none"></div>
-        <div class="w-ans bad" id="explain-compare-my"></div>
-        <div class="w-ans good" id="explain-compare-right"></div>
+      <div class="card lesson-challenge" id="lesson-challenge" style="display:none">
+        <div class="lc-title">🎯 讲解结束！现在轮到你了</div>
+        <div class="lc-text">老师给你出了一道变形题，做对它，这道错题就变成"已掌握"啦！</div>
         <div class="result-row">
-          <button class="btn btn-primary" id="btn-explain-retry">再练一次</button>
-          <button class="btn btn-ghost" id="btn-explain-back">返回错题本</button>
+          <button class="btn btn-primary" id="btn-lesson-variant">接受挑战 🚀</button>
+          <button class="btn btn-ghost" id="btn-lesson-back">返回错题本</button>
         </div>
       </div>
       <div class="card answer-card" id="guide-answer" style="display:none">

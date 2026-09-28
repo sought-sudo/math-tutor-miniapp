@@ -6,7 +6,7 @@
 
   <block wx:else>
     <view wx:if="{{isRetry && !explainMode}}" class="retry-banner">💪 错题重练：认真想一想，这次一定能做对！</view>
-    <view wx:if="{{explainMode}}" class="retry-banner">🤖 AI 错题讲解：看看错在哪里、怎么一步步做对</view>
+    <view wx:if="{{explainMode}}" class="retry-banner">👩‍🏫 错题重练小课堂：先听老师讲，再闯一道变形题</view>
 
     <view class="card problem-card">
       <view class="tag">{{knowledge}}</view>
@@ -14,8 +14,15 @@
       <view wx:if="{{note}}" class="note">{{note}}</view>
     </view>
 
-    <view wx:if="{{!explainMode}}" class="progress">已解锁 {{revealed}} / {{steps.length}} 步</view>
-    <view wx:else class="progress">讲解共 {{steps.length}} 步</view>
+    <view wx:if="{{explainMode}}" class="card knowledge-card">
+      <view class="k-title">📚 知识点 · {{kName}}</view>
+      <view class="k-line">是什么：{{kDesc}}</view>
+      <view class="k-line">怎么做：{{kMethod}}</view>
+      <view wx:if="{{kMistakes}}" class="k-mistake">⚠️ 容易错：{{kMistakes}}</view>
+    </view>
+
+    <view wx:if="{{!explainMode}}" class="progress">已打开 {{revealed}} / {{steps.length}} 步</view>
+    <view wx:else class="progress">已听 {{revealed}} / {{steps.length}} 步</view>
 
     <view class="steps">
       <view
@@ -30,8 +37,8 @@
           <view wx:if="{{item.ask}}" class="step-ask">🤔 想一想：{{item.ask}}</view>
         </view>
         <view wx:elif="{{index === revealed}}" class="step-locked">
-          <view class="lock-text">💡 第 {{index + 1}} 步已准备好</view>
-          <view class="btn btn-primary btn-small" bindtap="onReveal">看这一步</view>
+          <view class="lock-text">💡 {{explainMode ? '听老师讲第 ' + (index + 1) + ' 步' : '第 ' + (index + 1) + ' 步已准备好'}}</view>
+          <view class="btn btn-primary btn-small" bindtap="onReveal">{{explainMode ? '听老师讲' : '看这一步'}}</view>
         </view>
         <view wx:else class="step-locked dim">
           <view class="lock-text">🔒 第 {{index + 1}} 步</view>
@@ -40,11 +47,16 @@
     </view>
 
     <view wx:if="{{explainMode}}" class="card explain-card">
-      <view wx:if="{{explainReason}}" class="explain-reason">💡 错因分析：{{explainReason}}</view>
-      <view class="g-ans bad">✗ 我的答案：{{myAnswerText}}</view>
+      <view wx:if="{{explainReason}}" class="explain-reason">💡 老师看出你的问题啦：{{explainReason}}</view>
+      <view class="g-ans bad">✗ 我当时写的：{{myAnswerText}}</view>
       <view class="g-ans good">✓ 正确答案：{{rightAnswerText}}</view>
+    </view>
+
+    <view wx:if="{{explainMode && allRevealed}}" class="card lesson-challenge">
+      <view class="lc-title">🎯 讲解结束！现在轮到你了</view>
+      <view class="lc-text">老师给你出了一道变形题，做对它，这道错题就变成"已掌握"啦！</view>
       <view class="result-row">
-        <view class="btn btn-primary" bindtap="onExplainRetry">再练一次</view>
+        <view class="btn btn-primary" bindtap="onVariant">接受挑战 🚀</view>
         <view class="btn btn-ghost" bindtap="onBack">返回错题本</view>
       </view>
     </view>

@@ -358,12 +358,12 @@
     $('explain-box').style.display = 'none';
   }
 
-  // AI 错题讲解：先分析错因（结合我的答案），再分步讲解；结果缓存在错题上
-  function explainWrong(item) {
+  // 错题重练小课堂：错因 → 知识点卡片 → 老师逐步讲解（含完整解答）→ 变形题挑战
+  function lessonWrong(item) {
     showView('guide');
     guide = {
-      mode: 'explain',
-      loading: false,
+      mode: 'lesson',
+      task: 'lesson',
       item: item,
       problem: item.problem,
       knowledge: item.knowledge,
@@ -378,26 +378,30 @@
     $('guide-problem').textContent = item.problem;
     $('guide-note').style.display = 'none';
     $('retry-banner').style.display = 'block';
-    $('retry-banner').textContent = '🤖 AI 错题讲解：看看错在哪里、怎么一步步做对';
+    $('retry-banner').textContent = '👩‍🏫 错题重练小课堂：先听老师讲，再闯一道变形题';
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'none';
-    $('explain-compare-my').textContent = '✗ 我的答案：' + (item.myAnswer || '未作答');
+    $('explain-box').style.display = 'block';
+    $('explain-compare-my').textContent = '✗ 我当时写的：' + (item.myAnswer || '未作答');
     $('explain-compare-right').textContent = '✓ 正确答案：' + (item.rightAnswer || '见步骤');
     $('explain-reason').style.display = 'none';
-    $('explain-box').style.display = 'block';
+    $('lesson-challenge').style.display = 'none';
+    renderKnowledgeCard(item.knowledge);
 
     var cached = item.explain && item.explain.steps && item.explain.steps.length ? item.explain : null;
     if (cached) {
-      guide.steps = cached.steps;
       guide.knowledge = cached.knowledge || item.knowledge;
       $('guide-knowledge').textContent = guide.knowledge;
+      renderKnowledgeCard(guide.knowledge);
       if (cached.reason) showReason(cached.reason);
+      guide.steps = buildLessonSteps(cached.steps, guide.knowledge, item);
       renderGuide();
       return;
     }
     $('guide-progress').textContent = '';
+    if ($('progress-fill')) $('progress-fill').style.width = '0%';
     $('guide-steps').innerHTML =
-      '<div class="card"><div class="loading-line">🤖 AI 正在分析这道错题…</div></div>';
+      '<div class="card"><div class="loading-line">👩‍🏫 老师正在备课，马上开始…</div></div>';
     if (aiReady) {
       fetchTutor({
         problem: item.problem,
@@ -405,27 +409,71 @@
         rightAnswer: item.rightAnswer,
         mode: 'wrong'
       }).then(function (res) {
-        guide.steps = res.steps;
         guide.knowledge = res.knowledge || item.knowledge;
         $('guide-knowledge').textContent = guide.knowledge;
+        renderKnowledgeCard(guide.knowledge);
         item.explain = { steps: res.steps, knowledge: guide.knowledge, reason: res.reason || '' };
         saveWrongs(getWrongs());
         if (res.reason) showReason(res.reason);
+        guide.steps = buildLessonSteps(res.steps, guide.knowledge, item);
         renderGuide();
       }).catch(function () {
-        var res = explainFallback(item);
-        guide.steps = res.steps;
-        guide.knowledge = res.knowledge || item.knowledge;
+        var fallback = explainFallback(item);
+        guide.knowledge = fallback.knowledge || item.knowledge;
         $('guide-knowledge').textContent = guide.knowledge;
+        renderKnowledgeCard(guide.knowledge);
+        guide.steps = buildLessonSteps(fallback.steps, guide.knowledge, item);
         renderGuide();
       });
     } else {
-      var res = explainFallback(item);
-      guide.steps = res.steps;
-      guide.knowledge = res.knowledge || item.knowledge;
+      var fallback = explainFallback(item);
+      guide.knowledge = fallback.knowledge || item.knowledge;
       $('guide-knowledge').textContent = guide.knowledge;
+      renderKnowledgeCard(guide.knowledge);
+      guide.steps = buildLessonSteps(fallback.steps, guide.knowledge, item);
       renderGuide();
     }
+  }
+
+  // 老师口吻的课堂步骤：开场白 + 讲解步骤 + 课堂小结（完整解答）
+  function buildLessonSteps(steps, knowledge, item) {
+    var lib = S.getKnowledge(knowledge);
+    var arr = [{
+      title: '开始上课',
+      content: '别着急，老师陪你一起把这道题弄明白。先想一想：它考的是「' + knowledge + '」里的哪个方法？'
+    }];
+    (steps || []).forEach(function (s, i) {
+      arr.push({
+        title: s.title || ('第' + (i + 1) + '步'),
+        content: s.content || '',
+        tip: s.tip || '',
+        ask: s.ask || ''
+      });
+    });
+    arr.push({
+      title: '课堂小结',
+      content: '我们一起整理一遍：\n这道题用的是「' + knowledge + '」的方法。' + lib.method +
+        '\n完整解答：' + (item.rightAnswer || '见上面步骤') + '。\n以后再遇到这类题，先回想这个方法，一步一步来，你一定行！'
+    });
+    return arr;
+  }
+
+  function renderKnowledgeCard(knowledge) {
+    var lib = S.getKnowledge(knowledge);
+    $('knowledge-card').style.display = 'block';
+    $('knowledge-name').textContent = knowledge;
+    $('knowledge-desc').textContent = lib.desc;
+    $('knowledge-method').textContent = lib.method;
+    if (lib.mistakes) {
+      $('knowledge-mistakes').textContent = '⚠️ 容易错：' + lib.mistakes;
+      $('knowledge-mistakes').style.display = 'block';
+    } else {
+      $('knowledge-mistakes').style.display = 'none';
+    }
+  }
+
+  function showLessonChallenge() {
+    $('lesson-challenge').style.display = 'block';
   }
 
   // AI 不可用时的讲解回退：优先用错题本存好的练习步骤，其次本地引擎
@@ -438,7 +486,7 @@
   }
 
   function showReason(reason) {
-    $('explain-reason').textContent = '💡 错因分析：' + reason;
+    $('explain-reason').textContent = '💡 老师看出你的问题啦：' + reason;
     $('explain-reason').style.display = 'block';
   }
 
@@ -471,6 +519,8 @@
     $('explain-box').style.display = 'none';
     $('answer-feedback').style.display = 'none';
     $('btn-variant').style.display = 'none';
+    $('knowledge-card').style.display = 'none';
+    $('lesson-challenge').style.display = 'none';
     $('guide-knowledge').textContent = guide.knowledge;
     $('guide-problem').textContent = guide.problem;
     $('guide-note').style.display = guide.note ? 'block' : 'none';
@@ -480,10 +530,10 @@
   }
 
   function renderGuide() {
-    var explain = guide.mode === 'explain';
-    var shown = explain ? guide.steps.length : guide.revealed;
-    $('guide-progress').textContent = explain
-      ? '讲解共 ' + guide.steps.length + ' 步'
+    var lesson = guide.mode === 'lesson';
+    var shown = guide.revealed;
+    $('guide-progress').textContent = lesson
+      ? '已听 ' + guide.revealed + ' / ' + guide.steps.length + ' 步'
       : '已打开 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
     var fill = $('progress-fill');
     if (fill) {
@@ -495,20 +545,24 @@
       var div = document.createElement('div');
       div.className = 'step' +
         (i < shown ? ' open' : '') +
-        (!explain && i === shown ? ' current' : '');
+        (i === shown ? ' current' : '');
       if (i < shown) {
         var extra = '';
         if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
         if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
         div.innerHTML = '<div class="step-body"><div class="step-title"><span class="step-num">' + (i + 1) + '</span>' + esc(s.title) + '</div>' +
           '<div class="step-content">' + esc(s.content) + '</div>' + extra + '</div>';
-      } else if (!explain && i === shown) {
-        div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 第 ' + (i + 1) + ' 步已准备好</div>' +
-          '<button class="btn btn-primary btn-sm reveal-btn">看这一步</button></div>';
+      } else if (i === shown) {
+        div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 ' +
+          (lesson ? '听老师讲第 ' + (i + 1) + ' 步' : '第 ' + (i + 1) + ' 步已准备好') + '</div>' +
+          '<button class="btn btn-primary btn-sm reveal-btn">' + (lesson ? '听老师讲' : '看这一步') + '</button></div>';
         div.querySelector('.reveal-btn').addEventListener('click', function () {
           guide.revealed++;
           renderGuide();
-          if (guide.revealed >= guide.steps.length) showAnswerArea();
+          if (guide.revealed >= guide.steps.length) {
+            if (guide.mode === 'lesson') showLessonChallenge();
+            else showAnswerArea();
+          }
         });
       } else {
         div.innerHTML = '<div class="step-locked dim"><div class="lock-text">🔒 第 ' + (i + 1) + ' 步</div></div>';
@@ -681,12 +735,11 @@
         ? '✓ ' + esc(item.masteredAt || '') + ' 掌握'
         : '错 ' + item.times + ' 次 · ' + esc(item.lastAt || '');
       var btns = item.status === 'active'
-        ? '<button class="btn btn-primary btn-sm w-btn" data-act="retry">再练一次</button>' +
-          '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
+        ? '<button class="btn btn-primary btn-sm w-btn" data-act="lesson">重新学习</button>' +
           '<button class="btn btn-green btn-sm w-btn" data-act="variant">变形题</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="master">掌握啦</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>'
-        : '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
+        : '<button class="btn btn-blue btn-sm w-btn" data-act="lesson">重新学习</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
       div.innerHTML =
         '<div class="w-top"><div class="tag">' + esc(item.knowledge) + '</div><div class="w-times">' + top + '</div></div>' +
@@ -704,8 +757,8 @@
   function wrongAction(act, item) {
     if (act === 'retry') {
       startGuide(item.problem);
-    } else if (act === 'explain') {
-      explainWrong(item);
+    } else if (act === 'lesson') {
+      lessonWrong(item);
     } else if (act === 'variant') {
       variantPractice(item.problem, item.knowledge, item.id);
     } else if (act === 'master') {
@@ -778,10 +831,10 @@
   $('btn-self-no').addEventListener('click', function () { finish(false, ''); });
   $('btn-again').addEventListener('click', newPractice);
   $('btn-home').addEventListener('click', function () { showView('home'); });
-  $('btn-explain-retry').addEventListener('click', function () {
-    if (guide && guide.item) startGuide(guide.item.problem);
+  $('btn-lesson-variant').addEventListener('click', function () {
+    if (guide && guide.item) variantPractice(guide.item.problem, guide.item.knowledge, guide.item.id);
   });
-  $('btn-explain-back').addEventListener('click', function () { showView('wrong'); });
+  $('btn-lesson-back').addEventListener('click', function () { showView('wrong'); });
   $('btn-variant').addEventListener('click', function () {
     if (!guide) return;
     var origin = guide.variantOf || (guide.task === 'retry' ? guide.wrongId : '');

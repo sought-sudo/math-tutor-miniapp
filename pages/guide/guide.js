@@ -14,6 +14,10 @@ Page({
     explainMode: false,
     explainReason: '',
     myAnswerText: '',
+    kName: '',
+    kDesc: '',
+    kMethod: '',
+    kMistakes: '',
     feedbackText: '',
     showVariant: false,
     problem: '',
@@ -86,23 +90,28 @@ Page({
     }
   },
 
-  // 错题 AI 讲解：优先大模型（分析错因+分步），失败回退错题本存好的步骤
+  // 错题重练小课堂：错因 → 知识点卡片 → 老师逐步讲解 → 变形题挑战
   startExplain(item) {
+    this.lessonItem = item;
+    this.lessonKnowledge = item.knowledge;
     this.setData({
       loading: true,
       problem: item.problem,
       knowledge: item.knowledge,
       rightAnswerText: item.rightAnswer || '见步骤'
     });
+    this.setKnowledgeCard(item.knowledge);
     ai.explain(item.problem, item.myAnswer, item.rightAnswer).then((res) => {
       if (res && res.steps && res.steps.length) {
+        this.lessonKnowledge = res.knowledge || item.knowledge;
+        this.setKnowledgeCard(this.lessonKnowledge);
         this.applyResult({
           source: 'ai',
           problem: item.problem,
-          knowledge: res.knowledge || item.knowledge,
+          knowledge: this.lessonKnowledge,
           answer: item.rightNum,
           displayAnswer: item.rightAnswer,
-          steps: res.steps,
+          steps: this.buildLessonSteps(this.lessonKnowledge, res.steps, item.rightAnswer),
           note: ''
         });
         this.setData({ explainReason: res.reason || '' });
@@ -113,12 +122,54 @@ Page({
           knowledge: item.knowledge,
           answer: item.rightNum,
           displayAnswer: item.rightAnswer,
-          steps: item.steps,
+          steps: this.buildLessonSteps(item.knowledge, item.steps, item.rightAnswer),
           note: ''
         });
       } else {
-        this.startSolve(item.problem);
+        const r = solver.solveText(item.problem) || solver.genericGuide(item.problem);
+        this.applyResult({
+          source: 'local',
+          problem: item.problem,
+          knowledge: item.knowledge,
+          answer: item.rightNum,
+          displayAnswer: item.rightAnswer,
+          steps: this.buildLessonSteps(item.knowledge, r.steps, item.rightAnswer),
+          note: ''
+        });
       }
+    });
+  },
+
+  // 老师口吻的课堂步骤：开场白 + 讲解步骤 + 课堂小结（完整解答）
+  buildLessonSteps(knowledge, steps, rightAnswerText) {
+    const lib = solver.getKnowledge(knowledge);
+    const arr = [{
+      title: '开始上课',
+      content: '别着急，老师陪你一起把这道题弄明白。先想一想：它考的是「' + knowledge + '」里的哪个方法？'
+    }];
+    (steps || []).forEach((s, i) => {
+      arr.push({
+        title: s.title || '第' + (i + 1) + '步',
+        content: s.content || '',
+        tip: s.tip || '',
+        ask: s.ask || ''
+      });
+    });
+    arr.push({
+      title: '课堂小结',
+      content: '我们一起整理一遍：\n这道题用的是「' + knowledge + '」的方法。' + lib.method +
+        '\n完整解答：' + (rightAnswerText || '见上面步骤') + '。\n以后再遇到这类题，先回想这个方法，一步一步来，你一定行！'
+    });
+    return arr;
+  },
+
+  setKnowledgeCard(knowledge) {
+    const lib = solver.getKnowledge(knowledge);
+    this.setData({
+      kName: knowledge,
+      kDesc: lib.desc,
+      kMethod: lib.method,
+      kMistakes: lib.mistakes || ''
     });
   },
 
@@ -163,31 +214,6 @@ Page({
     });
   },
 
-  // 讲解页点"再练一次"：切回重练模式（用错题本步骤引导作答）
-  onExplainRetry() {
-    const item = storage.getWrongById(this.wrongId);
-    if (!item) {
-      this.onBack();
-      return;
-    }
-    this.explainMode = false;
-    this.practiceMode = 'retry';
-    this.setData({ explainMode: false, explainReason: '' });
-    if (item.steps && item.steps.length) {
-      this.applyResult({
-        source: 'local',
-        problem: item.problem,
-        knowledge: item.knowledge,
-        answer: item.rightNum,
-        displayAnswer: item.rightAnswer,
-        steps: item.steps,
-        note: ''
-      });
-    } else {
-      this.startSolve(item.problem);
-    }
-  },
-
   onBack() {
     wx.navigateBack({
       fail: () => wx.reLaunch({ url: '/pages/wrongbook/wrongbook' })
@@ -229,8 +255,8 @@ Page({
       knowledge: res.knowledge || '综合',
       note: res.note || '',
       steps: steps,
-      revealed: this.explainMode ? steps.length : 0,
-      allRevealed: this.explainMode ? true : false,
+      revealed: 0,
+      allRevealed: false,
       checkMode: this.rightNum !== null && this.rightNum !== undefined ? 'input' : 'self',
       phase: 'solving',
       wrongTimes: 0,

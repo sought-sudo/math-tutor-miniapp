@@ -258,7 +258,33 @@ textarea { resize: vertical; min-height: 72px; }
   line-height: 1.7;
 }
 .explain-box .w-ans { font-size: 14px; margin-bottom: 4px; }
-.explain-box .result-row { margin-top: 12px; }
+
+/* 知识点卡片（错题重练小课堂） */
+.knowledge-card {
+  background: linear-gradient(135deg, #FFFBF0, #FFF6E3);
+  border: 1px solid #FFE9C9;
+}
+.k-title { font-weight: 800; color: #FF8A00; margin-bottom: 8px; font-size: 15px; }
+.k-line { font-size: 13px; color: #555; margin-bottom: 6px; line-height: 1.7; }
+.k-line b { color: #B26A00; }
+.k-mistake {
+  background: #FFF0EE;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #E05B4D;
+  margin-top: 8px;
+  line-height: 1.7;
+}
+
+/* 变形题挑战卡（讲解结束后的巩固） */
+.lesson-challenge {
+  background: linear-gradient(135deg, #F0FBF7, #E4F7F0);
+  border: 1px solid #C9EFE2;
+  text-align: center;
+}
+.lc-title { font-size: 17px; font-weight: 800; color: #14A98C; }
+.lc-text { font-size: 13px; color: #666; margin: 8px 0 14px; line-height: 1.7; }
 
 /* 错题本 */
 .summary { display: flex; text-align: center; }
