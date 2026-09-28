@@ -237,24 +237,32 @@ async function chat(messages, model) {
   if (!LLM_BASE_URL || !LLM_API_KEY) {
     throw new Error('后端未配置 LLM_BASE_URL / LLM_API_KEY');
   }
-  const resp = await fetch(LLM_BASE_URL + '/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + LLM_API_KEY
-    },
-    body: JSON.stringify({
-      model: model || LLM_MODEL,
-      messages: messages,
-      temperature: 0.3
-    })
-  });
-  if (!resp.ok) throw new Error('大模型接口返回 HTTP ' + resp.status);
-  const j = await resp.json();
-  const content =
-    j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-  if (!content) throw new Error('大模型返回为空');
-  return content;
+  try {
+    const resp = await fetch(LLM_BASE_URL + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + LLM_API_KEY
+      },
+      body: JSON.stringify({
+        model: model || LLM_MODEL,
+        messages: messages,
+        temperature: 0.3
+      }),
+      signal: AbortSignal.timeout(20000) // 20 秒超时，避免请求无限悬挂
+    });
+    if (!resp.ok) throw new Error('大模型接口返回 HTTP ' + resp.status);
+    const j = await resp.json();
+    const content =
+      j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    if (!content) throw new Error('大模型返回为空');
+    return content;
+  } catch (e) {
+    if (e && e.name === 'TimeoutError') {
+      throw new Error('大模型响应超时（20 秒）');
+    }
+    throw e;
+  }
 }
 
 function parseJson(text) {
@@ -353,7 +361,8 @@ async function tutorChatStep(body) {
           state: sess.state,
           tutorText: j.tutorText,
           quickReplies: (j.quickReplies || []).slice(0, 4),
-          extra: null
+          // 结构化卡片由服务端确定性生成，不依赖模型输出
+          extra: buildExtraForState(sess, j.state, check, preState)
         };
       }
     } catch (e) {
@@ -365,6 +374,49 @@ async function tutorChatStep(body) {
   }
   logTutorEvents(sess, body, isNew, preState, preStreak, check, out);
   return Object.assign({ sessionId: sess.id }, out);
+}
+
+// 按转移后的状态，服务端确定性生成结构化内容与维护会话状态（LLM 模式与确定性模式一致）
+function buildExtraForState(sess, nextState, check, preState) {
+  const lib = solver.getKnowledge(sess.knowledge);
+
+  // 会话内部状态维护（与确定性引擎的 step 保持一致）
+  if (preState === 'SCAFFOLD' && check && check.correct === false) {
+    sess.wrongStreak++;
+  }
+  if (preState === 'DEFORM' && check && check.correct === true) {
+    sess.masteredOriginal = true;
+  }
+
+  if (nextState === 'ACTIVATE_KNOWLEDGE') {
+    return {
+      knowledgeCard: { name: sess.knowledge, desc: lib.desc, method: lib.method, mistakes: lib.mistakes }
+    };
+  }
+  if (nextState === 'DEFORM') {
+    if (!sess.variant) {
+      const v = solver.variantByKnowledge(sess.knowledge, sess.problem) || solver.generatePractice();
+      sess.variant = v.problem;
+      sess.variantAnswer = v.answer;
+      sess.variantDisplay = v.displayAnswer || String(v.answer);
+    }
+    return { variant: { problem: sess.variant } };
+  }
+  if (nextState === 'REVIEW') {
+    sess.complete = true;
+    const days = sess.masteredOriginal ? 2 : 1;
+    return {
+      complete: true,
+      masteredOriginal: sess.masteredOriginal,
+      reviewDue: days + ' 天后',
+      parentScript: {
+        problem: sess.problem,
+        question: '可以问问孩子：这道「' + sess.knowledge + '」题，第一步你是从哪里开始的？',
+        closing: '多听孩子讲思路，少直接给答案。'
+      }
+    };
+  }
+  return null;
 }
 
 // 聊天状态机的行为日志

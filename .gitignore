@@ -4,3 +4,4 @@ miniprogram_npm/
 server/data.json
 server/*.db
 project.private.config.json
+start-server-ai.bat

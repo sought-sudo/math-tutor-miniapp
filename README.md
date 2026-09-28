@@ -194,23 +194,30 @@ math-tutor-miniapp/
 
 **公网部署**：把 `server/server.js` 部署到任意有公网地址的 Node 主机（或使用内网穿透），小程序 `sync.baseUrl` 填公网 https 地址，家长在任何设备浏览器打开 `https://你的域名/parent` 即可随时查看。
 
-### 模式三：真实 AI 模式（可选）
+### 模式三：真实 AI 模式（接入 DeepSeek）
 
-1. 启动后端并配置大模型：
+**最简单的方式（Windows）**：
 
-   ```bash
-   # Windows CMD
-   set LLM_BASE_URL=https://api.deepseek.com
-   set LLM_API_KEY=sk-xxxx
-   node server/server.js
+1. 用记事本打开项目根目录的 `start-server-ai.bat`（该文件已被 .gitignore 排除，密钥不会进仓库）
+2. 把 `set LLM_API_KEY=sk-在这里粘贴你的密钥` 替换成你的真实密钥
+3. 双击运行，浏览器打开 http://127.0.0.1:8787/ 即接入真实 AI
+4. 验证：`curl http://127.0.0.1:8787/api/status` 返回 `"llm": true`
 
-   # 识图需另设支持视觉的模型（Qwen-VL / GLM-4V / GPT-4o 等）
-   set OCR_MODEL=qwen-vl-plus
-   ```
+**或使用环境变量（密钥保存在系统用户变量中，不在文件里）**：
 
-2. `utils/config.js` 填入后端地址并打开 `llm.enabled` / `ocr.enabled`
-3. 配置后：学生端「拍照识题/搜题」和错题本「AI 讲解」都会走大模型（错题讲解会结合孩子的错误答案先分析错因）；未配置时自动用本地引擎兜底
-4. 真机上线时，需在微信公众平台把后端域名加入 request 合法域名（要求 HTTPS）
+```bat
+setx LLM_BASE_URL "https://api.deepseek.com"
+setx LLM_API_KEY "sk-你的密钥"
+setx LLM_MODEL "deepseek-chat"
+:: 设置后重开终端再启动 node server/server.js
+```
+
+**注意**：
+
+- 网页学生端会通过 `/api/status` 自动检测 AI 并切换（无需改代码）
+- 微信小程序端需在 `utils/config.js` 打开 `llm.enabled` 并填 `baseUrl`
+- DeepSeek 的 `deepseek-chat` 不支持图片识别：拍照识题的 OCR 会保持"手动输入"；需要 OCR 时另配视觉模型（如 `set OCR_MODEL=qwen-vl-plus`，并把 LLM_BASE_URL/LLM_API_KEY 换成对应服务商）
+- 服务端 LLM 调用有 20 秒超时；失败自动回退本地引擎，不会卡死
 
 ## 关键设计
 
