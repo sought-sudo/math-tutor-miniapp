@@ -209,11 +209,37 @@
 
   function chatApi(payload) {
     var base = getApiBase();
+    payload.code = getCode();
     return fetch(base + '/tutor-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }).then(function (r) { return r.json(); });
+  }
+
+  // ---------------- 行为事件（练习会话 session_start / session_end） ----------------
+
+  var practiceSessionId = '';
+
+  function sendEvent(ev) {
+    var base = getApiBase();
+    if (!syncOn()) return;
+    fetch(base + '/api/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ code: getCode() }, ev))
+    }).catch(function () {});
+  }
+
+  function beginPracticeSession() {
+    practiceSessionId = 'ps' + Date.now() + Math.floor(Math.random() * 10000);
+    sendEvent({ sessionId: practiceSessionId, eventType: 'session_start' });
+  }
+
+  function endPracticeSession() {
+    if (!practiceSessionId) return;
+    sendEvent({ sessionId: practiceSessionId, eventType: 'session_end' });
+    practiceSessionId = '';
   }
 
   function startChatSession(ctx) {
@@ -498,10 +524,12 @@
 
   function newPractice() {
     guide = null;
+    beginPracticeSession();
     applyResult(S.generatePractice(), { retry: false, task: 'practice' });
   }
 
   function startGuide(problem) {
+    beginPracticeSession();
     // 错题重练：优先用错题本里存好的步骤与答案
     var item = getWrongs().find(function (w) { return w.problem === problem && w.status === 'active'; });
     if (item && item.steps && item.steps.length) {
@@ -531,6 +559,7 @@
 
   // 变形题巩固：AI 优先，失败用本地生成器，再失败退回随机练习
   function variantPractice(problem, knowledge, originalWrongId) {
+    beginPracticeSession();
     var done = function (res) {
       if (res && res.problem) {
         applyResult(res, { retry: false, task: 'variant', variantOf: originalWrongId || '' });
@@ -840,6 +869,7 @@
     var seconds = Math.round((Date.now() - guide.startTs) / 1000);
     var attempts = guide.wrongTimes + 1; // 第几次作答定结果（行为数据）
     var task = guide.task || 'practice';
+    endPracticeSession();
     addRecord({ ok: correct, seconds: seconds, attempts: attempts, knowledge: guide.knowledge, mode: task });
     syncSend('record', { ts: Date.now(), ok: correct, seconds: seconds, attempts: attempts, knowledge: guide.knowledge, mode: task });
 

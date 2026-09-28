@@ -265,6 +265,12 @@
         };
         localStorage.setItem(LS_CODE, code);
         render();
+        // 行为日志：家长查看报告/沟通脚本
+        fetch(apiBase + '/api/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: code, eventType: 'parent_script_viewed' })
+        }).catch(function () {});
       })
       .catch(function (e) {
         $('err').textContent = '加载失败：' + e.message + '。请确认后端已启动（node server/server.js）、接口地址正确。';

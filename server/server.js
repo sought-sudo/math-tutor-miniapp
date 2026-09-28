@@ -30,6 +30,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const tutorEngine = require('./tutor-engine');
+const db = require('./db');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
@@ -52,11 +53,11 @@ function loadData() {
   }
 }
 
-let db = loadData();
+let store = loadData();
 
 function saveData() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
   } catch (e) {
     console.error('数据保存失败：' + e.message);
   }
@@ -80,10 +81,10 @@ function handleSync(body) {
   const data = body.data || {};
   if (!code) throw new Error('缺少同步码');
 
-  let child = db.children[code];
+  let child = store.children[code];
   if (!child) {
     child = { name: name, records: [], wrongs: {} };
-    db.children[code] = child;
+    store.children[code] = child;
   }
   child.name = name;
 
@@ -97,6 +98,23 @@ function handleSync(body) {
       attempts: data.attempts || 1
     });
     if (child.records.length > 300) child.records = child.records.slice(-300);
+    // 行为日志：从同步的练习记录推导（避免客户端重复上报）
+    const isVariant = data.mode === 'variant';
+    if (isVariant) {
+      db.logEvent({ userId: code, sessionId: null, eventType: 'deformation_attempt', knowledgePoint: data.knowledge || null });
+    }
+    db.logEvent({ userId: code, sessionId: null, eventType: 'question_attempt', knowledgePoint: data.knowledge || null });
+    if (data.ok) {
+      db.logEvent({ userId: code, sessionId: null, eventType: 'answer_correct', knowledgePoint: data.knowledge || null });
+      if (isVariant) {
+        db.logEvent({ userId: code, sessionId: null, eventType: 'deformation_correct', knowledgePoint: data.knowledge || null });
+      }
+    } else {
+      db.logEvent({ userId: code, sessionId: null, eventType: 'answer_wrong', knowledgePoint: data.knowledge || null });
+      if ((data.attempts || 1) > 1) {
+        db.logEvent({ userId: code, sessionId: null, eventType: 'after_wrong_retry', knowledgePoint: data.knowledge || null });
+      }
+    }
   } else if (type === 'wrong') {
     const key = data.problem;
     if (!key) throw new Error('缺少题目');
@@ -295,6 +313,7 @@ function getChatSession(id) {
 
 async function tutorChatStep(body) {
   let sess = body.sessionId ? getChatSession(body.sessionId) : null;
+  const isNew = !sess;
   if (!sess) {
     sess = tutorEngine.createSession({
       problem: body.problem,
@@ -307,6 +326,8 @@ async function tutorChatStep(body) {
     sess.createdAt = Date.now();
     chatSessions.set(sess.id, sess);
   }
+  const preState = sess.state;
+  const preStreak = sess.wrongStreak;
   const studentText = String(body.message || '');
   const check = tutorEngine.checkAnswer(sess.state === 'DEFORM' ? sess.variantAnswer : sess.answer, studentText);
 
@@ -339,7 +360,44 @@ async function tutorChatStep(body) {
   if (!out) {
     out = tutorEngine.step(sess, studentText, check);
   }
+  logTutorEvents(sess, body, isNew, preState, preStreak, check, out);
   return Object.assign({ sessionId: sess.id }, out);
+}
+
+// 聊天状态机的行为日志
+function logTutorEvents(sess, body, isNew, preState, preStreak, check, out) {
+  const userId = body.code || '';
+  const qid = db.questionIdOf(sess.problem);
+  const now = Date.now();
+  const dur = now - (sess.lastEventTs || sess.createdAt);
+  sess.lastEventTs = now;
+
+  if (isNew) {
+    db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'session_start', questionId: qid, knowledgePoint: sess.knowledge });
+  }
+  if (check && check.value !== null && check.value !== undefined) {
+    if (preState === 'SCAFFOLD') {
+      db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'question_attempt', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      if (preStreak >= 1) {
+        // 做错后继续尝试（无论这次结果如何）
+        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'after_wrong_retry', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      }
+      if (check.correct) {
+        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'answer_correct', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      } else {
+        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'answer_wrong', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      }
+    } else if (preState === 'DEFORM') {
+      db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'deformation_attempt', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      if (check.correct) {
+        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'deformation_correct', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+      }
+    }
+  }
+  if (out.state === 'REVIEW' && out.extra && out.extra.complete && !sess.ended) {
+    sess.ended = true;
+    db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'session_end', questionId: qid, knowledgePoint: sess.knowledge, durationMs: now - sess.createdAt });
+  }
 }
 
 // ---------------- 服务器 ----------------
@@ -360,10 +418,40 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 通用行为事件上报（session_start/session_end/parent_script_viewed 等）
+    if (req.method === 'POST' && req.url === '/api/event') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.eventType) throw new Error('缺少 eventType');
+      db.logEvent({
+        userId: body.code,
+        sessionId: body.sessionId,
+        eventType: body.eventType,
+        questionId: body.questionId,
+        knowledgePoint: body.knowledgePoint,
+        errorType: body.errorType,
+        durationMs: body.durationMs
+      });
+      send(res, 200, { ok: true });
+      return;
+    }
+
+    // 指标：做错后继续尝试比例（支持 ?code=同步码 按孩子过滤）
+    if (req.method === 'GET' && req.url.indexOf('/api/metrics/retry-rate') === 0) {
+      let code = '';
+      try {
+        code = new URL(req.url, 'http://x').searchParams.get('code') || '';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      const m = db.getRetryRate(code);
+      send(res, 200, { ok: true, totalWrong: m.totalWrong, retryAfterWrong: m.retryAfterWrong, retryRate: m.retryRate });
+      return;
+    }
+
     // 家长端拉取
     if (req.method === 'GET' && req.url.indexOf('/api/child/') === 0) {
       const code = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
-      const child = db.children[code];
+      const child = store.children[code];
       if (!child) {
         send(res, 404, { ok: false, error: '未找到该同步码，请确认输入正确' });
         return;
@@ -517,8 +605,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  db.init();
   console.log('数学辅导后端已启动：http://127.0.0.1:' + PORT);
   console.log('学生端网页：http://127.0.0.1:' + PORT + '/student');
   console.log('家长端网页：http://127.0.0.1:' + PORT + '/parent');
-  console.log('接口：POST /api/sync（学生端上报）、GET /api/child/<同步码>（家长端拉取）');
+  console.log('接口：POST /api/sync（学生端上报）、GET /api/child/<同步码>（家长端拉取）、GET /api/metrics/retry-rate（行为指标）');
 });

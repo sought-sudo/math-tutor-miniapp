@@ -114,6 +114,35 @@ math-tutor-miniapp/
 
 接口：`POST /tutor-chat`（`sessionId` 为空时创建会话并返回开场白）；单测：`node scripts/check-tutor-engine.js`。
 
+## 行为日志与指标（SQLite）
+
+学习行为自动写入 SQLite（`server/math_tutor.db`，零依赖，使用 Node 内置 `node:sqlite`，需 Node ≥ 22.13；旧版本自动关闭日志、不影响其他功能）。
+
+**表 `learning_events`**：`id, user_id(同步码), session_id, event_type, question_id, knowledge_point, error_type, duration_ms, created_at`
+
+| event_type | 触发时机 |
+|---|---|
+| `session_start` / `session_end` | 开始/结束一次学习（对话辅导与练习会话） |
+| `question_attempt` | 提交一次答案 |
+| `answer_wrong` / `answer_correct` | 判错 / 判对 |
+| `after_wrong_retry` | 做错后继续尝试（下次作答时记录） |
+| `deformation_attempt` / `deformation_correct` | 变形题作答 / 答对 |
+| `parent_script_viewed` | 家长查看报告与沟通脚本 |
+
+写入路径：对话状态机在服务端自动埋点；练习记录经 `/api/sync` 由服务端推导事件；通用事件可 `POST /api/event` 上报。
+
+**指标接口**：`GET /api/metrics/retry-rate`（可选 `?code=同步码` 按孩子过滤）返回：
+
+```json
+{ "ok": true, "totalWrong": 10, "retryAfterWrong": 6, "retryRate": 0.6 }
+```
+
+- `totalWrong`：总错题数（answer_wrong 次数）
+- `retryAfterWrong`：做错后继续尝试的数量（after_wrong_retry 次数）
+- `retryRate`：继续尝试比例
+
+当前仅存数据、返回数据，未做可视化。
+
 ## 三种运行模式
 
 ### 模式一：纯本地演示（默认，开箱即用）
