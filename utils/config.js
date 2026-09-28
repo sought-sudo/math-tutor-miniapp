@@ -18,5 +18,9 @@ module.exports = {
   ocr: {
     enabled: false, // 是否调用后端 OCR 识别题目
     baseUrl: ''     // 例如 http://127.0.0.1:8787
+  },
+  sync: {
+    enabled: false, // 是否把练习记录/错题同步到后端，供家长端网页查看
+    baseUrl: ''     // 例如 http://127.0.0.1:8787（公网部署时填 https 地址）
   }
 };

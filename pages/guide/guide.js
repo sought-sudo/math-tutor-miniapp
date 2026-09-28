@@ -5,6 +5,7 @@ const ai = require('../../utils/ai');
 const storage = require('../../utils/storage');
 const solver = require('../../utils/solver');
 const util = require('../../utils/util');
+const sync = require('../../utils/sync');
 
 Page({
   data: {
@@ -172,9 +173,14 @@ Page({
 
     let addedToWrong = false;
     if (correct) {
-      if (this.wrongId) storage.markMastered(this.wrongId);
+      if (this.wrongId) {
+        storage.markMastered(this.wrongId);
+        sync.sendMaster(this.data.problem);
+      }
     } else if (this.wrongId) {
       storage.bumpWrong(this.wrongId);
+      const item = storage.getWrongById(this.wrongId);
+      if (item) sync.sendWrong(item);
     } else {
       storage.addWrongBook({
         problem: this.data.problem,
@@ -184,8 +190,18 @@ Page({
         steps: this.data.steps,
         knowledge: this.data.knowledge
       });
+      const item = storage.getWrongBook().find((i) => i.problem === this.data.problem);
+      if (item) sync.sendWrong(item);
       addedToWrong = true;
     }
+
+    // 上报一条练习记录（家长端统计用）
+    sync.sendRecord({
+      ok: correct,
+      seconds: seconds,
+      knowledge: this.data.knowledge,
+      mode: this.wrongId ? 'retry' : 'practice'
+    });
 
     this.setData({
       phase: correct ? 'right' : 'wrong',

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数学小助手 · 家长端</title>
+  <link rel="stylesheet" href="/parent/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">🦁 数学小助手 <span class="brand-sub">家长端</span></div>
+    </header>
+
+    <!-- 登录视图 -->
+    <div id="view-login" class="card login-card">
+      <h1>查看孩子的学习进度</h1>
+      <p class="sub">在孩子微信小程序的「家长端」页找到 6 位同步码，输入后即可查看。</p>
+      <div class="field">
+        <label>同步码</label>
+        <input id="code-input" placeholder="例如 834291" maxlength="6" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>后端地址（可选）</label>
+        <input id="api-input" placeholder="留空表示同源；直接双击打开本页时填 http://127.0.0.1:8787">
+      </div>
+      <div id="err" class="err"></div>
+      <div class="btn-row">
+        <button id="btn-load" class="btn btn-primary">查看进度</button>
+        <button id="btn-demo" class="btn btn-ghost">用演示数据预览</button>
+      </div>
+      <p class="tip">💡 家长端是纯网页：电脑、手机、平板浏览器都能打开，不需要微信，也不需要微信开发者工具。</p>
+    </div>
+
+    <!-- 仪表盘视图 -->
+    <div id="view-dash" style="display:none">
+      <div class="card dash-head">
+        <div>
+          <h1 id="child-title">学习进度</h1>
+          <div id="child-code" class="sub"></div>
+        </div>
+        <div class="btn-row">
+          <button id="btn-refresh" class="btn btn-ghost btn-sm">🔄 刷新</button>
+          <button id="btn-back" class="btn btn-ghost btn-sm">切换孩子</button>
+        </div>
+      </div>
+
+      <div class="grid4">
+        <div class="card stat"><div class="num" id="stat-week">0</div><div class="lbl">本周练习(题)</div></div>
+        <div class="card stat"><div class="num" id="stat-acc">--</div><div class="lbl">正确率</div></div>
+        <div class="card stat"><div class="num" id="stat-active">0</div><div class="lbl">待复习错题</div></div>
+        <div class="card stat"><div class="num" id="stat-mastered">0</div><div class="lbl">已掌握错题</div></div>
+      </div>
+
+      <div class="card">
+        <h2>最近 7 天练习情况</h2>
+        <div id="chart7" class="chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>错题知识点分布（待复习）</h2>
+        <div id="kbox"></div>
+      </div>
+
+      <div class="card">
+        <h2>错题本</h2>
+        <div id="wrongbox"></div>
+      </div>
+
+      <div class="card">
+        <h2>最近练习记录</h2>
+        <div id="recentbox"></div>
+      </div>
+
+      <div class="card">
+        <h2>👨‍👩‍👧 给家长的话</h2>
+        <p id="advice" class="advice"></p>
+      </div>
+
+      <p class="foot">数据来自孩子小程序同步 · 数学小助手家长端</p>
+    </div>
+  </div>
+  <script src="/parent/app.js"></script>
+</body>
+</html>

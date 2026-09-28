@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "家长报告",
+  "navigationBarTitleText": "家长端",
   "usingComponents": {
     "bottom-nav": "/components/bottom-nav/index"
   }

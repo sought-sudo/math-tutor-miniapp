@@ -1,13 +1,14 @@
 /**
- * 数学辅导小程序 · 可选后端（Node >= 18，零依赖）
+ * 数学辅导 · 后端（Node >= 18，零依赖）
  *
- * 作用：把小程序里的"拍照识题 / 分步讲解"接到真实大模型。
- * 不启动它时，小程序使用内置本地引擎（演示模式）也能完整运行。
+ * 功能：
+ *   1) AI 讲解 / 拍照识题（可选，接大模型，见下方环境变量）
+ *   2) 学生端 ↔ 家长端数据同步 API（练习记录、错题变化）
+ *   3) 托管家长端网页：浏览器打开 http://127.0.0.1:8787/parent 即可
  *
  * 启动（Windows CMD）：
- *   set LLM_BASE_URL=https://api.deepseek.com
- *   set LLM_API_KEY=sk-xxxx
  *   node server.js
+ *   （AI 功能需要：set LLM_BASE_URL=... && set LLM_API_KEY=...）
  *
  * 环境变量：
  *   PORT         端口，默认 8787
@@ -15,19 +16,118 @@
  *   LLM_API_KEY  接口密钥
  *   LLM_MODEL    分步讲解用模型，默认 deepseek-chat
  *   OCR_MODEL    识图用模型（需支持视觉输入），如 qwen-vl-plus / glm-4v / gpt-4o
- *                未设置时用 LLM_MODEL（需该模型支持视觉）
  *
  * 接口：
- *   POST /tutor  body: { problem: "题目文字" }   返回分步讲解 JSON
- *   POST /ocr    body: { image: "<base64图片>" } 返回 { text: "识别出的题目" }
+ *   POST /tutor                body: { problem }          分步讲解
+ *   POST /ocr                  body: { image: base64 }    题目识别
+ *   POST /api/sync             body: { code,name,type,data }  学生端上报
+ *   GET  /api/child/<同步码>    家长端拉取孩子数据
+ *   GET  /parent[/...]         家长端网页（静态托管）
+ *
+ * 数据保存在 server/data.json（已加入 .gitignore，不会提交到仓库）。
  */
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
 const OCR_MODEL = process.env.OCR_MODEL || LLM_MODEL;
+
+const DATA_FILE = path.join(__dirname, 'data.json');
+const PARENT_DIR = path.join(__dirname, '..', 'parent-web');
+
+// ---------------- 数据存储（JSON 文件） ----------------
+
+function loadData() {
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  } catch (e) {
+    return { children: {} };
+  }
+}
+
+let db = loadData();
+
+function saveData() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
+  } catch (e) {
+    console.error('数据保存失败：' + e.message);
+  }
+}
+
+function nowStr() {
+  const d = new Date();
+  const p = (n) => (n < 10 ? '0' : '') + n;
+  return (
+    d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+    ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
+  );
+}
+
+// ---------------- 同步处理 ----------------
+
+function handleSync(body) {
+  const code = String(body.code || '').trim();
+  const name = String(body.name || '').trim() || '小朋友';
+  const type = body.type;
+  const data = body.data || {};
+  if (!code) throw new Error('缺少同步码');
+
+  let child = db.children[code];
+  if (!child) {
+    child = { name: name, records: [], wrongs: {} };
+    db.children[code] = child;
+  }
+  child.name = name;
+
+  if (type === 'record') {
+    child.records.push({
+      ts: data.ts || Date.now(),
+      ok: !!data.ok,
+      seconds: data.seconds || 0,
+      knowledge: data.knowledge || '',
+      mode: data.mode || 'practice'
+    });
+    if (child.records.length > 300) child.records = child.records.slice(-300);
+  } else if (type === 'wrong') {
+    const key = data.problem;
+    if (!key) throw new Error('缺少题目');
+    const old = child.wrongs[key];
+    child.wrongs[key] = {
+      problem: key,
+      myAnswer: data.myAnswer || '',
+      rightAnswer: data.rightAnswer || '',
+      knowledge: data.knowledge || '综合',
+      times: data.times || 1,
+      status: 'active',
+      lastAt: nowStr(),
+      masteredAt: old && old.masteredAt ? old.masteredAt : ''
+    };
+  } else if (type === 'master') {
+    const w = child.wrongs[data.problem];
+    if (w) {
+      w.status = 'mastered';
+      w.masteredAt = nowStr();
+    }
+  } else if (type === 'deleteWrong') {
+    delete child.wrongs[data.problem];
+  } else if (type === 'clearMastered') {
+    Object.keys(child.wrongs).forEach((k) => {
+      if (child.wrongs[k].status === 'mastered') delete child.wrongs[k];
+    });
+  } else if (type === 'name') {
+    child.name = data.name || child.name;
+  } else {
+    throw new Error('未知同步类型：' + type);
+  }
+  saveData();
+}
+
+// ---------------- 基础工具 ----------------
 
 function readBody(req, limit) {
   return new Promise((resolve, reject) => {
@@ -41,10 +141,52 @@ function readBody(req, limit) {
   });
 }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+};
+
 function send(res, status, obj) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, CORS));
   res.end(JSON.stringify(obj));
 }
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml'
+};
+
+function serveParent(res, urlPath) {
+  let rel = decodeURIComponent(urlPath.replace(/^\/parent\/?/, ''));
+  if (!rel) rel = 'index.html';
+  rel = rel.split('?')[0].split('#')[0];
+  const file = path.normalize(path.join(PARENT_DIR, rel));
+  if (file !== PARENT_DIR && !file.startsWith(PARENT_DIR + path.sep)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Forbidden');
+    return;
+  }
+  fs.readFile(file, (err, buf) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found');
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(buf);
+  });
+}
+
+// ---------------- AI（可选） ----------------
 
 async function chat(messages, model) {
   if (!LLM_BASE_URL || !LLM_API_KEY) {
@@ -96,8 +238,60 @@ const TUTOR_SYSTEM =
 const OCR_SYSTEM =
   '你是 OCR 识别助手。识别图片中的数学题，只输出题目文字本身，不要任何解释。如果图中没有数学题，输出：未识别到题目。';
 
+// ---------------- 服务器 ----------------
+
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, CORS);
+      res.end();
+      return;
+    }
+
+    // 学生端上报
+    if (req.method === 'POST' && req.url === '/api/sync') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      handleSync(body);
+      send(res, 200, { ok: true });
+      return;
+    }
+
+    // 家长端拉取
+    if (req.method === 'GET' && req.url.indexOf('/api/child/') === 0) {
+      const code = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      const child = db.children[code];
+      if (!child) {
+        send(res, 404, { ok: false, error: '未找到该同步码，请确认输入正确' });
+        return;
+      }
+      send(res, 200, {
+        ok: true,
+        child: {
+          name: child.name,
+          records: child.records.slice(-200),
+          wrongs: Object.keys(child.wrongs).map((k) => child.wrongs[k])
+        }
+      });
+      return;
+    }
+
+    // 家长端网页（/parent 重定向到 /parent/，保证页面内相对路径正确）
+    if (req.url === '/parent') {
+      res.writeHead(301, { Location: '/parent/' });
+      res.end();
+      return;
+    }
+    if (req.url.indexOf('/parent/') === 0) {
+      serveParent(res, req.url);
+      return;
+    }
+    if (req.url === '/') {
+      res.writeHead(302, { Location: '/parent' });
+      res.end();
+      return;
+    }
+
+    // AI 分步讲解
     if (req.method === 'POST' && req.url === '/tutor') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem) throw new Error('缺少参数 problem');
@@ -116,6 +310,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 拍照识题
     if (req.method === 'POST' && req.url === '/ocr') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.image) throw new Error('缺少参数 image(base64)');
@@ -147,5 +342,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log('数学辅导后端已启动：http://127.0.0.1:' + PORT);
-  console.log('接口：POST /tutor（分步讲解）、POST /ocr（拍照识题）');
+  console.log('家长端网页：http://127.0.0.1:' + PORT + '/parent');
+  console.log('接口：POST /api/sync（学生端上报）、GET /api/child/<同步码>（家长端拉取）');
 });

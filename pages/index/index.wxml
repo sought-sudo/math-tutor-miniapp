@@ -40,8 +40,8 @@
     </view>
     <view class="card feature" bindtap="goReport">
       <view class="f-icon">📊</view>
-      <view class="f-title">家长报告</view>
-      <view class="f-desc">看看孩子的进步</view>
+      <view class="f-title">家长端</view>
+      <view class="f-desc">同步码，家长随时看</view>
     </view>
   </view>
 

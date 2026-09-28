@@ -1,54 +1,58 @@
 <view class="page">
-  <view class="card grid">
-    <view class="g-item">
-      <view class="g-num">{{stats.week}}</view>
-      <view class="g-lbl">本周练习</view>
+  <view class="card code-card">
+    <view class="code-label">本机同步码（家长端凭它看进度）</view>
+    <view class="code">{{syncCode}}</view>
+    <view class="btn btn-ghost btn-small" bindtap="copyCode">复制同步码</view>
+  </view>
+
+  <view class="card">
+    <view class="label">孩子昵称</view>
+    <view wx:if="{{!editing}}" class="name-row">
+      <view class="name">{{childName}}</view>
+      <view class="btn btn-ghost btn-small" bindtap="startEdit">修改</view>
     </view>
-    <view class="g-item">
-      <view class="g-num">{{accuracyText}}</view>
-      <view class="g-lbl">正确率</view>
-    </view>
-    <view class="g-item">
-      <view class="g-num">{{stats.activeCount}}</view>
-      <view class="g-lbl">待复习错题</view>
-    </view>
-    <view class="g-item">
-      <view class="g-num">{{stats.masteredCount}}</view>
-      <view class="g-lbl">已掌握错题</view>
+    <view wx:else class="name-row">
+      <input class="name-input" value="{{nameInput}}" bindinput="onNameInput" maxlength="12" />
+      <view class="btn btn-primary btn-small" bindtap="saveName">保存</view>
     </view>
   </view>
 
   <view class="card">
-    <view class="label">最近 7 天练习情况</view>
-    <view class="chart">
-      <view wx:for="{{bars}}" wx:key="date" class="bar-col">
-        <view class="bar-count">{{item.count}}</view>
-        <view class="bar" style="height: {{item.h}}rpx"></view>
-        <view class="bar-label">{{item.label}}</view>
+    <view class="label">同步状态</view>
+    <view wx:if="{{syncOn}}" class="sync-on">✅ 已开启：每次练习后数据会自动同步给家长端</view>
+    <view wx:else class="sync-off">⏸️ 未开启（演示模式）：数据只保存在本机。开启方法见 README「家长端同步」。</view>
+    <view class="note">最近同步：{{lastSyncText}}</view>
+  </view>
+
+  <view class="card">
+    <view class="label">家长端怎么用（3 步）</view>
+    <view class="step-row">1️⃣ 启动后端：在电脑上运行 node server/server.js</view>
+    <view class="step-row">2️⃣ 家长用电脑/手机浏览器打开家长端网址：</view>
+    <view wx:if="{{parentUrl}}" class="step-row url">{{parentUrl}}</view>
+    <view wx:else class="step-row url">（部署后端后获得网址，详见 README）</view>
+    <view class="step-row">3️⃣ 输入孩子的同步码 {{syncCode}}，即可看到练习进度、正确率和错题</view>
+  </view>
+
+  <view class="card">
+    <view class="label">本机数据概览</view>
+    <view class="stats-row">
+      <view class="stat">
+        <view class="num">{{stats.today}}</view>
+        <view class="lbl">今日已练</view>
+      </view>
+      <view class="stat">
+        <view class="num">{{accuracyText}}</view>
+        <view class="lbl">正确率</view>
+      </view>
+      <view class="stat">
+        <view class="num">{{stats.activeCount}}</view>
+        <view class="lbl">待复习错题</view>
       </view>
     </view>
-  </view>
-
-  <view class="card">
-    <view class="label">错题知识点分布（待复习）</view>
-    <block wx:if="{{kbars.length}}">
-      <view wx:for="{{kbars}}" wx:key="name" class="krow">
-        <view class="kname">{{item.name}}</view>
-        <view class="ktrack"><view class="kfill" style="width: {{item.w}}%"></view></view>
-        <view class="kcount">{{item.count}}道</view>
-      </view>
-    </block>
-    <view wx:else class="empty">🎉 没有待复习的错题，真棒！</view>
-  </view>
-
-  <view class="card">
-    <view class="label">👨‍👩‍👧 给家长的话</view>
-    <view class="advice">{{advice}}</view>
   </view>
 
   <view class="card note-card">
-    <view class="note">📌 练习数据只保存在这台设备的小程序里，不会上传到网络。</view>
-    <view class="btn btn-ghost btn-small reset-btn" bindtap="reset">重置所有数据</view>
+    <view class="note">📌 家长端是独立网页，任何浏览器都能打开，不需要微信、也不需要微信开发者工具。</view>
   </view>
 
   <bottom-nav current="report" />

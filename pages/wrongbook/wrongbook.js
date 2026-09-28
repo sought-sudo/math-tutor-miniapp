@@ -1,4 +1,5 @@
 const storage = require('../../utils/storage');
+const sync = require('../../utils/sync');
 
 Page({
   data: {
@@ -29,12 +30,14 @@ Page({
 
   master(e) {
     const id = e.currentTarget.dataset.id;
+    const item = storage.getWrongBook().find((i) => i.id === id);
     wx.showModal({
       title: '标记已掌握',
       content: '确认这道题已经会做了吗？',
       success: (r) => {
         if (r.confirm) {
           storage.markMastered(id);
+          if (item) sync.sendMaster(item.problem);
           this.refresh();
         }
       }
@@ -43,12 +46,14 @@ Page({
 
   remove(e) {
     const id = e.currentTarget.dataset.id;
+    const item = storage.getWrongBook().find((i) => i.id === id);
     wx.showModal({
       title: '删除错题',
       content: '删除后无法恢复，确定删除这道错题吗？',
       success: (r) => {
         if (r.confirm) {
           storage.removeWrong(id);
+          if (item) sync.sendDeleteWrong(item.problem);
           this.refresh();
         }
       }
@@ -62,6 +67,7 @@ Page({
       success: (r) => {
         if (r.confirm) {
           storage.clearMastered();
+          sync.sendClearMastered();
           this.refresh();
         }
       }

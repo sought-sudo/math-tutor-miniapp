@@ -189,6 +189,38 @@ function resetAll() {
   }
 }
 
+// ---------------- 家长同步用：同步码 / 昵称 ----------------
+
+const KEY_CODE = 'math_tutor_sync_code';
+const KEY_NAME = 'math_tutor_child_name';
+const KEY_LASTSYNC = 'math_tutor_last_sync';
+
+// 首次使用时生成一个 6 位同步码，之后保持不变（家长端凭它查看进度）
+function getSyncCode() {
+  let code = get(KEY_CODE, '');
+  if (!code) {
+    code = String(Math.floor(100000 + Math.random() * 900000));
+    set(KEY_CODE, code);
+  }
+  return code;
+}
+
+function getChildName() {
+  return get(KEY_NAME, '小朋友');
+}
+
+function setChildName(name) {
+  set(KEY_NAME, name || '小朋友');
+}
+
+function getLastSync() {
+  return get(KEY_LASTSYNC, 0);
+}
+
+function setLastSync(ts) {
+  set(KEY_LASTSYNC, ts);
+}
+
 module.exports = {
   getWrongBook: getWrongBook,
   addWrongBook: addWrongBook,
@@ -199,5 +231,10 @@ module.exports = {
   getWrongById: getWrongById,
   addRecord: addRecord,
   getStats: getStats,
-  resetAll: resetAll
+  resetAll: resetAll,
+  getSyncCode: getSyncCode,
+  getChildName: getChildName,
+  setChildName: setChildName,
+  getLastSync: getLastSync,
+  setLastSync: setLastSync
 };
