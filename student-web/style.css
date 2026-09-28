@@ -1,9 +1,10 @@
-/* 网页版学生端样式：与小程序一致的暖色系 */
+/* 网页版学生端样式：面向小学生的温暖、简约、有趣 */
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: #FFF8EC;
+  background: linear-gradient(180deg, #FFEFD6 0%, #FFF8EC 280px);
+  background-attachment: fixed;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   color: #333;
   font-size: 15px;
@@ -18,7 +19,7 @@ body {
 
 .card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 18px;
   margin-bottom: 16px;
   box-shadow: 0 3px 14px rgba(255, 159, 28, 0.08);
@@ -35,8 +36,9 @@ body {
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  transition: transform 0.12s ease;
 }
-.btn:active { transform: scale(0.97); opacity: 0.9; }
+.btn:active { transform: scale(0.96); }
 .btn-primary { background: linear-gradient(135deg, #FFB400, #FF8A00); color: #fff; box-shadow: 0 6px 14px rgba(255, 154, 0, 0.35); }
 .btn-blue { background: linear-gradient(135deg, #5DA5FF, #3A7BFF); color: #fff; }
 .btn-green { background: linear-gradient(135deg, #35D0AA, #14A98C); color: #fff; }
@@ -54,7 +56,7 @@ input, textarea {
   width: 100%;
   background: #FFF9EE;
   border: 2px solid #FFE3B3;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 14px;
   font-size: 15px;
   font-family: inherit;
@@ -71,11 +73,19 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: space-between;
   background: linear-gradient(135deg, #FFC53D, #FF9F1C);
   color: #fff;
+  border-radius: 20px;
   box-shadow: 0 8px 20px rgba(255, 159, 28, 0.3);
 }
 .hello { font-size: 21px; font-weight: 800; }
 .hero .sub { font-size: 13px; opacity: 0.95; margin-top: 4px; }
-.hero-icon { font-size: 46px; }
+.hero-icon {
+  font-size: 46px;
+  animation: bob 2.6s ease-in-out infinite;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
 
 .stats-row { display: flex; gap: 12px; }
 .stats-row .stat { flex: 1; text-align: center; }
@@ -83,19 +93,32 @@ textarea { resize: vertical; min-height: 72px; }
 .stat .lbl { font-size: 11px; color: #999; }
 
 .grid { display: flex; flex-wrap: wrap; gap: 12px; }
-.feature { width: calc(50% - 6px); cursor: pointer; transition: transform .12s; }
+.feature { width: calc(50% - 6px); cursor: pointer; transition: transform 0.12s ease; }
 .feature:active { transform: scale(0.97); }
-.f-icon { font-size: 30px; }
-.f-title { font-size: 16px; font-weight: 800; margin-top: 4px; }
+.f-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27px;
+}
+.f-orange { background: #FFE9C9; }
+.f-blue { background: #E3EEFF; }
+.f-green { background: #DFF5EE; }
+.f-pink { background: #FFE3EC; }
+.f-title { font-size: 16px; font-weight: 800; margin-top: 10px; }
 .f-desc { font-size: 12px; color: #999; margin-top: 2px; }
 
+.tip { background: #FFFBEF; }
 .tip-title { font-weight: 800; color: #4D96FF; margin-bottom: 4px; }
 .tip-text { color: #555; font-size: 14px; }
 
 /* 拍照识题 */
 .camera-box {
   height: 300px;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   background: #2b2b2b;
   margin-bottom: 8px;
@@ -104,7 +127,8 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: center;
 }
 .camera-box img { width: 100%; height: 100%; object-fit: cover; }
-.camera-ph { color: #888; text-align: center; font-size: 15px; line-height: 1.8; }
+.camera-ph { color: #9c9c9c; text-align: center; font-size: 15px; line-height: 1.8; }
+.cam-emoji { display: block; font-size: 42px; margin-bottom: 6px; }
 .scanning { text-align: center; color: #FF8A00; font-size: 14px; font-weight: 700; padding: 4px 0 8px; }
 .tip-line { text-align: center; color: #999; font-size: 12px; padding: 4px 0 8px; }
 .actions { display: flex; gap: 12px; margin-bottom: 16px; }
@@ -126,13 +150,48 @@ textarea { resize: vertical; min-height: 72px; }
 .retry-banner { background: #E8F8F2; color: #14A98C; border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
 .problem-card { border-left: 6px solid #FFB400; }
 .problem-text { font-size: 17px; font-weight: 700; margin-top: 8px; line-height: 1.7; }
-.progress { text-align: center; color: #999; font-size: 12px; margin-bottom: 10px; }
 
-.step { background: #fff; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); overflow: hidden; }
+.progress { margin-bottom: 12px; }
+.progress-track {
+  height: 10px;
+  background: #FFE9C9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #FFC53D, #FF9F1C);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.progress-text {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.step { background: #fff; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); overflow: hidden; transition: border-color 0.2s; }
 .step.open { border-left: 6px solid #35D0AA; }
 .step.current { border: 2px dashed #FFB400; }
 .step-body { padding: 14px 16px; }
-.step-title { font-weight: 800; color: #FF8A00; margin-bottom: 6px; font-size: 15px; }
+.step-title { font-weight: 800; color: #FF8A00; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; }
+.step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFF4E0;
+  color: #FF8A00;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+.step.open .step-num { background: #DFF5EE; color: #14A98C; }
 .step-content { color: #444; line-height: 1.8; white-space: pre-line; font-size: 14px; }
 .step-locked { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; }
 .step-locked.dim { opacity: 0.55; }
@@ -157,6 +216,8 @@ textarea { resize: vertical; min-height: 72px; }
   margin-top: 8px;
 }
 
+.answer-card .ask { font-weight: 800; margin-bottom: 12px; }
+.answer-card input { font-size: 18px; margin-bottom: 12px; }
 .answer-feedback {
   background: #FFF4E0;
   border-radius: 10px;
@@ -165,7 +226,26 @@ textarea { resize: vertical; min-height: 72px; }
   color: #B26A00;
   margin-bottom: 12px;
 }
+.selfcheck { display: flex; gap: 10px; }
+.sc-btn { flex: 1; }
 
+.result-card { text-align: center; }
+.result-card.ok { background: #F0FBF7; }
+.result-card.no { background: #FFF6F3; }
+.result-icon {
+  font-size: 46px;
+  animation: pop 0.4s ease;
+}
+@keyframes pop {
+  0% { transform: scale(0.4); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.result-title { font-size: 17px; font-weight: 800; margin: 6px 0; }
+.result-sub { font-size: 12px; color: #999; margin-bottom: 14px; }
+.answer-line { font-size: 15px; font-weight: 700; color: #14A98C; margin-bottom: 14px; }
+.result-row { display: flex; gap: 10px; }
+.result-row .btn { flex: 1; }
 .variant-btn { width: 100%; margin-top: 12px; }
 
 .explain-box .explain-reason {
@@ -180,21 +260,6 @@ textarea { resize: vertical; min-height: 72px; }
 .explain-box .w-ans { font-size: 14px; margin-bottom: 4px; }
 .explain-box .result-row { margin-top: 12px; }
 
-.answer-card .ask { font-weight: 800; margin-bottom: 12px; }
-.answer-card input { font-size: 18px; margin-bottom: 12px; }
-.selfcheck { display: flex; gap: 10px; }
-.sc-btn { flex: 1; }
-
-.result-card { text-align: center; }
-.result-card.ok { background: #F0FBF7; }
-.result-card.no { background: #FFF6F3; }
-.result-icon { font-size: 44px; }
-.result-title { font-size: 17px; font-weight: 800; margin: 6px 0; }
-.result-sub { font-size: 12px; color: #999; margin-bottom: 14px; }
-.answer-line { font-size: 15px; font-weight: 700; color: #14A98C; margin-bottom: 14px; }
-.result-row { display: flex; gap: 10px; }
-.result-row .btn { flex: 1; }
-
 /* 错题本 */
 .summary { display: flex; text-align: center; }
 .s-item { flex: 1; }
@@ -202,7 +267,7 @@ textarea { resize: vertical; min-height: 72px; }
 .s-num.green { color: #14A98C; }
 .s-lbl { font-size: 12px; color: #999; }
 
-.tabs { display: flex; background: #fff; border-radius: 999px; padding: 4px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+.tabs { display: flex; background: #fff; border-radius: 999px; padding: 4px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); }
 .tab { flex: 1; text-align: center; padding: 9px 0; border-radius: 999px; color: #999; font-size: 14px; cursor: pointer; }
 .tab.on { background: linear-gradient(135deg, #FFB400, #FF8A00); color: #fff; font-weight: 800; }
 
@@ -214,17 +279,29 @@ textarea { resize: vertical; min-height: 72px; }
 .w-ans.bad { color: #FF6B6B; text-decoration: line-through; }
 .w-ans.good { color: #14A98C; }
 .w-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
 /* 家长端入口 */
 .code-card { text-align: center; background: linear-gradient(135deg, #FFC53D, #FF9F1C); color: #fff; box-shadow: 0 8px 20px rgba(255, 159, 28, 0.3); }
-.code-label { font-size: 12px; opacity: 0.95; }
-.code { font-size: 44px; font-weight: 800; letter-spacing: 8px; margin: 8px 0 14px; }
+.code-label { font-size: 13px; opacity: 0.95; font-weight: 700; }
+.code { font-size: 46px; font-weight: 800; letter-spacing: 8px; margin: 8px 0 14px; }
 .code-card .btn { display: inline-flex; }
 .name-row { display: flex; gap: 10px; }
 .name-row input { flex: 1; }
-.sync-on { color: #14A98C; font-weight: 700; font-size: 14px; }
-.sync-off { color: #FF8A00; font-weight: 700; font-size: 14px; }
+.sync-on { color: #14A98C; font-weight: 700; font-size: 13px; }
+.sync-off { color: #FF8A00; font-weight: 700; font-size: 13px; }
 .step-row { font-size: 14px; color: #444; margin-bottom: 8px; line-height: 1.7; }
 .step-row .url { color: #3A7BFF; font-weight: 700; word-break: break-all; }
+
+.adv-settings { margin-top: 12px; }
+.adv-settings summary {
+  cursor: pointer;
+  color: #aaa;
+  font-size: 13px;
+  outline: none;
+}
+.adv-settings summary::-webkit-details-marker { display: none; }
+.adv-body { margin-top: 10px; }
+
 .note-card { text-align: center; }
 
 /* 底部导航 */
@@ -238,10 +315,18 @@ textarea { resize: vertical; min-height: 72px; }
   z-index: 100;
   max-width: 640px;
   margin: 0 auto;
+  border-radius: 20px 20px 0 0;
 }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; color: #999; cursor: pointer; }
 .nav-item.on { color: #FF8A00; }
-.nav-icon { font-size: 20px; line-height: 1.2; }
+.nav-icon {
+  font-size: 20px;
+  line-height: 1.3;
+  padding: 1px 16px;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+.nav-item.on .nav-icon { background: #FFF1DC; }
 .nav-label { font-size: 11px; margin-top: 2px; font-weight: 600; }
 .nav-item.on .nav-label { font-weight: 800; }
 

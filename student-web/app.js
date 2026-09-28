@@ -221,10 +221,10 @@
     $('home-active').textContent = s.activeCount;
     $('home-tip').textContent = pick([
       '先算乘除，后算加减，有括号先算括号里的！',
-      '计算完后记得验算，别忘了单位和"答"。',
-      '错题多复习一遍，比做新题更有用哦！',
-      '遇到应用题，先找"已知条件"和"问题"。',
-      '每天练 3~5 道题，坚持就是胜利！'
+      '算完记得回头检查一遍，单位和"答"别忘啦。',
+      '错过的题再看一遍，比做新题更厉害哦！',
+      '读题时圈出数字和问题，思路就出来啦。',
+      '每天闯几关，你就是数学小达人！'
     ]);
   }
 
@@ -312,7 +312,7 @@
     }
     // 新题目（搜题/拍照/输入）：AI 优先，超时或失败回退本地引擎
     if (aiReady) {
-      applyResultLoading(problem, '🤖 小助手正在读题、组织讲解步骤…');
+      applyResultLoading(problem, '🤖 小助手正在认真读题，马上就好…');
       fetchTutor({ problem: problem }).then(function (res) {
         applyResult(res, { retry: false, task: 'search' });
       }).catch(function () {
@@ -352,7 +352,7 @@
     $('guide-note').style.display = 'none';
     $('guide-progress').textContent = '';
     $('guide-steps').innerHTML =
-      '<div class="card"><div class="loading-line">' + (msg || '🤖 小助手正在读题、组织讲解步骤…') + '</div></div>';
+      '<div class="card"><div class="loading-line">' + (msg || '🤖 小助手正在认真读题，马上就好…') + '</div></div>';
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'none';
     $('explain-box').style.display = 'none';
@@ -484,7 +484,11 @@
     var shown = explain ? guide.steps.length : guide.revealed;
     $('guide-progress').textContent = explain
       ? '讲解共 ' + guide.steps.length + ' 步'
-      : '已解锁 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
+      : '已打开 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
+    var fill = $('progress-fill');
+    if (fill) {
+      fill.style.width = (guide.steps.length ? Math.round(shown / guide.steps.length * 100) : 0) + '%';
+    }
     var box = $('guide-steps');
     box.innerHTML = '';
     guide.steps.forEach(function (s, i) {
@@ -496,7 +500,7 @@
         var extra = '';
         if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
         if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
-        div.innerHTML = '<div class="step-body"><div class="step-title">' + esc(s.title) + '</div>' +
+        div.innerHTML = '<div class="step-body"><div class="step-title"><span class="step-num">' + (i + 1) + '</span>' + esc(s.title) + '</div>' +
           '<div class="step-content">' + esc(s.content) + '</div>' + extra + '</div>';
       } else if (!explain && i === shown) {
         div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 第 ' + (i + 1) + ' 步已准备好</div>' +
@@ -729,12 +733,14 @@
 
   function refreshParent() {
     var base = getApiBase();
-    $('parent-code').textContent = getCode();
+    var code = getCode();
+    $('parent-code').textContent = code;
+    $('parent-code-inline').textContent = code;
     $('name-input').value = getName();
     $('api-input').value = base;
     $('sync-status').textContent = syncOn()
-      ? '✅ 已开启：每次练习后数据会自动同步给家长端'
-      : '⏸️ 未开启（演示模式）：数据只保存在本机浏览器';
+      ? '✅ 你的练习会自动同步给爸爸妈妈看'
+      : '⏸️ 现在只保存在这台设备上';
     $('sync-status').className = syncOn() ? 'sync-on' : 'sync-off';
     $('sync-last').textContent = '最近同步：' + fmtTime(getLastSync());
     var origin = location.protocol === 'file:' ? 'http://127.0.0.1:8787' : location.origin;

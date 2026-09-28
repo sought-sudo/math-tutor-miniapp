@@ -19,22 +19,22 @@
         <div class="hero-icon">🦁</div>
       </div>
       <div class="stats-row">
-        <div class="card stat"><div class="num" id="home-today">0</div><div class="lbl">今日已练(题)</div></div>
-        <div class="card stat"><div class="num" id="home-acc">--</div><div class="lbl">正确率</div></div>
-        <div class="card stat"><div class="num" id="home-active">0</div><div class="lbl">待复习错题</div></div>
+        <div class="card stat"><div class="num" id="home-today">0</div><div class="lbl">🏅 今日闯关</div></div>
+        <div class="card stat"><div class="num" id="home-acc">--</div><div class="lbl">🎯 正确率</div></div>
+        <div class="card stat"><div class="num" id="home-active">0</div><div class="lbl">📕 待复习</div></div>
       </div>
       <div class="grid">
         <div class="card feature" data-go="camera">
-          <div class="f-icon">📷</div><div class="f-title">拍照识题</div><div class="f-desc">拍下题目，AI 帮你认</div>
+          <div class="f-icon f-orange">📷</div><div class="f-title">拍照识题</div><div class="f-desc">拍一拍，小助手来教你</div>
         </div>
         <div class="card feature" data-go="guide">
-          <div class="f-icon">🧮</div><div class="f-title">每日练习</div><div class="f-desc">随机出题，分步引导</div>
+          <div class="f-icon f-blue">🧮</div><div class="f-title">每日练习</div><div class="f-desc">闯一关，慢慢变厉害</div>
         </div>
         <div class="card feature" data-go="wrong">
-          <div class="f-icon">📕</div><div class="f-title">错题本</div><div class="f-desc">错题自动收集</div>
+          <div class="f-icon f-green">📕</div><div class="f-title">错题本</div><div class="f-desc">错过的题，都在这里</div>
         </div>
         <div class="card feature" data-go="parent">
-          <div class="f-icon">📊</div><div class="f-title">家长端</div><div class="f-desc">同步码，家长随时看</div>
+          <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
         </div>
       </div>
       <div class="card tip">
@@ -49,10 +49,10 @@
       <input type="file" id="alb-file" accept="image/*" style="display:none">
       <div class="camera-box" id="camera-box">
         <img id="camera-img" alt="" style="display:none">
-        <div class="camera-ph" id="camera-ph">📷<br>把题目放进框里拍清楚</div>
+        <div class="camera-ph" id="camera-ph"><span class="cam-emoji">📷</span>把题目拍进框里哦</div>
       </div>
-      <div class="scanning" id="camera-scan" style="display:none">🔍 AI 正在识别题目…</div>
-      <div class="tip-line" id="camera-tip">📐 光线要充足，拍清楚整道题</div>
+      <div class="scanning" id="camera-scan" style="display:none">🔍 小助手正在认题…</div>
+      <div class="tip-line" id="camera-tip">📐 光线亮一点，拍清楚整道题</div>
       <div class="actions">
         <button class="btn btn-primary act" id="btn-camera">📷 拍照</button>
         <button class="btn btn-blue act" id="btn-album">🖼️ 从相册选择</button>
@@ -77,7 +77,10 @@
         <div class="problem-text" id="guide-problem"></div>
         <div class="note" id="guide-note" style="display:none"></div>
       </div>
-      <div class="progress" id="guide-progress"></div>
+      <div class="progress">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="guide-progress"></div>
+      </div>
       <div id="guide-steps"></div>
       <div class="card explain-box" id="explain-box" style="display:none">
         <div class="explain-reason" id="explain-reason" style="display:none"></div>
@@ -133,43 +136,43 @@
     <!-- 家长端入口 -->
     <section id="view-parent" class="view" style="display:none">
       <div class="card code-card">
-        <div class="code-label">本机同步码（家长端凭它看进度）</div>
+        <div class="code-label">🔑 这是我的专属同步码</div>
         <div class="code" id="parent-code">------</div>
-        <button class="btn btn-ghost btn-sm" id="btn-copy-code">复制同步码</button>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-code">复制给爸爸妈妈</button>
       </div>
       <div class="card">
-        <div class="label">孩子昵称</div>
+        <div class="label">✏️ 给自己起个名字</div>
         <div class="name-row">
-          <input id="name-input" maxlength="12" placeholder="小朋友">
+          <input id="name-input" maxlength="12" placeholder="比如：小宇">
           <button class="btn btn-primary btn-sm" id="btn-save-name">保存</button>
         </div>
       </div>
       <div class="card">
-        <div class="label">同步状态</div>
-        <div class="sync-on" id="sync-status">…</div>
+        <div class="label">🏆 我的小成绩单</div>
+        <div class="stats-row">
+          <div class="stat"><div class="num" id="parent-today">0</div><div class="lbl">🏅 今日闯关</div></div>
+          <div class="stat"><div class="num" id="parent-acc">--</div><div class="lbl">🎯 正确率</div></div>
+          <div class="stat"><div class="num" id="parent-active">0</div><div class="lbl">📕 待复习</div></div>
+        </div>
+        <div class="note" id="sync-status">…</div>
         <div class="note" id="sync-last"></div>
       </div>
       <div class="card">
-        <div class="label">后端地址（同步 / OCR 用）</div>
-        <input id="api-input" placeholder="留空表示同源；直接双击打开本页时填 http://127.0.0.1:8787">
-        <div class="note">修改后自动保存。部署后端到公网后，填公网地址即可让家长随时随地查看。</div>
-      </div>
-      <div class="card">
-        <div class="label">家长端怎么用（3 步）</div>
-        <div class="step-row">1️⃣ 启动后端：在电脑上运行 node server/server.js</div>
-        <div class="step-row">2️⃣ 家长用电脑/手机浏览器打开家长端网址：<span class="url" id="parent-url-text">http://127.0.0.1:8787/parent</span></div>
-        <div class="step-row">3️⃣ 输入孩子的同步码，即可看到练习进度、正确率和错题</div>
-      </div>
-      <div class="card">
-        <div class="label">本机数据概览</div>
-        <div class="stats-row">
-          <div class="stat"><div class="num" id="parent-today">0</div><div class="lbl">今日已练</div></div>
-          <div class="stat"><div class="num" id="parent-acc">--</div><div class="lbl">正确率</div></div>
-          <div class="stat"><div class="num" id="parent-active">0</div><div class="lbl">待复习错题</div></div>
-        </div>
+        <div class="label">👨‍👩‍👧 给爸爸妈妈看</div>
+        <div class="step-row">1️⃣ 让爸爸妈妈打开家长端网址：<span class="url" id="parent-url-text">http://127.0.0.1:8787/parent</span></div>
+        <div class="step-row">2️⃣ 输入你的同步码 <span class="url" id="parent-code-inline">------</span></div>
+        <div class="step-row">3️⃣ 他们就能看到你的练习和进步啦 ✨</div>
+        <details class="adv-settings">
+          <summary>🛠️ 给爸爸妈妈看的设置</summary>
+          <div class="adv-body">
+            <div class="note">同步地址（不懂就不用改）：</div>
+            <input id="api-input" placeholder="留空表示同源；直接双击打开本页时填 http://127.0.0.1:8787">
+            <div class="note">修改后自动保存。要让家长在别的设备也能看，需要把后端部署到公网（见 README）。</div>
+          </div>
+        </details>
       </div>
       <div class="card note-card">
-        <div class="note">📌 本页面是网页版学生端：浏览器直接打开就能用，不需要微信，也不需要微信开发者工具。</div>
+        <div class="note">📌 这个页面用浏览器打开就能玩，不需要微信，也不需要微信开发者工具。</div>
       </div>
     </section>
 
