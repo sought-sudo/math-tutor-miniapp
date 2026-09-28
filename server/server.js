@@ -38,6 +38,8 @@ const OCR_MODEL = process.env.OCR_MODEL || LLM_MODEL;
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 const PARENT_DIR = path.join(__dirname, '..', 'parent-web');
+const STUDENT_DIR = path.join(__dirname, '..', 'student-web');
+const SOLVER_FILE = path.join(__dirname, '..', 'utils', 'solver.js');
 
 // ---------------- 数据存储（JSON 文件） ----------------
 
@@ -162,12 +164,12 @@ const MIME = {
   '.svg': 'image/svg+xml'
 };
 
-function serveParent(res, urlPath) {
-  let rel = decodeURIComponent(urlPath.replace(/^\/parent\/?/, ''));
+function serveStatic(res, urlPath, dir, prefix) {
+  let rel = decodeURIComponent(urlPath.replace(prefix, ''));
   if (!rel) rel = 'index.html';
   rel = rel.split('?')[0].split('#')[0];
-  const file = path.normalize(path.join(PARENT_DIR, rel));
-  if (file !== PARENT_DIR && !file.startsWith(PARENT_DIR + path.sep)) {
+  const file = path.normalize(path.join(dir, rel));
+  if (file !== dir && !file.startsWith(dir + path.sep)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Forbidden');
     return;
@@ -185,6 +187,26 @@ function serveParent(res, urlPath) {
     res.end(buf);
   });
 }
+
+const LANDING = [
+  '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">',
+  '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+  '<title>数学小助手</title><style>',
+  'body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#FFF8EC;margin:0;color:#333}',
+  '.wrap{max-width:520px;margin:8vh auto;padding:0 20px}',
+  'h1{text-align:center;font-size:26px;color:#FF8A00}',
+  'p{text-align:center;color:#999;font-size:14px}',
+  'a{display:block;text-decoration:none;background:#fff;border-radius:16px;padding:20px;margin:14px 0;',
+  'box-shadow:0 3px 14px rgba(255,159,28,.12);font-weight:700;font-size:18px;color:#333}',
+  'a .i{font-size:30px;margin-right:10px}',
+  'a .s{display:block;font-size:12px;color:#999;font-weight:400;margin-top:4px}',
+  '</style></head><body><div class="wrap">',
+  '<h1>🦁 数学小助手</h1><p>请选择入口</p>',
+  '<a href="/student/"><span class="i">🧮</span>学生端<span class="s">练习、拍照识题、错题本（孩子用）</span></a>',
+  '<a href="/parent/"><span class="i">📊</span>家长端<span class="s">查看孩子学习进度（家长用）</span></a>',
+  '<p>两个入口都是纯网页，浏览器直接打开即可，不需要微信开发者工具。</p>',
+  '</div></body></html>'
+].join('');
 
 // ---------------- AI（可选） ----------------
 
@@ -275,19 +297,47 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 家长端网页（/parent 重定向到 /parent/，保证页面内相对路径正确）
+    // 静态页面（/parent、/student 重定向到带斜杠地址，保证页面内相对路径正确）
     if (req.url === '/parent') {
       res.writeHead(301, { Location: '/parent/' });
       res.end();
       return;
     }
     if (req.url.indexOf('/parent/') === 0) {
-      serveParent(res, req.url);
+      serveStatic(res, req.url, PARENT_DIR, /^\/parent\//);
+      return;
+    }
+    if (req.url === '/student') {
+      res.writeHead(301, { Location: '/student/' });
+      res.end();
+      return;
+    }
+    // 学生端共用 utils/solver.js 解题引擎
+    if (req.url === '/student/solver.js') {
+      fs.readFile(SOLVER_FILE, (err, buf) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('404 Not Found');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(buf);
+      });
+      return;
+    }
+    if (req.url.indexOf('/student/') === 0) {
+      serveStatic(res, req.url, STUDENT_DIR, /^\/student\//);
       return;
     }
     if (req.url === '/') {
-      res.writeHead(302, { Location: '/parent' });
-      res.end();
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(LANDING);
       return;
     }
 
@@ -342,6 +392,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log('数学辅导后端已启动：http://127.0.0.1:' + PORT);
+  console.log('学生端网页：http://127.0.0.1:' + PORT + '/student');
   console.log('家长端网页：http://127.0.0.1:' + PORT + '/parent');
   console.log('接口：POST /api/sync（学生端上报）、GET /api/child/<同步码>（家长端拉取）');
 });

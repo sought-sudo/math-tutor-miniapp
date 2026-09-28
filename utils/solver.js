@@ -1,8 +1,7 @@
 // 内置"本地解题引擎"：覆盖小学四年级常见题型，支持四则混合运算的逐步脱式讲解。
-// 未配置大模型接口时，小程序靠它完成分步引导（演示模式完全可用）。
-// 本文件为纯 JS，可在 Node 中运行 scripts/check-solver.js 自检。
-
-const util = require('./util');
+// 未配置大模型接口时，小程序/网页学生端靠它完成分步引导（演示模式完全可用）。
+// 本文件为纯 JS 且无依赖：微信小程序用 require() 加载，网页学生端直接以 <script> 引入，
+// 也可在 Node 中运行 scripts/check-solver.js 自检。
 
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -734,10 +733,18 @@ function solveText(text) {
   return genericGuide(t);
 }
 
-module.exports = {
+const solverApi = {
   solveText: solveText,
   generatePractice: generatePractice,
   sampleProblems: sampleProblems,
   evaluate: evaluate,
   genericGuide: genericGuide
 };
+
+// 通用导出：Node / 微信小程序用 require，浏览器 <script> 用 window.Solver
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = solverApi;
+}
+if (typeof window !== 'undefined') {
+  window.Solver = solverApi;
+}

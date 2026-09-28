@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数学小助手 · 学生端</title>
+  <link rel="stylesheet" href="/student/style.css">
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- 首页 -->
+    <section id="view-home" class="view">
+      <div class="card hero">
+        <div>
+          <div class="hello" id="home-greet">你好，小数学家！</div>
+          <div class="sub">今天也要坚持练习哦 🦁</div>
+        </div>
+        <div class="hero-icon">🦁</div>
+      </div>
+      <div class="stats-row">
+        <div class="card stat"><div class="num" id="home-today">0</div><div class="lbl">今日已练(题)</div></div>
+        <div class="card stat"><div class="num" id="home-acc">--</div><div class="lbl">正确率</div></div>
+        <div class="card stat"><div class="num" id="home-active">0</div><div class="lbl">待复习错题</div></div>
+      </div>
+      <div class="grid">
+        <div class="card feature" data-go="camera">
+          <div class="f-icon">📷</div><div class="f-title">拍照识题</div><div class="f-desc">拍下题目，AI 帮你认</div>
+        </div>
+        <div class="card feature" data-go="guide">
+          <div class="f-icon">🧮</div><div class="f-title">每日练习</div><div class="f-desc">随机出题，分步引导</div>
+        </div>
+        <div class="card feature" data-go="wrong">
+          <div class="f-icon">📕</div><div class="f-title">错题本</div><div class="f-desc">错题自动收集</div>
+        </div>
+        <div class="card feature" data-go="parent">
+          <div class="f-icon">📊</div><div class="f-title">家长端</div><div class="f-desc">同步码，家长随时看</div>
+        </div>
+      </div>
+      <div class="card tip">
+        <div class="tip-title">💡 今日小贴士</div>
+        <div class="tip-text" id="home-tip"></div>
+      </div>
+    </section>
+
+    <!-- 拍照识题 -->
+    <section id="view-camera" class="view" style="display:none">
+      <input type="file" id="cam-file" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="alb-file" accept="image/*" style="display:none">
+      <div class="camera-box" id="camera-box">
+        <img id="camera-img" alt="" style="display:none">
+        <div class="camera-ph" id="camera-ph">📷<br>把题目放进框里拍清楚</div>
+      </div>
+      <div class="scanning" id="camera-scan" style="display:none">🔍 AI 正在识别题目…</div>
+      <div class="tip-line" id="camera-tip">📐 光线要充足，拍清楚整道题</div>
+      <div class="actions">
+        <button class="btn btn-primary act" id="btn-camera">📷 拍照</button>
+        <button class="btn btn-blue act" id="btn-album">🖼️ 从相册选择</button>
+      </div>
+      <div class="card" id="recog-card" style="display:none">
+        <div class="label">识别的题目（可以手动修改）</div>
+        <textarea id="recog-input" rows="3" placeholder="输入或粘贴题目，例如：计算：125×8+25×4=?"></textarea>
+        <div class="note" id="recog-note" style="display:none">ℹ️ 未配置 OCR：请手动输入题目，或用下面的示例题体验。</div>
+        <button class="btn btn-primary" id="btn-start-guide">开始辅导 🚀</button>
+      </div>
+      <div class="card" id="sample-card">
+        <div class="label">没有题目？先用示例题体验：</div>
+        <div id="sample-list"></div>
+      </div>
+    </section>
+
+    <!-- 分步引导 -->
+    <section id="view-guide" class="view" style="display:none">
+      <div id="retry-banner" class="retry-banner" style="display:none">💪 错题重练：认真想一想，这次一定能做对！</div>
+      <div class="card problem-card">
+        <div class="tag" id="guide-knowledge"></div>
+        <div class="problem-text" id="guide-problem"></div>
+        <div class="note" id="guide-note" style="display:none"></div>
+      </div>
+      <div class="progress" id="guide-progress"></div>
+      <div id="guide-steps"></div>
+      <div class="card answer-card" id="guide-answer" style="display:none">
+        <div id="answer-input-box">
+          <div class="ask">✏️ 该你啦！把答案写下来：</div>
+          <input id="answer-input" type="text" inputmode="decimal" placeholder="输入答案，不带单位也可以">
+          <button class="btn btn-primary" id="btn-submit">提交答案</button>
+        </div>
+        <div id="answer-self-box" style="display:none">
+          <div class="ask">✏️ 在草稿纸上算一算，然后自己核对：</div>
+          <div class="selfcheck">
+            <button class="btn btn-green sc-btn" id="btn-self-ok">😄 我做对啦</button>
+            <button class="btn btn-warn sc-btn" id="btn-self-no">😟 我做错了</button>
+          </div>
+        </div>
+      </div>
+      <div class="card result-card" id="guide-result" style="display:none">
+        <div class="result-icon" id="result-icon"></div>
+        <div class="result-title" id="result-title"></div>
+        <div class="answer-line" id="result-answer" style="display:none"></div>
+        <div class="result-sub" id="result-sub"></div>
+        <div class="result-row">
+          <button class="btn btn-primary" id="btn-again">再来一题</button>
+          <button class="btn btn-ghost" id="btn-home">回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 错题本 -->
+    <section id="view-wrong" class="view" style="display:none">
+      <div class="card summary">
+        <div class="s-item"><div class="s-num" id="wrong-active-count">0</div><div class="s-lbl">待复习</div></div>
+        <div class="s-item"><div class="s-num green" id="wrong-mastered-count">0</div><div class="s-lbl">已掌握</div></div>
+      </div>
+      <div class="tabs">
+        <div class="tab on" id="tab-active">待复习</div>
+        <div class="tab" id="tab-mastered">已掌握</div>
+      </div>
+      <div id="wrong-list"></div>
+      <button class="btn btn-ghost" id="btn-clear-mastered" style="display:none">清空已掌握</button>
+    </section>
+
+    <!-- 家长端入口 -->
+    <section id="view-parent" class="view" style="display:none">
+      <div class="card code-card">
+        <div class="code-label">本机同步码（家长端凭它看进度）</div>
+        <div class="code" id="parent-code">------</div>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-code">复制同步码</button>
+      </div>
+      <div class="card">
+        <div class="label">孩子昵称</div>
+        <div class="name-row">
+          <input id="name-input" maxlength="12" placeholder="小朋友">
+          <button class="btn btn-primary btn-sm" id="btn-save-name">保存</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label">同步状态</div>
+        <div class="sync-on" id="sync-status">…</div>
+        <div class="note" id="sync-last"></div>
+      </div>
+      <div class="card">
+        <div class="label">后端地址（同步 / OCR 用）</div>
+        <input id="api-input" placeholder="留空表示同源；直接双击打开本页时填 http://127.0.0.1:8787">
+        <div class="note">修改后自动保存。部署后端到公网后，填公网地址即可让家长随时随地查看。</div>
+      </div>
+      <div class="card">
+        <div class="label">家长端怎么用（3 步）</div>
+        <div class="step-row">1️⃣ 启动后端：在电脑上运行 node server/server.js</div>
+        <div class="step-row">2️⃣ 家长用电脑/手机浏览器打开家长端网址：<span class="url" id="parent-url-text">http://127.0.0.1:8787/parent</span></div>
+        <div class="step-row">3️⃣ 输入孩子的同步码，即可看到练习进度、正确率和错题</div>
+      </div>
+      <div class="card">
+        <div class="label">本机数据概览</div>
+        <div class="stats-row">
+          <div class="stat"><div class="num" id="parent-today">0</div><div class="lbl">今日已练</div></div>
+          <div class="stat"><div class="num" id="parent-acc">--</div><div class="lbl">正确率</div></div>
+          <div class="stat"><div class="num" id="parent-active">0</div><div class="lbl">待复习错题</div></div>
+        </div>
+      </div>
+      <div class="card note-card">
+        <div class="note">📌 本页面是网页版学生端：浏览器直接打开就能用，不需要微信，也不需要微信开发者工具。</div>
+      </div>
+    </section>
+
+    <!-- 底部导航（引导页隐藏） -->
+    <nav class="nav" id="bottom-nav">
+      <div class="nav-item on" data-nav="home"><div class="nav-icon">🏠</div><div class="nav-label">首页</div></div>
+      <div class="nav-item" data-nav="camera"><div class="nav-icon">📷</div><div class="nav-label">拍照识题</div></div>
+      <div class="nav-item" data-nav="wrong"><div class="nav-icon">📕</div><div class="nav-label">错题本</div></div>
+      <div class="nav-item" data-nav="parent"><div class="nav-icon">📊</div><div class="nav-label">家长端</div></div>
+    </nav>
+  </div>
+
+  <script src="/student/solver.js"></script>
+  <script src="/student/app.js"></script>
+</body>
+</html>
