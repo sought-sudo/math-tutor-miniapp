@@ -32,6 +32,10 @@ Page({
     wx.navigateTo({ url: '/pages/guide/guide?mode=explain&wrongId=' + e.currentTarget.dataset.id });
   },
 
+  variant(e) {
+    wx.navigateTo({ url: '/pages/guide/guide?mode=variant&wrongId=' + e.currentTarget.dataset.id });
+  },
+
   master(e) {
     const id = e.currentTarget.dataset.id;
     const item = storage.getWrongBook().find((i) => i.id === id);

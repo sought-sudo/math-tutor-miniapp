@@ -157,3 +157,21 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
 .advice { margin: 0; color: #444; }
 .empty { text-align: center; color: #999; padding: 20px 0; }
 .foot { text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
+
+.script-item {
+  border: 1px solid #FFEFD3;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.script-problem { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.script-q { color: #3A7BFF; font-size: 13px; margin-bottom: 6px; }
+.script-a { color: #888; font-size: 12px; line-height: 1.7; }
+.script-tip {
+  background: #FFF4E0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #B26A00;
+  line-height: 1.7;
+}

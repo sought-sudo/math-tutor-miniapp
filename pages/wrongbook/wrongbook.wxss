@@ -81,11 +81,13 @@
 
 .w-btns {
   display: flex;
+  flex-wrap: wrap;
   margin-top: 16rpx;
 }
 
 .w-btns .btn {
   margin-right: 14rpx;
+  margin-bottom: 14rpx;
 }
 
 .w-btns .btn:last-child {

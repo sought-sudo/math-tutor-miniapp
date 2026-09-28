@@ -14,6 +14,8 @@ Page({
     explainMode: false,
     explainReason: '',
     myAnswerText: '',
+    feedbackText: '',
+    showVariant: false,
     problem: '',
     knowledge: '',
     note: '',
@@ -34,6 +36,8 @@ Page({
     this.startTs = Date.now();
     this.wrongId = (options && options.wrongId) || '';
     this.explainMode = !!(options && options.mode === 'explain');
+    this.practiceMode = 'practice'; // practice / retry / variant（行为数据记录用）
+    this.variantOf = '';            // 变形题对应的原错题 id（做对后自动标记掌握）
 
     if (this.wrongId) {
       const item = storage.getWrongById(this.wrongId);
@@ -44,7 +48,16 @@ Page({
           this.startExplain(item);
           return;
         }
+        if (options && options.mode === 'variant') {
+          // 变形题巩固：基于原错题生成一道新题
+          this.variantOf = this.wrongId;
+          this.wrongId = '';
+          this.practiceMode = 'variant';
+          this.loadVariant(item.problem, item.knowledge);
+          return;
+        }
         this.setData({ isRetry: true });
+        this.practiceMode = 'retry';
         // 重练直接用错题本里存好的题目和步骤，保证讲解一致
         if (item.steps && item.steps.length) {
           this.applyResult({
@@ -109,6 +122,47 @@ Page({
     });
   },
 
+  // 生成变形题：AI 优先，失败用本地生成器，再失败退回随机练习
+  loadVariant(problem, knowledge) {
+    this.setData({ loading: true });
+    ai.variant(problem, knowledge).then((res) => {
+      if (res && res.problem) {
+        this.applyResult(res);
+        return;
+      }
+      const v = solver.variantByKnowledge(knowledge, problem);
+      if (v) {
+        this.applyResult(v);
+        return;
+      }
+      wx.showToast({ title: '暂时没有合适的变形题，先做道同类练习吧', icon: 'none', duration: 2500 });
+      this.newPractice();
+    });
+  },
+
+  onVariant() {
+    const originId = this.variantOf || this.wrongId || '';
+    this.variantOf = originId;
+    this.wrongId = '';
+    this.practiceMode = 'variant';
+    this.setData({ isRetry: false });
+    wx.showLoading({ title: '生成变形题…' });
+    ai.variant(this.data.problem, this.data.knowledge).then((res) => {
+      wx.hideLoading();
+      if (res && res.problem) {
+        this.applyResult(res);
+        return;
+      }
+      const v = solver.variantByKnowledge(this.data.knowledge, this.data.problem);
+      if (v) {
+        this.applyResult(v);
+        return;
+      }
+      wx.showToast({ title: '暂时没有合适的变形题，先做道同类练习吧', icon: 'none', duration: 2500 });
+      this.onAgain();
+    });
+  },
+
   // 讲解页点"再练一次"：切回重练模式（用错题本步骤引导作答）
   onExplainRetry() {
     const item = storage.getWrongById(this.wrongId);
@@ -117,6 +171,7 @@ Page({
       return;
     }
     this.explainMode = false;
+    this.practiceMode = 'retry';
     this.setData({ explainMode: false, explainReason: '' });
     if (item.steps && item.steps.length) {
       this.applyResult({
@@ -142,6 +197,9 @@ Page({
   newPractice() {
     this.startTs = Date.now();
     this.wrongId = '';
+    this.practiceMode = 'practice';
+    this.variantOf = '';
+    this.setData({ isRetry: false });
     this.applyResult(ai.generatePractice());
   },
 
@@ -179,6 +237,8 @@ Page({
       userAnswer: '',
       addedToWrong: false,
       seconds: 0,
+      feedbackText: '',
+      showVariant: false,
       rightAnswerText:
         res.displayAnswer || (res.answer === null || res.answer === undefined ? '' : String(res.answer))
     });
@@ -221,6 +281,14 @@ Page({
       const wt = this.data.wrongTimes + 1;
       this.setData({ wrongTimes: wt, userAnswer: '' });
       if (wt < 2) {
+        // 引导优先：给鼓励 + 指向具体步骤的提示，而不是直接判错
+        const hint = util.pick([
+          '差一点点！回看第 2 步，会有启发哦 💪',
+          '再想想哦，把第 3 步重看一遍，你很接近了 ✨',
+          '别着急！检查一下数字有没有抄错、单位有没有写 ✅',
+          '思路不错！先回看上面的步骤，再试一次 👀'
+        ]);
+        this.setData({ feedbackText: hint });
         wx.showToast({ title: '再想想哦，可以回看上面的步骤 💪', icon: 'none', duration: 2000 });
       } else {
         this.finish(false, user);
@@ -235,16 +303,25 @@ Page({
 
   finish(correct, userAnswer) {
     const seconds = Math.round((Date.now() - this.startTs) / 1000);
+    const attempts = this.data.wrongTimes + 1; // 第几次作答定结果（行为数据）
+    const mode = this.practiceMode || 'practice';
     storage.addRecord({
       ok: correct,
       seconds: seconds,
+      attempts: attempts,
       knowledge: this.data.knowledge,
       problem: this.data.problem,
-      mode: this.wrongId ? 'retry' : 'practice'
+      mode: mode
     });
 
     const praise = correct
-      ? util.pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小数学家，继续加油！🚀'])
+      ? (this.data.wrongTimes > 0
+          ? util.pick([
+              '调整后答对了！你学会了检查，太棒了！🌟',
+              '第二次就做对了，这个检查习惯真厉害！👏',
+              '你停下来想了想就做对了，这就是进步！🚀'
+            ])
+          : util.pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小数学家，继续加油！🚀']))
       : '没关系，错题已经帮你记进错题本啦，下次一定能做对！💪';
 
     let addedToWrong = false;
@@ -252,6 +329,14 @@ Page({
       if (this.wrongId) {
         storage.markMastered(this.wrongId);
         sync.sendMaster(this.data.problem);
+      }
+      // 变形题做对 → 原错题自动标记已掌握
+      if (this.variantOf && this.variantOf !== this.wrongId) {
+        const origin = storage.getWrongById(this.variantOf);
+        if (origin) {
+          storage.markMastered(this.variantOf);
+          sync.sendMaster(origin.problem);
+        }
       }
     } else if (this.wrongId) {
       storage.bumpWrong(this.wrongId);
@@ -275,15 +360,17 @@ Page({
     sync.sendRecord({
       ok: correct,
       seconds: seconds,
+      attempts: attempts,
       knowledge: this.data.knowledge,
-      mode: this.wrongId ? 'retry' : 'practice'
+      mode: mode
     });
 
     this.setData({
       phase: correct ? 'right' : 'wrong',
       praise: praise,
       addedToWrong: addedToWrong,
-      seconds: seconds
+      seconds: seconds,
+      showVariant: !correct
     });
   },
 

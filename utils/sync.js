@@ -26,6 +26,7 @@ function sendRecord(rec) {
     ts: Date.now(),
     ok: !!rec.ok,
     seconds: rec.seconds || 0,
+    attempts: rec.attempts || 1,
     knowledge: rec.knowledge || '',
     mode: rec.mode || 'practice'
   });

@@ -31,7 +31,8 @@
       <view class="w-btns">
         <view class="btn btn-primary btn-small" data-id="{{item.id}}" bindtap="retry">再练一次</view>
         <view class="btn btn-blue btn-small" data-id="{{item.id}}" bindtap="explain">AI 讲解</view>
-        <view class="btn btn-green btn-small" data-id="{{item.id}}" bindtap="master">掌握啦</view>
+        <view class="btn btn-green btn-small" data-id="{{item.id}}" bindtap="variant">变形题</view>
+        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="master">掌握啦</view>
         <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="remove">删除</view>
       </view>
     </view>

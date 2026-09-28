@@ -733,12 +733,71 @@ function solveText(text) {
   return genericGuide(t);
 }
 
+// ---------------- 变形题生成（本地兜底：同知识点换数字/情境） ----------------
+
+const VARIANT_MAP = {
+  '三位数乘两位数': genMul3x2,
+  '除数是两位数的除法': genDiv2,
+  '四则混合运算': genMixed,
+  '运算定律·简算': genLaw,
+  '小数的加法': genDecimal,
+  '小数的减法': genDecimal,
+  '行程问题·路程': genTravel,
+  '购物·总价与找零': genShopping,
+  '归一问题': genNorm,
+  '平均数': genAverage,
+  '鸡兔同笼': genChickenRabbit,
+  '长方形周长': genPerimeter,
+  '长方形面积': genArea
+};
+
+// 根据知识点生成一道变形题（换数字/情境，方法与结构不变）；失败返回 null
+function variantByKnowledge(knowledge, originalProblem) {
+  const gen = VARIANT_MAP[knowledge];
+  if (gen) {
+    for (let i = 0; i < 10; i++) {
+      const p = gen();
+      if (p.problem !== originalProblem) {
+        p.source = 'local';
+        p.variantOf = originalProblem;
+        return p;
+      }
+    }
+  }
+  // 算式题：保持算式结构，把数字逐一换成邻近的
+  const expr = String(originalProblem)
+    .replace(/计算[:：]?/g, '')
+    .replace(/[=＝?？。\s]/g, '');
+  if (/^[0-9+\-*×÷/()（）.]+$/.test(expr)) {
+    for (let j = 0; j < 6; j++) {
+      const swapped = expr.replace(/(\d+(?:\.\d+)?)/g, (m) => {
+        if (m.indexOf('.') > -1) {
+          const n = Math.max(0.1, Math.round((parseFloat(m) + rand(1, 9) * 0.1) * 10) / 10);
+          return String(n);
+        }
+        const delta = rand(1, 9) * (Math.random() < 0.5 ? 1 : -1);
+        return String(Math.max(2, parseInt(m, 10) + delta));
+      });
+      if (swapped !== expr) {
+        const r = solveExpression('计算：' + swapped + ' = ?');
+        if (r) {
+          r.source = 'local';
+          r.variantOf = originalProblem;
+          return r;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 const solverApi = {
   solveText: solveText,
   generatePractice: generatePractice,
   sampleProblems: sampleProblems,
   evaluate: evaluate,
-  genericGuide: genericGuide
+  genericGuide: genericGuide,
+  variantByKnowledge: variantByKnowledge
 };
 
 // 通用导出：Node / 微信小程序用 require，浏览器 <script> 用 window.Solver

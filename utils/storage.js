@@ -111,8 +111,9 @@ function addRecord(rec) {
     date: dateStr(),
     ok: rec.ok, // true / false
     seconds: rec.seconds || 0,
+    attempts: rec.attempts || 1, // 第几次作答才定结果
     knowledge: rec.knowledge || '',
-    mode: rec.mode || 'practice'
+    mode: rec.mode || 'practice' // practice / retry / variant
   });
   set(KEY_RECORDS, list.slice(0, 200));
 }
@@ -164,12 +165,15 @@ function getStats() {
     .sort((a, b) => b.count - a.count);
 
   const activeCount = wrongs.filter((w) => w.status === 'active').length;
+  const onePass = judged.filter((r) => r.ok === true && (r.attempts || 1) <= 1).length;
 
   return {
     total: total,
     correct: correct,
     wrong: total - correct,
     accuracy: accuracy,
+    onePass: onePass,
+    onePassRate: total ? onePass / total : null,
     today: todayCount,
     week: weekCount,
     avgSeconds: avgSeconds,

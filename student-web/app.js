@@ -45,7 +45,14 @@
   function getRecords() { return storeGet(KEY.records, []); }
   function addRecord(rec) {
     var list = getRecords();
-    list.unshift({ ts: Date.now(), ok: rec.ok, seconds: rec.seconds || 0, knowledge: rec.knowledge || '', mode: rec.mode || 'practice' });
+    list.unshift({
+      ts: Date.now(),
+      ok: rec.ok,
+      seconds: rec.seconds || 0,
+      attempts: rec.attempts || 1,
+      knowledge: rec.knowledge || '',
+      mode: rec.mode || 'practice'
+    });
     storeSet(KEY.records, list.slice(0, 200));
   }
 
@@ -136,7 +143,7 @@
       .catch(function () { aiReady = false; });
   }
 
-  function fetchTutor(payload) {
+  function fetchTutor(payload, path) {
     var base = getApiBase();
     return new Promise(function (resolve, reject) {
       var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -144,7 +151,7 @@
         if (ctrl) ctrl.abort();
         reject(new Error('timeout'));
       }, 20000);
-      fetch(base + '/tutor', {
+      fetch(base + (path || '/tutor'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -154,12 +161,17 @@
         if (j && j.ok && j.steps && j.steps.length) {
           resolve({
             source: 'ai',
-            problem: payload.problem,
+            problem: j.problem || payload.problem,
             knowledge: j.knowledge || '综合',
             answer: j.answer,
             displayAnswer: j.displayAnswer || String(j.answer),
             steps: j.steps.map(function (s, i) {
-              return { title: s.title || ('第' + (i + 1) + '步'), content: s.content || '' };
+              return {
+                title: s.title || ('第' + (i + 1) + '步'),
+                content: s.content || '',
+                tip: s.tip || '',
+                ask: s.ask || ''
+              };
             }),
             note: '',
             reason: j.reason || ''
@@ -280,7 +292,7 @@
 
   function newPractice() {
     guide = null;
-    applyResult(S.generatePractice(), { retry: false });
+    applyResult(S.generatePractice(), { retry: false, task: 'practice' });
   }
 
   function startGuide(problem) {
@@ -295,23 +307,43 @@
         displayAnswer: item.rightAnswer,
         steps: item.steps,
         note: ''
-      }, { retry: true, wrongId: item.id });
+      }, { retry: true, wrongId: item.id, task: 'retry' });
       return;
     }
     // 新题目（搜题/拍照/输入）：AI 优先，超时或失败回退本地引擎
     if (aiReady) {
-      applyResultLoading(problem);
+      applyResultLoading(problem, '🤖 小助手正在读题、组织讲解步骤…');
       fetchTutor({ problem: problem }).then(function (res) {
-        applyResult(res, { retry: false });
+        applyResult(res, { retry: false, task: 'search' });
       }).catch(function () {
-        applyResult(localSolve(problem), { retry: false });
+        applyResult(localSolve(problem), { retry: false, task: 'search' });
       });
     } else {
-      applyResult(localSolve(problem), { retry: false });
+      applyResult(localSolve(problem), { retry: false, task: 'search' });
     }
   }
 
-  function applyResultLoading(problem) {
+  // 变形题巩固：AI 优先，失败用本地生成器，再失败退回随机练习
+  function variantPractice(problem, knowledge, originalWrongId) {
+    var done = function (res) {
+      if (res && res.problem) {
+        applyResult(res, { retry: false, task: 'variant', variantOf: originalWrongId || '' });
+        return;
+      }
+      alert('暂时没有合适的变形题，先做一道同类型的练习吧！');
+      newPractice();
+    };
+    if (aiReady) {
+      applyResultLoading(problem, '🤖 AI 正在为你出变形题…');
+      fetchTutor({ problem: problem, knowledge: knowledge || '' }, '/variant').then(done).catch(function () {
+        done(S.variantByKnowledge(knowledge, problem));
+      });
+    } else {
+      done(S.variantByKnowledge(knowledge, problem));
+    }
+  }
+
+  function applyResultLoading(problem, msg) {
     showView('guide');
     guide = { loading: true };
     $('retry-banner').style.display = 'none';
@@ -320,7 +352,7 @@
     $('guide-note').style.display = 'none';
     $('guide-progress').textContent = '';
     $('guide-steps').innerHTML =
-      '<div class="card"><div class="loading-line">🤖 小助手正在读题、组织讲解步骤…</div></div>';
+      '<div class="card"><div class="loading-line">' + (msg || '🤖 小助手正在读题、组织讲解步骤…') + '</div></div>';
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'none';
     $('explain-box').style.display = 'none';
@@ -418,6 +450,8 @@
     var rightNum = typeof res.answer === 'number' ? res.answer : extractNumber(res.answer);
     guide = {
       mode: 'practice',
+      task: (opts && opts.task) || 'practice', // practice / retry / variant / search（行为数据）
+      variantOf: (opts && opts.variantOf) || '',
       problem: res.problem,
       knowledge: res.knowledge || '综合',
       note: res.note || '',
@@ -435,6 +469,8 @@
     $('retry-banner').style.display = guide.retry ? 'block' : 'none';
     $('retry-banner').textContent = '💪 错题重练：认真想一想，这次一定能做对！';
     $('explain-box').style.display = 'none';
+    $('answer-feedback').style.display = 'none';
+    $('btn-variant').style.display = 'none';
     $('guide-knowledge').textContent = guide.knowledge;
     $('guide-problem').textContent = guide.problem;
     $('guide-note').style.display = guide.note ? 'block' : 'none';
@@ -457,8 +493,11 @@
         (i < shown ? ' open' : '') +
         (!explain && i === shown ? ' current' : '');
       if (i < shown) {
+        var extra = '';
+        if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
+        if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
         div.innerHTML = '<div class="step-body"><div class="step-title">' + esc(s.title) + '</div>' +
-          '<div class="step-content">' + esc(s.content) + '</div></div>';
+          '<div class="step-content">' + esc(s.content) + '</div>' + extra + '</div>';
       } else if (!explain && i === shown) {
         div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 第 ' + (i + 1) + ' 步已准备好</div>' +
           '<button class="btn btn-primary btn-sm reveal-btn">看这一步</button></div>';
@@ -501,33 +540,61 @@
     var right = num !== null && guide.rightNum !== null && guide.rightNum !== undefined &&
       Math.abs(num - guide.rightNum) < 0.011;
     if (right) {
+      $('answer-feedback').style.display = 'none';
       finish(true, user);
     } else {
       guide.wrongTimes++;
       $('answer-input').value = '';
       if (guide.wrongTimes < 2) {
-        $('guide-progress').textContent = '再想想哦，可以回看上面的步骤 💪';
+        // 引导优先：鼓励 + 指向具体步骤的提示，而不是直接判错
+        var fb = $('answer-feedback');
+        fb.style.display = 'block';
+        fb.textContent = pick([
+          '差一点点！回看第 2 步，会有启发哦 💪',
+          '再想想哦，把第 3 步重看一遍，你很接近了 ✨',
+          '别着急！检查一下数字有没有抄错、单位有没有写 ✅',
+          '思路不错！先回看上面的步骤，再试一次 👀'
+        ]);
       } else {
         finish(false, user);
       }
     }
   }
 
+  function markWrongMastered(id) {
+    var ws = getWrongs();
+    var it = ws.find(function (w) { return w.id === id; });
+    if (it && it.status === 'active') {
+      it.status = 'mastered';
+      it.masteredAt = dateStr();
+      saveWrongs(ws);
+      syncSend('master', { problem: it.problem });
+    }
+  }
+
   function finish(correct, userAnswer) {
     var seconds = Math.round((Date.now() - guide.startTs) / 1000);
-    addRecord({ ok: correct, seconds: seconds, knowledge: guide.knowledge, mode: guide.retry ? 'retry' : 'practice' });
-    syncSend('record', { ts: Date.now(), ok: correct, seconds: seconds, knowledge: guide.knowledge, mode: guide.retry ? 'retry' : 'practice' });
+    var attempts = guide.wrongTimes + 1; // 第几次作答定结果（行为数据）
+    var task = guide.task || 'practice';
+    addRecord({ ok: correct, seconds: seconds, attempts: attempts, knowledge: guide.knowledge, mode: task });
+    syncSend('record', { ts: Date.now(), ok: correct, seconds: seconds, attempts: attempts, knowledge: guide.knowledge, mode: task });
 
-    var praise = correct
-      ? pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小数学家，继续加油！🚀'])
-      : '没关系，错题已经帮你记进错题本啦，下次一定能做对！💪';
+    var praise;
+    if (correct) {
+      praise = guide.wrongTimes > 0
+        ? pick(['调整后答对了！你学会了检查，太棒了！🌟', '第二次就做对了，这个检查习惯真厉害！👏', '你停下来想了想就做对了，这就是进步！🚀'])
+        : pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小数学家，继续加油！🚀']);
+    } else {
+      praise = '没关系，错题已经帮你记进错题本啦，下次一定能做对！💪';
+    }
 
     if (correct) {
       if (guide.retry && guide.wrongId) {
-        var ws = getWrongs();
-        var it = ws.find(function (w) { return w.id === guide.wrongId; });
-        if (it) { it.status = 'mastered'; it.masteredAt = dateStr(); saveWrongs(ws); }
-        syncSend('master', { problem: guide.problem });
+        markWrongMastered(guide.wrongId);
+      }
+      // 变形题做对 → 原错题自动标记已掌握
+      if (guide.variantOf && guide.variantOf !== guide.wrongId) {
+        markWrongMastered(guide.variantOf);
       }
     } else if (guide.retry && guide.wrongId) {
       var ws2 = getWrongs();
@@ -569,6 +636,7 @@
     $('result-icon').textContent = correct ? '🎉' : '📕';
     $('result-title').textContent = praise;
     $('result-sub').textContent = '用时 ' + seconds + ' 秒 · 已记入今日练习';
+    $('btn-variant').style.display = correct ? 'none' : 'block';
     if (!correct) {
       $('result-answer').style.display = 'block';
       $('result-answer').textContent = '✅ 正确答案：' + (guide.rightAnswerText || '见上面步骤');
@@ -611,7 +679,8 @@
       var btns = item.status === 'active'
         ? '<button class="btn btn-primary btn-sm w-btn" data-act="retry">再练一次</button>' +
           '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
-          '<button class="btn btn-green btn-sm w-btn" data-act="master">掌握啦</button>' +
+          '<button class="btn btn-green btn-sm w-btn" data-act="variant">变形题</button>' +
+          '<button class="btn btn-ghost btn-sm w-btn" data-act="master">掌握啦</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>'
         : '<button class="btn btn-blue btn-sm w-btn" data-act="explain">AI 讲解</button>' +
           '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
@@ -633,6 +702,8 @@
       startGuide(item.problem);
     } else if (act === 'explain') {
       explainWrong(item);
+    } else if (act === 'variant') {
+      variantPractice(item.problem, item.knowledge, item.id);
     } else if (act === 'master') {
       if (!confirm('确认这道题已经会做了吗？')) return;
       var ws = getWrongs();
@@ -705,6 +776,11 @@
     if (guide && guide.item) startGuide(guide.item.problem);
   });
   $('btn-explain-back').addEventListener('click', function () { showView('wrong'); });
+  $('btn-variant').addEventListener('click', function () {
+    if (!guide) return;
+    var origin = guide.variantOf || (guide.task === 'retry' ? guide.wrongId : '');
+    variantPractice(guide.problem, guide.knowledge, origin);
+  });
 
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });
   $('tab-mastered').addEventListener('click', function () { wrongTab = 'mastered'; refreshWrong(); });

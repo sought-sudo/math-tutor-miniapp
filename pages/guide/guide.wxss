@@ -69,6 +69,37 @@
   white-space: pre-line;
 }
 
+.step-tip {
+  background: #FFF4E0;
+  border-radius: 12rpx;
+  padding: 12rpx 18rpx;
+  font-size: 26rpx;
+  color: #B26A00;
+  margin-top: 12rpx;
+}
+
+.step-ask {
+  background: #EEF4FF;
+  border-radius: 12rpx;
+  padding: 12rpx 18rpx;
+  font-size: 26rpx;
+  color: #3A7BFF;
+  margin-top: 12rpx;
+}
+
+.answer-feedback {
+  background: #FFF4E0;
+  border-radius: 12rpx;
+  padding: 14rpx 20rpx;
+  font-size: 28rpx;
+  color: #B26A00;
+  margin-bottom: 20rpx;
+}
+
+.variant-btn {
+  margin-top: 20rpx;
+}
+
 .step-locked {
   display: flex;
   justify-content: space-between;

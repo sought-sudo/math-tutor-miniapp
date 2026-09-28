@@ -92,7 +92,8 @@ function handleSync(body) {
       ok: !!data.ok,
       seconds: data.seconds || 0,
       knowledge: data.knowledge || '',
-      mode: data.mode || 'practice'
+      mode: data.mode || 'practice',
+      attempts: data.attempts || 1
     });
     if (child.records.length > 300) child.records = child.records.slice(-300);
   } else if (type === 'wrong') {
@@ -252,18 +253,27 @@ function parseJson(text) {
 }
 
 const TUTOR_SYSTEM =
-  '你是小学四年级数学辅导老师。请分步讲解题目，并只返回 JSON：' +
+  '你是小学四年级数学辅导老师。请像在教室里上课一样分步讲解题目，只返回 JSON：' +
   '{"answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
-  '"steps": [{"title": "第1步", "content": "讲解内容"}]}。' +
-  '要求：步骤 4~6 步，每步只讲一个要点，语言亲切易懂、适合小学生；answer 尽量是纯数字；不要输出 JSON 以外的内容。';
+  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
+  '讲解要求（重要）：1) 共 4~6 步，每步先讲"为什么这么做"，再演示"怎么做"，像老师讲课一样有引导、有停顿；' +
+  '2) content 用完整的口语化句子（2~4 句），称呼孩子为"你"，语气亲切鼓励，例如"先别急着算，我们来看看题里告诉了我们什么"；' +
+  '3) 不要只罗列算式，要解释每一步的道理，可用生活化的比喻；4) 最后一步教孩子如何检查验算；5) 只返回 JSON，不要输出其他内容。';
 
 const TUTOR_WRONG_SYSTEM =
-  '你是小学四年级数学辅导老师。学生这道题做错了，请先分析错因、再分步讲解。只返回 JSON：' +
+  '你是小学四年级数学辅导老师。学生这道题做错了，请先安慰和肯定他敢于尝试，再像上课一样讲解。只返回 JSON：' +
   '{"answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
-  '"reason": "一句话指出学生可能错在哪里", ' +
-  '"steps": [{"title": "第1步", "content": "讲解内容"}]}。' +
-  '要求：reason 要具体、温和（结合学生写的答案分析，如抄错数、运算顺序错、单位遗漏等）；' +
-  '步骤 4~6 步，每步只讲一个要点，语言亲切易懂、适合小学生；不要输出 JSON 以外的内容。';
+  '"reason": "温和地指出学生可能错在哪里（结合他写的答案，如抄错数、运算顺序错、进位遗漏、单位没写等）", ' +
+  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
+  '讲解要求（重要）：1) reason 要具体、温和，先肯定"你已经很接近了"，再点出问题；' +
+  '2) 共 4~6 步，每步先讲"为什么"再演示"怎么做"，content 用完整的口语化句子（2~4 句），称呼孩子为"你"；' +
+  '3) 不要只罗列算式，要解释每一步的道理；4) 最后一步教孩子如何检查验算；5) 只返回 JSON。';
+
+const TUTOR_VARIANT_SYSTEM =
+  '你是小学四年级数学辅导老师。请根据原题生成一道同类型、同难度的变形题（换数字或换情境，知识点和解题方法不变），并分步讲解。只返回 JSON：' +
+  '{"problem": "变形后的完整题目文字", "answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
+  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
+  '要求：1) problem 必须是与原题不同数字/情境的新题目，适合用来巩固；2) 步骤 4~6 步，content 用完整口语化句子（2~4 句），先讲"为什么"再演示"怎么做"，称呼孩子为"你"；3) 最后一步教孩子检查验算；4) 只返回 JSON。';
 
 const OCR_SYSTEM =
   '你是 OCR 识别助手。识别图片中的数学题，只输出题目文字本身，不要任何解释。如果图中没有数学题，输出：未识别到题目。';
@@ -376,6 +386,28 @@ const server = http.createServer(async (req, res) => {
       const j = parseJson(content);
       if (!j || !Array.isArray(j.steps) || !j.steps.length) {
         throw new Error('解析讲解失败：' + String(content).slice(0, 200));
+      }
+      send(res, 200, Object.assign({ ok: true }, j));
+      return;
+    }
+
+    // 变形题生成（巩固练习用）
+    if (req.method === 'POST' && req.url === '/variant') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.problem) throw new Error('缺少参数 problem');
+      const userMsg =
+        '原题：' + body.problem + '\n知识点：' + (body.knowledge || '未知') +
+        '\n请生成一道换过数字/情境的变形题（难度相同），并分步讲解。';
+      const content = await chat(
+        [
+          { role: 'system', content: TUTOR_VARIANT_SYSTEM },
+          { role: 'user', content: userMsg }
+        ],
+        LLM_MODEL
+      );
+      const j = parseJson(content);
+      if (!j || !j.problem || !Array.isArray(j.steps) || !j.steps.length) {
+        throw new Error('解析变形题失败：' + String(content).slice(0, 200));
       }
       send(res, 200, Object.assign({ ok: true }, j));
       return;

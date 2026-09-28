@@ -66,6 +66,7 @@
 
     var activeCount = wrongs.filter(function (w) { return w.status === 'active'; }).length;
     var week = records.filter(function (r) { return Date.now() - r.ts < 7 * 86400000; }).length;
+    var onePass = judged.filter(function (r) { return r.ok === true && (r.attempts || 1) <= 1; }).length;
 
     return {
       total: total,
@@ -75,8 +76,53 @@
       last7: last7,
       knowledge: knowledge,
       activeCount: activeCount,
-      masteredCount: wrongs.length - activeCount
+      masteredCount: wrongs.length - activeCount,
+      onePass: onePass,
+      onePassRate: total ? onePass / total : null
     };
+  }
+
+  // 按知识点给出具体的"今晚可以这样问"沟通脚本
+  var QUESTION_MAP = {
+    '三位数乘两位数': '你是怎么把两位数拆开、一步一步乘起来的？',
+    '除数是两位数的除法': '试商的时候，你先看被除数的哪几位？',
+    '四则混合运算': '这道题里先算什么、后算什么？为什么？',
+    '运算定律·简算': '看到 25（或 125），你会马上想到和哪个数凑整？',
+    '小数的加法': '列竖式时，你先把谁和谁对齐了？有没有满十进一？',
+    '小数的减法': '小数部分不够减时，你向谁借了 1？',
+    '行程问题·路程': '速度和时间的单位对应上了吗？你用的关系式是什么？',
+    '购物·总价与找零': '你是先算总价，还是先算找回？为什么？',
+    '归一问题': '先求"一台机器"的还是先求"一个小时"的？',
+    '平均数': '三个数加起来以后，为什么要除以 3？',
+    '鸡兔同笼': '假设笼子里全是鸡，脚会差几只？',
+    '长方形周长': '周长要"围一圈"，你绕着它走全了吗？',
+    '长方形面积': '"长乘宽"算出来的是哪一块地方？单位写对了吗？'
+  };
+
+  function buildScripts(wrongs) {
+    var actives = wrongs.filter(function (w) { return w.status === 'active'; })
+      .sort(function (a, b) { return (b.times || 1) - (a.times || 1); })
+      .slice(0, 2);
+    var box = $('scriptbox');
+    box.innerHTML = '';
+    if (!actives.length) {
+      box.innerHTML = '<div class="empty">🎉 没有待复习的错题。今晚可以问问孩子：今天数学练习里，哪道题最有意思？</div>';
+      return;
+    }
+    actives.forEach(function (w) {
+      var q = QUESTION_MAP[w.knowledge] || '你是从哪一步开始做的？卡在哪里了？';
+      var div = document.createElement('div');
+      div.className = 'script-item';
+      div.innerHTML =
+        '<div class="script-problem">📖 「' + esc(w.problem) + '」</div>' +
+        '<div class="script-q">💬 饭后可以问："' + esc(q) + '"</div>' +
+        '<div class="script-a">听完孩子的思路再补充：正确答案是 ' + esc(w.rightAnswer) + '。多听思路，少直接给答案。</div>';
+      box.appendChild(div);
+    });
+    var tip = document.createElement('div');
+    tip.className = 'script-tip';
+    tip.textContent = '小贴士：孩子讲错时，先说"这个思路有意思"，再一起找问题；讲对时追问一句"你是怎么想到的？"比表扬更有用。';
+    box.appendChild(tip);
   }
 
   function adviceText(s) {
@@ -96,6 +142,9 @@
     }
     if (s.knowledge.length) {
       text += ' 错题主要集中在：' + s.knowledge.slice(0, 3).map(function (k) { return k.name; }).join('、') + '。';
+    }
+    if (s.total > 0) {
+      text += ' 其中 ' + s.onePass + '/' + s.total + ' 题一次通过。具体怎么和孩子聊，可以看下面的沟通脚本。';
     }
     return text;
   }
@@ -165,6 +214,9 @@
       wbox.appendChild(div);
     });
 
+    // 沟通脚本
+    buildScripts(current.wrongs);
+
     // 最近练习记录
     var rbox = $('recentbox');
     rbox.innerHTML = '';
@@ -175,8 +227,11 @@
     recent.forEach(function (r) {
       var div = document.createElement('div');
       div.className = 'rec-row';
+      var okText = r.ok
+        ? ((r.attempts || 1) > 1 ? '✓ 试了' + (r.attempts || 1) + '次' : '✓ 一次通过')
+        : '✗ 做错';
       div.innerHTML =
-        '<span class="rec-ok ' + (r.ok ? 'ok' : 'no') + '">' + (r.ok ? '✓ 做对' : '✗ 做错') + '</span>' +
+        '<span class="rec-ok ' + (r.ok ? 'ok' : 'no') + '">' + okText + '</span>' +
         '<span class="rec-k">' + esc(r.knowledge || '综合') + '</span>' +
         '<span class="rec-t">' + fmtTime(r.ts) + '</span>';
       rbox.appendChild(div);

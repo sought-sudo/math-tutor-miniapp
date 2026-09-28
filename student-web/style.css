@@ -140,6 +140,34 @@ textarea { resize: vertical; min-height: 72px; }
 
 .loading-line { text-align: center; color: #FF8A00; font-weight: 700; font-size: 15px; padding: 10px 0; }
 
+.step-tip {
+  background: #FFF4E0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #B26A00;
+  margin-top: 8px;
+}
+.step-ask {
+  background: #EEF4FF;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #3A7BFF;
+  margin-top: 8px;
+}
+
+.answer-feedback {
+  background: #FFF4E0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #B26A00;
+  margin-bottom: 12px;
+}
+
+.variant-btn { width: 100%; margin-top: 12px; }
+
 .explain-box .explain-reason {
   background: #FFF4E0;
   border-radius: 10px;
@@ -186,7 +214,6 @@ textarea { resize: vertical; min-height: 72px; }
 .w-ans.bad { color: #FF6B6B; text-decoration: line-through; }
 .w-ans.good { color: #14A98C; }
 .w-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-
 /* 家长端入口 */
 .code-card { text-align: center; background: linear-gradient(135deg, #FFC53D, #FF9F1C); color: #fff; box-shadow: 0 8px 20px rgba(255, 159, 28, 0.3); }
 .code-label { font-size: 12px; opacity: 0.95; }

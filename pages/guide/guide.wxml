@@ -26,6 +26,8 @@
         <view wx:if="{{index < revealed}}" class="step-body">
           <view class="step-title">{{item.title}}</view>
           <view class="step-content">{{item.content}}</view>
+          <view wx:if="{{item.tip}}" class="step-tip">📌 {{item.tip}}</view>
+          <view wx:if="{{item.ask}}" class="step-ask">🤔 想一想：{{item.ask}}</view>
         </view>
         <view wx:elif="{{index === revealed}}" class="step-locked">
           <view class="lock-text">💡 第 {{index + 1}} 步已准备好</view>
@@ -57,6 +59,7 @@
           value="{{userAnswer}}"
           placeholder="输入答案，不带单位也可以"
         />
+        <view wx:if="{{feedbackText}}" class="answer-feedback">💪 {{feedbackText}}</view>
         <view class="btn btn-primary" bindtap="onSubmit">提交答案</view>
       </block>
       <block wx:else>
@@ -86,6 +89,7 @@
         <view class="btn btn-primary" bindtap="onAgain">再来一题</view>
         <view class="btn btn-ghost" bindtap="onHome">回首页</view>
       </view>
+      <view wx:if="{{showVariant}}" class="btn btn-blue variant-btn" bindtap="onVariant">🧩 练一道变形题巩固</view>
     </view>
   </block>
 </view>
