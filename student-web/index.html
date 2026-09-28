@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>数学小助手 · 学生端</title>
-  <link rel="stylesheet" href="/student/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="wrap">
@@ -171,7 +171,31 @@
     </nav>
   </div>
 
-  <script src="/student/solver.js"></script>
-  <script src="/student/app.js"></script>
+  <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
+       两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
+  <script src="solver.js" onerror="window.__solverFailed = true"></script>
+  <script>
+    (function () {
+      function boot() {
+        var s = document.createElement('script');
+        s.src = 'app.js';
+        document.head.appendChild(s);
+      }
+      function fail() {
+        document.body.innerHTML =
+          '<p style="padding:40px;text-align:center;font-size:16px;color:#666">' +
+          '解题引擎加载失败：请先启动后端（双击 start-server.bat），再刷新本页。</p>';
+      }
+      if (window.__solverFailed) {
+        var s = document.createElement('script');
+        s.src = (location.protocol === 'file:' ? 'http://127.0.0.1:8787' : '') + '/student/solver.js';
+        s.onload = boot;
+        s.onerror = fail;
+        document.head.appendChild(s);
+      } else {
+        boot();
+      }
+    })();
+  </script>
 </body>
 </html>
