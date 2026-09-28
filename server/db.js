@@ -100,6 +100,23 @@ function getRetryRate(userId) {
   };
 }
 
+// 某用户当天（本地时区零点起）的行为事件，按时间升序
+function getTodayEvents(userId) {
+  if (!db) return [];
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const start = d.toISOString();
+  try {
+    const rows = db.prepare(
+      'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at ' +
+      'FROM learning_events WHERE user_id = ? AND created_at >= ? ORDER BY id'
+    ).all(userId, start);
+    return rows || [];
+  } catch (e) {
+    return [];
+  }
+}
+
 // 由题目文本生成稳定的 question_id
 function questionIdOf(problem) {
   if (!problem) return null;
@@ -114,6 +131,7 @@ module.exports = {
   init: init,
   logEvent: logEvent,
   getRetryRate: getRetryRate,
+  getTodayEvents: getTodayEvents,
   questionIdOf: questionIdOf,
   EVENT_TYPES: EVENT_TYPES
 };

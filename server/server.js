@@ -33,6 +33,7 @@ const tutorEngine = require('./tutor-engine');
 const db = require('./db');
 const solver = require('../utils/solver');
 const deformService = require('./services/deformService');
+const reportService = require('./services/reportService');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
@@ -447,6 +448,24 @@ const server = http.createServer(async (req, res) => {
       }
       const m = db.getRetryRate(code);
       send(res, 200, { ok: true, totalWrong: m.totalWrong, retryAfterWrong: m.retryAfterWrong, retryRate: m.retryRate });
+      return;
+    }
+
+    // 家长报告：翻译报告 + 沟通脚本（读当天行为日志与错题）
+    if (req.method === 'GET' && req.url.indexOf('/api/report/') === 0) {
+      const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      if (!userId) throw new Error('缺少用户 id');
+      const events = db.getTodayEvents(userId);
+      const child = store.children[userId];
+      const facts = reportService.buildFacts(
+        userId,
+        child ? child.name : '孩子',
+        events,
+        child ? Object.keys(child.wrongs).map((k) => child.wrongs[k]) : []
+      );
+      const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+      const r = await reportService.generateReport(chatFn, facts);
+      send(res, 200, { ok: true, userId: userId, translated_report: r.translated_report, communication_script: r.communication_script });
       return;
     }
 

@@ -143,6 +143,23 @@ math-tutor-miniapp/
 
 当前仅存数据、返回数据，未做可视化。
 
+## 家长报告接口（翻译报告 + 沟通脚本）
+
+`GET /api/report/:userId`（`userId` 即孩子同步码）返回两段温暖文字：
+
+```json
+{
+  "ok": true,
+  "translated_report": "今天小明主动练习了数学……他没有放弃，继续试了下去，最后自己找到了方法。这说明他正在慢慢建立'遇到困难先尝试'的习惯。",
+  "communication_script": "饭后可以问问孩子：今天小狐老师有没有给你出那种需要动脑筋的题？你是怎么想到的？注意不要问'做对了几道'。"
+}
+```
+
+- **translated_report**：用家长能理解、不焦虑的语言描述今天的学习，**禁止"正确率 65%"这类冷数据**
+- **communication_script**：具体、可执行的饭后沟通建议
+- 数据来源：当天 `learning_events` 行为日志 + 错题本
+- 生成：DeepSeek（提示词：家庭教育沟通顾问，语言温暖、具体、可执行，不要笼统说"多鼓励"），未配置模型时由本地温言模板兜底（`server/services/reportService.js`）
+
 ## 错题变形服务（deformService）
 
 `server/services/deformService.js`：输入原题、知识点、错误类型，输出最多 3 道变形题 `{ stem, answer, knowledge_point, difficulty }`。
