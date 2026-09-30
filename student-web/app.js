@@ -324,7 +324,10 @@
   function addTutorBubble(text) {
     var div = document.createElement('div');
     div.className = 'bubble tutor';
-    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">' + esc(text).replace(/\n/g, '<br>') + '</div>';
+    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">' + esc(text).replace(/\n/g, '<br>') + '<span class="bubble-speak" title="朗读">🔊</span></div>';
+    div.querySelector('.bubble-speak').addEventListener('click', function () {
+      if (window.TTS) TTS.speak(text);
+    });
     $('chat-bubbles').appendChild(div);
     scrollChat();
   }
@@ -408,6 +411,13 @@
         }
       }
     }
+    // 奖励：打卡 + 变形题通关星星 +2
+    if (window.Rewards) {
+      Rewards.checkIn();
+      if (ex.masteredOriginal) Rewards.addStars(2);
+      rewardSync();
+    }
+    if (window.TTS) TTS.playCorrect();
   }
 
   function renderQuickReplies(list) {
@@ -458,6 +468,36 @@
       '读题时圈出数字和问题，思路就出来啦。',
       '每天闯几关，你就是数学小达人！'
     ]);
+    // 奖励与成长
+    if (window.Rewards) {
+      $('hero-stars').textContent = '⭐ ' + Rewards.stars();
+      $('hero-streak').textContent = '🔥 ' + (Rewards.streak() || 0) + ' 天';
+      var icons = Rewards.badges().map(function (id) {
+        return Rewards.BADGES[id] ? Rewards.BADGES[id].icon : '';
+      }).join(' ');
+      $('hero-badges').textContent = icons;
+    }
+    if (window.TTS) {
+      $('btn-sound').textContent = TTS.isMuted() ? '🔇' : '🔊';
+    }
+  }
+
+  function showBadgeToast(badge) {
+    if (!$('badge-toast')) return;
+    $('badge-toast-icon').textContent = badge.icon;
+    $('badge-toast-title').textContent = '解锁新徽章：' + badge.name + '！';
+    $('badge-toast-text').textContent = badge.desc;
+    $('badge-toast').style.display = 'block';
+    if (window.TTS) TTS.playUnlock();
+    clearTimeout(showBadgeToast._t);
+    showBadgeToast._t = setTimeout(function () {
+      $('badge-toast').style.display = 'none';
+    }, 2600);
+  }
+
+  function rewardSync() {
+    if (!window.Rewards) return;
+    syncSend('reward', { stars: Rewards.stars(), streak: Rewards.streak() });
   }
 
   // ---------------- 拍照识题 ----------------
@@ -924,6 +964,17 @@
       syncSend('wrong', { problem: item.problem, myAnswer: item.myAnswer, rightAnswer: item.rightAnswer, knowledge: item.knowledge, times: item.times });
     }
 
+    // 奖励：每日打卡 + 星星（变形题成功 +2），答对播放轻音效
+    if (window.Rewards) {
+      Rewards.checkIn();
+      if (correct) {
+        Rewards.addStars(task === 'variant' ? 2 : 1);
+        if (task === 'variant') Rewards.unlock('variant_hero');
+        rewardSync();
+      }
+    }
+    if (correct && window.TTS) TTS.playCorrect();
+
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'block';
     $('guide-result').className = 'card result-card ' + (correct ? 'ok' : 'no');
@@ -947,6 +998,12 @@
     var all = getWrongs();
     $('wrong-active-count').textContent = all.filter(function (w) { return w.status === 'active'; }).length;
     $('wrong-mastered-count').textContent = all.filter(function (w) { return w.status === 'mastered'; }).length;
+    // 错题清零徽章
+    if (window.Rewards) {
+      var act = all.filter(function (w) { return w.status === 'active'; }).length;
+      var mas = all.filter(function (w) { return w.status === 'mastered'; }).length;
+      if (act === 0 && mas > 0) Rewards.unlock('wrong_clear');
+    }
     $('tab-active').classList.toggle('on', wrongTab === 'active');
     $('tab-mastered').classList.toggle('on', wrongTab === 'mastered');
     var list = all.filter(function (w) { return w.status === wrongTab; });
@@ -1100,6 +1157,17 @@
   $('chat-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') sendChat($('chat-input').value);
   });
+
+  // 语音与奖励
+  $('btn-sound').addEventListener('click', function () {
+    if (!window.TTS) return;
+    TTS.setMuted(!TTS.isMuted());
+    $('btn-sound').textContent = TTS.isMuted() ? '🔇' : '🔊';
+  });
+  $('btn-speak-problem').addEventListener('click', function () {
+    if (window.TTS) TTS.speak($('guide-problem').textContent);
+  });
+  if (window.Rewards) Rewards.onBadge(showBadgeToast);
 
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });
   $('tab-mastered').addEventListener('click', function () { wrongTab = 'mastered'; refreshWrong(); });

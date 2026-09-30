@@ -466,7 +466,9 @@ function buildSystemPrompt(sess, check) {
     '3. 学生连续 2 次答案错误：主动降低难度，换一道更简单的同类题（转 DEFORM）。\n' +
     '4. 学生说"我不会"：先缩小问题，只问第一步。\n' +
     '5. 学生说"直接告诉我答案"：回应"我先帮你，但你先说第一步，我们一起做"。\n' +
-    '6. 状态转移必须合法：' + (TRANSITIONS[sess.state] || []).join('、') + '（也可停留在当前状态）。\n\n' +
+    '6. 状态转移必须合法：' + (TRANSITIONS[sess.state] || []).join('、') + '（也可停留在当前状态）。\n' +
+    '7. VERIFY 状态：学生解释清楚后立即进入下一状态，同一问题不要问第二遍。\n' +
+    '8. DEFORM 状态：不要自己出题，题目由系统提供，你只需鼓励和陪伴孩子作答。\n\n' +
     '# 本题信息\n题目：' + sess.problem + '\n知识点：' + sess.knowledge +
     (sess.displayAnswer ? '\n正确答案（仅用于判断学生对错，严禁在兜底前透露）：' + sess.displayAnswer : '') +
     (sess.myAnswer ? '\n学生上次写错的答案：' + sess.myAnswer : '') +

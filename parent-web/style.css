@@ -175,3 +175,12 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
   color: #B26A00;
   line-height: 1.7;
 }
+.stars-line {
+  background: linear-gradient(135deg, #FFF3D6, #FFE9C0);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #B26A00;
+  margin-bottom: 10px;
+}

@@ -146,6 +146,9 @@ function handleSync(body) {
     });
   } else if (type === 'name') {
     child.name = data.name || child.name;
+  } else if (type === 'reward') {
+    child.stars = data.stars || 0;
+    child.streak = data.streak || 0;
   } else {
     throw new Error('未知同步类型：' + type);
   }
@@ -534,7 +537,9 @@ const server = http.createServer(async (req, res) => {
         child: {
           name: child.name,
           records: child.records.slice(-200),
-          wrongs: Object.keys(child.wrongs).map((k) => child.wrongs[k])
+          wrongs: Object.keys(child.wrongs).map((k) => child.wrongs[k]),
+          stars: child.stars || 0,
+          streak: child.streak || 0
         }
       });
       return;

@@ -15,6 +15,12 @@
         <div>
           <div class="hello" id="home-greet">你好，小数学家！</div>
           <div class="sub">今天也要坚持练习哦 🦁</div>
+          <div class="hero-stats">
+            <span id="hero-stars">⭐ 0</span>
+            <span id="hero-streak">🔥 0 天</span>
+            <button class="sound-btn" id="btn-sound" title="声音开关">🔊</button>
+          </div>
+          <div class="hero-badges" id="hero-badges"></div>
         </div>
         <div class="hero-icon">🦁</div>
       </div>
@@ -74,7 +80,10 @@
       <div id="retry-banner" class="retry-banner" style="display:none">💪 错题重练：认真想一想，这次一定能做对！</div>
       <div class="card problem-card">
         <div class="tag" id="guide-knowledge"></div>
-        <div class="problem-text" id="guide-problem"></div>
+        <div class="problem-row">
+          <div class="problem-text" id="guide-problem"></div>
+          <button class="speak-btn" id="btn-speak-problem" title="朗读题目">🔊</button>
+        </div>
         <div class="note" id="guide-note" style="display:none"></div>
       </div>
 
@@ -204,6 +213,13 @@
       </div>
     </section>
 
+    <!-- 徽章解锁提示 -->
+    <div class="badge-toast" id="badge-toast" style="display:none">
+      <div class="bt-icon" id="badge-toast-icon">🏅</div>
+      <div class="bt-title" id="badge-toast-title"></div>
+      <div class="bt-text" id="badge-toast-text"></div>
+    </div>
+
     <!-- 底部导航（引导页隐藏） -->
     <nav class="nav" id="bottom-nav">
       <div class="nav-item on" data-nav="home"><div class="nav-icon">🏠</div><div class="nav-label">首页</div></div>
@@ -213,6 +229,8 @@
     </nav>
   </div>
 
+  <script src="js/tts.js"></script>
+  <script src="js/rewards.js"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
   <script src="solver.js" onerror="window.__solverFailed = true"></script>

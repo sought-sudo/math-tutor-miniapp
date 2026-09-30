@@ -216,6 +216,12 @@
 
     // 沟通脚本
     buildScripts(current.wrongs);
+    if (current.stars > 0 || current.streak > 0) {
+      $('child-stars').textContent = '⭐ ' + current.name + ' 已获得 ' + current.stars + ' 颗星 · 连续练习 ' + current.streak + ' 天';
+      $('child-stars').style.display = 'block';
+    } else {
+      $('child-stars').style.display = 'none';
+    }
 
     // 最近练习记录
     var rbox = $('recentbox');
@@ -261,7 +267,9 @@
           name: res.child.name,
           code: code,
           records: res.child.records || [],
-          wrongs: res.child.wrongs || []
+          wrongs: res.child.wrongs || [],
+          stars: res.child.stars || 0,
+          streak: res.child.streak || 0
         };
         localStorage.setItem(LS_CODE, code);
         render();

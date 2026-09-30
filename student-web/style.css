@@ -82,6 +82,25 @@ textarea { resize: vertical; min-height: 72px; }
   font-size: 46px;
   animation: bob 2.6s ease-in-out infinite;
 }
+.hero-stats { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.hero-stats span {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.sound-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+  cursor: pointer;
+  line-height: 1;
+}
+.hero-badges { margin-top: 8px; font-size: 18px; letter-spacing: 6px; min-height: 20px; }
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-7px); }
@@ -150,6 +169,19 @@ textarea { resize: vertical; min-height: 72px; }
 .retry-banner { background: #E8F8F2; color: #14A98C; border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
 .problem-card { border-left: 6px solid #FFB400; }
 .problem-text { font-size: 17px; font-weight: 700; margin-top: 8px; line-height: 1.7; }
+.problem-row { display: flex; align-items: flex-start; }
+.problem-row .problem-text { flex: 1; }
+.speak-btn {
+  flex-shrink: 0;
+  border: none;
+  background: #FFF4E0;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 8px 0 0 8px;
+}
 
 .progress { margin-bottom: 12px; }
 .progress-track {
@@ -408,6 +440,14 @@ textarea { resize: vertical; min-height: 72px; }
   border-radius: 16px 16px 4px 16px;
 }
 .bubble.typing .bubble-text { color: #999; }
+.bubble-speak {
+  display: inline-block;
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.7;
+}
+.bubble-speak:active { transform: scale(0.9); }
 
 .chat-card {
   background: #fff;
@@ -427,19 +467,21 @@ textarea { resize: vertical; min-height: 72px; }
 .cc-review { font-size: 12px; color: #FF8A00; margin-bottom: 12px; }
 .complete-card .result-row { margin-top: 4px; }
 
-.chat-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 12px; }
+.chat-quick { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0 12px; }
 .qr-btn {
   background: #fff;
   border: 1px solid #FFD08A;
   color: #FF8A00;
   border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  box-shadow: 0 2px 8px rgba(255, 159, 28, 0.12);
+  transition: transform 0.12s ease;
 }
-.qr-btn:active { transform: scale(0.96); }
+.qr-btn:active { transform: scale(0.94); }
 
 .chat-input-row {
   position: fixed;
@@ -456,3 +498,23 @@ textarea { resize: vertical; min-height: 72px; }
   border-radius: 20px 20px 0 0;
 }
 .chat-input-row input { flex: 1; }
+
+/* 徽章解锁提示 */
+.badge-toast {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #FFF3D6, #FFE4A8);
+  border: 2px solid #FFC53D;
+  border-radius: 16px;
+  padding: 14px 22px;
+  text-align: center;
+  z-index: 300;
+  max-width: 86%;
+  box-shadow: 0 8px 24px rgba(255, 159, 28, 0.35);
+  animation: pop 0.35s ease;
+}
+.bt-icon { font-size: 30px; }
+.bt-title { font-weight: 800; color: #B26A00; font-size: 15px; margin-top: 2px; }
+.bt-text { font-size: 12px; color: #8a5a00; margin-top: 2px; }
