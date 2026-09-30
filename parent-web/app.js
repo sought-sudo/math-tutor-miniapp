@@ -208,7 +208,7 @@
 
     var s = computeStats(current.records, current.wrongs);
     $('child-title').textContent = current.name + ' 的学习进度';
-    $('child-code').textContent = '同步码 ' + current.code;
+    $('child-code').textContent = '同步码 ' + current.code + (current.unitLabel ? ' · 练习单元：' + current.unitLabel : '');
     $('stat-week').textContent = s.week;
     $('stat-acc').textContent = s.accuracy === null ? '--' : Math.round(s.accuracy * 100) + '%';
     $('stat-active').textContent = s.activeCount;
@@ -322,7 +322,8 @@
           records: res.child.records || [],
           wrongs: res.child.wrongs || [],
           stars: res.child.stars || 0,
-          streak: res.child.streak || 0
+          streak: res.child.streak || 0,
+          unitLabel: res.child.unitLabel || ''
         };
         localStorage.setItem(LS_CODE, code);
         render();

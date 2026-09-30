@@ -14,10 +14,23 @@ Page({
 
   refresh() {
     const all = storage.getWrongBook();
+    const actives = all.filter((i) => i.status === 'active');
+    const mastered = all.filter((i) => i.status === 'mastered');
     this.setData({
-      actives: all.filter((i) => i.status === 'active'),
-      mastered: all.filter((i) => i.status === 'mastered')
+      actives: actives,
+      mastered: mastered,
+      activeGroups: this.groupBy(actives),
+      masteredGroups: this.groupBy(mastered)
     });
+  },
+
+  groupBy(list) {
+    const map = {};
+    list.forEach((i) => {
+      const k = i.knowledge || '综合';
+      (map[k] = map[k] || []).push(i);
+    });
+    return Object.keys(map).map((k) => ({ knowledge: k, items: map[k] }));
   },
 
   switchTab(e) {

@@ -47,6 +47,12 @@
         <div class="tip-title">💡 今日小贴士</div>
         <div class="tip-text" id="home-tip"></div>
       </div>
+
+      <div class="card unit-card">
+        <div class="label">📖 练习单元（教材同步）</div>
+        <select id="unit-select"></select>
+        <div class="note">选一个单元，练习就会集中在这个单元的知识点；选"全部"则按你的薄弱点智能出题。</div>
+      </div>
     </section>
 
     <!-- 拍照识题 -->
@@ -55,7 +61,10 @@
       <input type="file" id="alb-file" accept="image/*" style="display:none">
       <div class="camera-box" id="camera-box">
         <img id="camera-img" alt="" style="display:none">
-        <div class="camera-ph" id="camera-ph"><span class="cam-emoji">📷</span>把题目拍进框里哦</div>
+        <div class="camera-guide" id="camera-guide">
+          <i class="cg cg-tl"></i><i class="cg cg-tr"></i><i class="cg cg-bl"></i><i class="cg cg-br"></i>
+          <span class="cam-emoji">📷</span>横平竖直拍正<br>题目完整放进框里
+        </div>
       </div>
       <div class="scanning" id="camera-scan" style="display:none">🔍 小助手正在认题…</div>
       <div class="tip-line" id="camera-tip">📐 光线亮一点，拍清楚整道题</div>
@@ -149,6 +158,9 @@
         <div class="tab on" id="tab-active">待复习</div>
         <div class="tab" id="tab-mastered">已掌握</div>
       </div>
+      <div class="wrong-tools">
+        <button class="btn btn-ghost btn-sm" id="btn-print-wrong">🖨️ 打印错题本</button>
+      </div>
       <div id="wrong-list"></div>
       <button class="btn btn-ghost" id="btn-clear-mastered" style="display:none">清空已掌握</button>
     </section>
@@ -231,6 +243,7 @@
 
   <script src="js/tts.js"></script>
   <script src="js/rewards.js"></script>
+  <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
   <script src="solver.js" onerror="window.__solverFailed = true"></script>

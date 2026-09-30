@@ -32,6 +32,7 @@ const path = require('path');
 const tutorEngine = require('./tutor-engine');
 const db = require('./db');
 const solver = require('../utils/solver');
+const curriculum = require('../utils/curriculum');
 const deformService = require('./services/deformService');
 const reportService = require('./services/reportService');
 const rateLimit = require('./rateLimit');
@@ -46,6 +47,7 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 const PARENT_DIR = path.join(__dirname, '..', 'parent-web');
 const STUDENT_DIR = path.join(__dirname, '..', 'student-web');
 const SOLVER_FILE = path.join(__dirname, '..', 'utils', 'solver.js');
+const CURRICULUM_FILE = path.join(__dirname, '..', 'utils', 'curriculum.js');
 
 // ---------------- 数据存储（JSON 文件） ----------------
 
@@ -171,6 +173,8 @@ function handleSync(body) {
   } else if (type === 'reward') {
     child.stars = data.stars || 0;
     child.streak = data.streak || 0;
+  } else if (type === 'unit') {
+    child.unit = data.unit || '';
   } else {
     throw new Error('未知同步类型：' + type);
   }
@@ -212,8 +216,23 @@ const MIME = {
   '.svg': 'image/svg+xml'
 };
 
-function serveStatic(res, urlPath, dir, prefix) {
-  let rel = decodeURIComponent(urlPath.replace(prefix, ''));
+// 提供 utils 目录下的共享 JS（学生端浏览器直接引用）
+function serveUtilFile(res, file) {
+  fs.readFile(file, (err, buf) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found');
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(buf);
+  });
+}
+
+function serveStatic(res, urlPath, dir, prefix) {  let rel = decodeURIComponent(urlPath.replace(prefix, ''));
   if (!rel) rel = 'index.html';
   rel = rel.split('?')[0].split('#')[0];
   const file = path.normalize(path.join(dir, rel));
@@ -594,7 +613,9 @@ const server = http.createServer(async (req, res) => {
           records: child.records.slice(-200),
           wrongs: Object.keys(child.wrongs).map((k) => child.wrongs[k]),
           stars: child.stars || 0,
-          streak: child.streak || 0
+          streak: child.streak || 0,
+          unit: child.unit || '',
+          unitLabel: child.unit ? curriculum.unitLabel(child.unit) : ''
         }
       });
       return;
@@ -617,18 +638,12 @@ const server = http.createServer(async (req, res) => {
     }
     // 学生端共用 utils/solver.js 解题引擎
     if (req.url === '/student/solver.js') {
-      fs.readFile(SOLVER_FILE, (err, buf) => {
-        if (err) {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('404 Not Found');
-          return;
-        }
-        res.writeHead(200, {
-          'Content-Type': 'application/javascript; charset=utf-8',
-          'Access-Control-Allow-Origin': '*'
-        });
-        res.end(buf);
-      });
+      serveUtilFile(res, SOLVER_FILE);
+      return;
+    }
+    // 学生端共用 utils/curriculum.js 教材目录
+    if (req.url === '/student/curriculum.js') {
+      serveUtilFile(res, CURRICULUM_FILE);
       return;
     }
     if (req.url.indexOf('/student/') === 0) {

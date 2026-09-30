@@ -233,6 +233,64 @@
     return masteryCache[0].knowledge_point;
   }
 
+  // ---------------- 教材同步单元选择 ----------------
+
+  var currentUnit = storeStr('stu_unit', '');
+
+  function unitKnowledgePool() {
+    if (!currentUnit || !window.Curriculum) return null;
+    var u = window.Curriculum.unitById(currentUnit);
+    return u ? u.knowledge : null;
+  }
+
+  function initUnitSelect() {
+    var sel = $('unit-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    var allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = '全部知识点（按薄弱点智能出题）';
+    sel.appendChild(allOpt);
+    if (window.Curriculum && window.Curriculum.CURRICULUM) {
+      var books = {};
+      window.Curriculum.CURRICULUM.forEach(function (u) {
+        (books[u.book] = books[u.book] || []).push(u);
+      });
+      Object.keys(books).forEach(function (book) {
+        var g = document.createElement('optgroup');
+        g.label = book;
+        books[book].forEach(function (u) {
+          var o = document.createElement('option');
+          o.value = u.id;
+          o.textContent = u.unit + ' ' + u.title;
+          g.appendChild(o);
+        });
+        sel.appendChild(g);
+      });
+    }
+    sel.value = currentUnit;
+  }
+
+  // 从候选知识点池中按薄弱加权选一个（无掌握度数据则随机）
+  function pickWeakInPool(pool) {
+    var cands = masteryCache ? masteryCache.filter(function (m) { return pool.indexOf(m.knowledge_point) > -1; }) : [];
+    if (!cands.length || Math.random() < 0.3) {
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    var total = 0;
+    var weights = cands.map(function (m) {
+      var w = Math.max(1, 100 - m.score);
+      total += w;
+      return w;
+    });
+    var r = Math.random() * total;
+    for (var i = 0; i < cands.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return cands[i].knowledge_point;
+    }
+    return cands[0].knowledge_point;
+  }
+
   // ---------------- 对话式 AI 辅导（引导式状态机） ----------------
 
   var chat = { sessionId: '', state: '', busy: false, ctx: null };
@@ -552,7 +610,7 @@
     var img = $('camera-img');
     img.src = url;
     img.style.display = 'block';
-    $('camera-ph').style.display = 'none';
+    $('camera-guide').style.display = 'none';
     $('recog-card').style.display = 'block';
     $('recog-note').style.display = 'none';
     $('recog-input').value = '';
@@ -609,6 +667,12 @@
   function newPractice() {
     guide = null;
     beginPracticeSession();
+    var pool = unitKnowledgePool();
+    if (pool) {
+      // 已选教材单元：单元内薄弱优先（或随机）
+      applyResult(S.generateByKnowledge(pickWeakInPool(pool)), { retry: false, task: 'practice' });
+      return;
+    }
     var weak = pickWeakKnowledge();
     if (weak) {
       applyResult(S.generateByKnowledge(weak), { retry: false, task: 'practice' });
@@ -1071,29 +1135,40 @@
       return;
     }
 
+    // 按知识点分组展示
+    var groups = {};
     list.forEach(function (item) {
-      var div = document.createElement('div');
-      div.className = 'card wrong-item' + (item.status === 'mastered' ? ' mastered-item' : '');
-      var top = item.status === 'mastered'
-        ? '✓ ' + esc(item.masteredAt || '') + ' 掌握'
-        : '错 ' + item.times + ' 次 · ' + esc(item.lastAt || '');
-      var btns = item.status === 'active'
-        ? '<button class="btn btn-primary btn-sm w-btn" data-act="lesson">重新学习</button>' +
-          '<button class="btn btn-green btn-sm w-btn" data-act="variant">变形题</button>' +
-          '<button class="btn btn-ghost btn-sm w-btn" data-act="master">掌握啦</button>' +
-          '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>'
-        : '<button class="btn btn-blue btn-sm w-btn" data-act="lesson">重新学习</button>' +
-          '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
-      div.innerHTML =
-        '<div class="w-top"><div class="tag">' + esc(item.knowledge) + '</div><div class="w-times">' + top + '</div></div>' +
-        '<div class="w-problem">' + esc(item.problem) + '</div>' +
-        '<div class="w-ans bad">✗ 我的答案：' + esc(item.myAnswer) + '</div>' +
-        '<div class="w-ans good">✓ 正确答案：' + esc(item.rightAnswer) + '</div>' +
-        '<div class="w-btns">' + btns + '</div>';
-      div.querySelectorAll('[data-act]').forEach(function (b) {
-        b.addEventListener('click', function () { wrongAction(b.dataset.act, item); });
+      var k = item.knowledge || '综合';
+      (groups[k] = groups[k] || []).push(item);
+    });
+    Object.keys(groups).forEach(function (k) {
+      var head = document.createElement('div');
+      head.className = 'wg-head';
+      head.innerHTML = '<span class="tag">' + esc(k) + '</span><span class="w-times">' + groups[k].length + ' 道</span>';
+      box.appendChild(head);
+      groups[k].forEach(function (item) {
+        var div = document.createElement('div');
+        div.className = 'card wrong-item' + (item.status === 'mastered' ? ' mastered-item' : '');
+        var top = item.status === 'mastered'
+          ? '✓ ' + esc(item.masteredAt || '') + ' 掌握'
+          : '错 ' + item.times + ' 次 · ' + esc(item.lastAt || '');
+        var btns = item.status === 'active'
+          ? '<button class="btn btn-primary btn-sm w-btn" data-act="lesson">重新学习</button>' +
+            '<button class="btn btn-green btn-sm w-btn" data-act="variant">变形题</button>' +
+            '<button class="btn btn-ghost btn-sm w-btn" data-act="master">掌握啦</button>' +
+            '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>'
+          : '<button class="btn btn-blue btn-sm w-btn" data-act="lesson">重新学习</button>' +
+            '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
+        div.innerHTML =
+          '<div class="w-problem">' + esc(item.problem) + '</div>' +
+          '<div class="w-ans bad">✗ 我的答案：' + esc(item.myAnswer) + '</div>' +
+          '<div class="w-ans good">✓ 正确答案：' + esc(item.rightAnswer) + '</div>' +
+          '<div class="w-btns">' + btns + '</div>';
+        div.querySelectorAll('[data-act]').forEach(function (b) {
+          b.addEventListener('click', function () { wrongAction(b.dataset.act, item); });
+        });
+        box.appendChild(div);
       });
-      box.appendChild(div);
     });
   }
 
@@ -1219,6 +1294,23 @@
   });
   if (window.Rewards) Rewards.onBadge(showBadgeToast);
 
+  // 教材单元选择
+  $('unit-select').addEventListener('change', function () {
+    currentUnit = this.value;
+    storeSetStr('stu_unit', currentUnit);
+    syncSend('unit', { unit: currentUnit });
+  });
+
+  // 打印错题本（打印样式见 style.css 的 @media print）
+  $('btn-print-wrong').addEventListener('click', function () {
+    document.body.classList.add('printing-wrong');
+    window.addEventListener('afterprint', function h() {
+      document.body.classList.remove('printing-wrong');
+      window.removeEventListener('afterprint', h);
+    });
+    window.print();
+  });
+
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });
   $('tab-mastered').addEventListener('click', function () { wrongTab = 'mastered'; refreshWrong(); });
   $('btn-clear-mastered').addEventListener('click', function () {
@@ -1253,6 +1345,7 @@
   refreshSamples();
   refreshStatus();
   refreshMastery();
+  initUnitSelect();
   refreshHome();
   showView('home');
 })();

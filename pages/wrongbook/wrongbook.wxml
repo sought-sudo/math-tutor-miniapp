@@ -20,19 +20,21 @@
       <view class="empty">📭 还没有错题，太棒了！</view>
       <view class="empty-sub">做错的题会自动收进来，记得常来复习</view>
     </view>
-    <view wx:for="{{actives}}" wx:key="id" class="card wrong-item">
-      <view class="w-top">
+    <view wx:for="{{activeGroups}}" wx:key="knowledge" class="wrong-group">
+      <view class="wg-head">
         <view class="tag">{{item.knowledge}}</view>
-        <view class="w-times">错 {{item.times}} 次 · {{item.lastAt}}</view>
+        <view class="w-times">{{item.items.length}} 道</view>
       </view>
-      <view class="w-problem">{{item.problem}}</view>
-      <view class="w-ans bad">✗ 我的答案：{{item.myAnswer}}</view>
-      <view class="w-ans good">✓ 正确答案：{{item.rightAnswer}}</view>
-      <view class="w-btns">
-        <view class="btn btn-primary btn-small" data-id="{{item.id}}" bindtap="explain">重新学习</view>
-        <view class="btn btn-green btn-small" data-id="{{item.id}}" bindtap="variant">变形题</view>
-        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="master">掌握啦</view>
-        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="remove">删除</view>
+      <view wx:for="{{item.items}}" wx:for-item="it" wx:key="id" class="card wrong-item">
+        <view class="w-problem">{{it.problem}}</view>
+        <view class="w-ans bad">✗ 我的答案：{{it.myAnswer}}</view>
+        <view class="w-ans good">✓ 正确答案：{{it.rightAnswer}}</view>
+        <view class="w-btns">
+          <view class="btn btn-primary btn-small" data-id="{{it.id}}" bindtap="explain">重新学习</view>
+          <view class="btn btn-green btn-small" data-id="{{it.id}}" bindtap="variant">变形题</view>
+          <view class="btn btn-ghost btn-small" data-id="{{it.id}}" bindtap="master">掌握啦</view>
+          <view class="btn btn-ghost btn-small" data-id="{{it.id}}" bindtap="remove">删除</view>
+        </view>
       </view>
     </view>
   </block>
@@ -42,16 +44,18 @@
       <view class="empty">🌱 还没有掌握的错题</view>
       <view class="empty-sub">继续加油，做对的错题会出现在这里</view>
     </view>
-    <view wx:for="{{mastered}}" wx:key="id" class="card wrong-item mastered-item">
-      <view class="w-top">
+    <view wx:for="{{masteredGroups}}" wx:key="knowledge" class="wrong-group">
+      <view class="wg-head">
         <view class="tag">{{item.knowledge}}</view>
-        <view class="w-times">✓ {{item.masteredAt}} 掌握</view>
+        <view class="w-times">{{item.items.length}} 道</view>
       </view>
-      <view class="w-problem">{{item.problem}}</view>
-      <view class="w-ans good">✓ 正确答案：{{item.rightAnswer}}</view>
-      <view class="w-btns">
-        <view class="btn btn-blue btn-small" data-id="{{item.id}}" bindtap="explain">重新学习</view>
-        <view class="btn btn-ghost btn-small" data-id="{{item.id}}" bindtap="remove">删除</view>
+      <view wx:for="{{item.items}}" wx:for-item="it" wx:key="id" class="card wrong-item mastered-item">
+        <view class="w-problem">{{it.problem}}</view>
+        <view class="w-ans good">✓ 正确答案：{{it.rightAnswer}}</view>
+        <view class="w-btns">
+          <view class="btn btn-blue btn-small" data-id="{{it.id}}" bindtap="explain">重新学习</view>
+          <view class="btn btn-ghost btn-small" data-id="{{it.id}}" bindtap="remove">删除</view>
+        </view>
       </view>
     </view>
     <view wx:if="{{mastered.length}}" class="btn btn-ghost" bindtap="clearMastered">清空已掌握</view>

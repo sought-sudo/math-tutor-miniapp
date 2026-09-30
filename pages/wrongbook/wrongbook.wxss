@@ -97,3 +97,14 @@
 .mastered-item {
   opacity: 0.85;
 }
+
+.wrong-group {
+  margin-bottom: 8rpx;
+}
+
+.wg-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4rpx 8rpx 12rpx;
+}

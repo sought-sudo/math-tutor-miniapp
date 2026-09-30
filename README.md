@@ -172,6 +172,21 @@ math-tutor-miniapp/
 - 算法：`answer_correct`/`deformation_correct` 加分、`answer_wrong` 减分，**指数时间衰减**（半衰期 7 天，近期表现权重高）+ 拉普拉斯平滑
 - 应用：学生端「每日练习」按 **70% 薄弱优先 + 30% 随机**加权出题；家长端「各知识点掌握度」条形卡（绿≥80 / 黄 50-79 / 红 <50）；沟通脚本支持一键复制
 
+## 教材同步与错题本
+
+- **教材同步目录**：`utils/curriculum.js` 提供人教版四年级上/下册 8 个单元的目录（单元 → 知识点映射，覆盖全部题型）；学生端首页「练习单元」选择器（localStorage 记忆，家长端显示孩子当前单元），选定后每日练习集中在该单元知识点（单元内仍按薄弱优先）
+- **错题本**：按知识点分组展示（网页 + 小程序）；网页端支持「🖨️ 打印错题本」（打印样式只输出题目/答案）
+- **拍照识题真 OCR**：默认手动输入。要启用视觉识别，换用支持视觉的模型（如阿里云百炼）：
+
+  ```bat
+  set LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+  set LLM_API_KEY=百炼平台的key
+  set LLM_MODEL=qwen-plus
+  set OCR_MODEL=qwen-vl-plus
+  ```
+
+  拍照页已带取景引导（四角框 + 横平竖直提示）。
+
 ## 错题变形服务（deformService）
 
 `server/services/deformService.js`：输入原题、知识点、错误类型，输出最多 3 道变形题 `{ stem, answer, knowledge_point, difficulty }`。

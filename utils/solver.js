@@ -874,6 +874,14 @@ function getKnowledge(name) {
 function generateByKnowledge(knowledge) {
   const gen = VARIANT_MAP[knowledge];
   if (gen) {
+    // 小数的加法/减法共用同一生成器，重试直到命中对应知识点
+    for (let i = 0; i < 10; i++) {
+      const p = gen();
+      if (p.knowledge === knowledge) {
+        p.source = 'local';
+        return p;
+      }
+    }
     const p = gen();
     p.source = 'local';
     return p;
