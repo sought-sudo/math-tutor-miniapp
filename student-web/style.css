@@ -341,7 +341,7 @@ textarea { resize: vertical; min-height: 72px; }
 /* 家长端入口 */
 .code-card { text-align: center; background: linear-gradient(135deg, #FFC53D, #FF9F1C); color: #fff; box-shadow: 0 8px 20px rgba(255, 159, 28, 0.3); }
 .code-label { font-size: 13px; opacity: 0.95; font-weight: 700; }
-.code { font-size: 46px; font-weight: 800; letter-spacing: 8px; margin: 8px 0 14px; }
+.code { font-size: 34px; font-weight: 800; letter-spacing: 3px; margin: 8px 0 14px; word-break: break-all; }
 .code-card .btn { display: inline-flex; }
 .name-row { display: flex; gap: 10px; }
 .name-row input { flex: 1; }

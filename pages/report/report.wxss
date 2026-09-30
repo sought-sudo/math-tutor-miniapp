@@ -11,10 +11,11 @@
 }
 
 .code {
-  font-size: 88rpx;
+  font-size: 64rpx;
   font-weight: 800;
-  letter-spacing: 12rpx;
+  letter-spacing: 4rpx;
   margin: 12rpx 0 20rpx;
+  word-break: break-all;
 }
 
 .code-card .btn {

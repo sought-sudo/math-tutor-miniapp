@@ -199,11 +199,22 @@ const KEY_CODE = 'math_tutor_sync_code';
 const KEY_NAME = 'math_tutor_child_name';
 const KEY_LASTSYNC = 'math_tutor_last_sync';
 
-// 首次使用时生成一个 6 位同步码，之后保持不变（家长端凭它查看进度）
+// 同步码：老用户保留原来的 6 位数字码（继续有效）；
+// 新用户生成 12 位字母数字 token（去掉易混淆的 0/O/1/I，空间约 32^12）
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateToken(len) {
+  let s = '';
+  for (let i = 0; i < len; i++) {
+    s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  }
+  return s;
+}
+
 function getSyncCode() {
   let code = get(KEY_CODE, '');
   if (!code) {
-    code = String(Math.floor(100000 + Math.random() * 900000));
+    code = generateToken(12);
     set(KEY_CODE, code);
   }
   return code;

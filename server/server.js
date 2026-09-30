@@ -34,6 +34,7 @@ const db = require('./db');
 const solver = require('../utils/solver');
 const deformService = require('./services/deformService');
 const reportService = require('./services/reportService');
+const rateLimit = require('./rateLimit');
 
 const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
@@ -76,6 +77,27 @@ function nowStr() {
 }
 
 // ---------------- 同步处理 ----------------
+
+// 同步码格式：旧版 6 位数字，新版 12 位字母数字 token，两者都兼容
+function isValidCode(c) {
+  return typeof c === 'string' && /^[A-Za-z0-9]{6,32}$/.test(c);
+}
+
+// LLM 接口限流：按用户同步码（无码时按来源兜底），每分钟 N 次（可用环境变量覆盖）
+function llmRateLimit(res, kind, code) {
+  const limits = {
+    chat: Number(process.env.RATE_CHAT) || 30,
+    tutor: Number(process.env.RATE_TUTOR) || 10,
+    variant: Number(process.env.RATE_VARIANT) || 10,
+    ocr: Number(process.env.RATE_OCR) || 5
+  };
+  const key = kind + ':' + (code || 'anon');
+  if (!rateLimit.allow(key, limits[kind] || 10, 60000)) {
+    send(res, 429, { ok: false, error: '节奏太快啦，休息一分钟再继续吧 🌱' });
+    return false;
+  }
+  return true;
+}
 
 function handleSync(body) {
   const code = String(body.code || '').trim();
@@ -471,6 +493,10 @@ const server = http.createServer(async (req, res) => {
     // 学生端上报
     if (req.method === 'POST' && req.url === '/api/sync') {
       const body = JSON.parse((await readBody(req)) || '{}');
+      if (!isValidCode(body.code)) {
+        send(res, 400, { ok: false, error: '同步码格式不正确' });
+        return;
+      }
       handleSync(body);
       send(res, 200, { ok: true });
       return;
@@ -527,6 +553,10 @@ const server = http.createServer(async (req, res) => {
     // 家长端拉取
     if (req.method === 'GET' && req.url.indexOf('/api/child/') === 0) {
       const code = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      if (!isValidCode(code)) {
+        send(res, 404, { ok: false, error: '未找到该同步码，请确认输入正确' });
+        return;
+      }
       const child = store.children[code];
       if (!child) {
         send(res, 404, { ok: false, error: '未找到该同步码，请确认输入正确' });
@@ -600,6 +630,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/tutor-chat') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem && !body.sessionId) throw new Error('缺少题目或会话 id');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
       const out = await tutorChatStep(body);
       send(res, 200, Object.assign({ ok: true }, out));
       return;
@@ -609,6 +640,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/tutor') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem) throw new Error('缺少参数 problem');
+      if (!llmRateLimit(res, 'tutor', body.code)) return;
       const wrongMode = body.mode === 'wrong';
 
       // 判错模式：讲解失败也保证有输出，并自动生成一道变形题作为下一题返回
@@ -680,6 +712,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/variant') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.problem) throw new Error('缺少参数 problem');
+      if (!llmRateLimit(res, 'variant', body.code)) return;
       const userMsg =
         '原题：' + body.problem + '\n知识点：' + (body.knowledge || '未知') +
         '\n请生成一道换过数字/情境的变形题（难度相同），并分步讲解。';
@@ -702,6 +735,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/ocr') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.image) throw new Error('缺少参数 image(base64)');
+      if (!llmRateLimit(res, 'ocr', body.code)) return;
       const content = await chat(
         [
           { role: 'system', content: OCR_SYSTEM },
@@ -730,6 +764,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   db.init();
+  setInterval(() => rateLimit.sweep(), 5 * 60 * 1000).unref();
   console.log('数学辅导后端已启动：http://127.0.0.1:' + PORT);
   console.log('学生端网页：http://127.0.0.1:' + PORT + '/student');
   console.log('家长端网页：http://127.0.0.1:' + PORT + '/parent');

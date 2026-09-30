@@ -56,10 +56,17 @@
     storeSet(KEY.records, list.slice(0, 200));
   }
 
+  // 同步码：老用户保留 6 位数字；新用户生成 12 位字母数字 token
+  var CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function token(len) {
+    var s = '';
+    for (var i = 0; i < len; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    return s;
+  }
   function getCode() {
     var code = storeStr(KEY.code, '');
     if (!code) {
-      code = String(Math.floor(100000 + Math.random() * 900000));
+      code = token(12);
       storeSetStr(KEY.code, code);
     }
     return code;

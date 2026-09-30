@@ -441,25 +441,33 @@ function reviewResponse(sess, prefix) {
 // ---------------- LLM 提示词构造与校验 ----------------
 
 function buildSystemPrompt(sess, check) {
-  const perState = STATE_ORDER
-    .map((s, i) => {
-      const d = STATE_MACHINE[s];
-      return (i + 1) + '. ' + s + '（' + d.label + '）\n' +
-        '进入：' + d.enter + '\n' +
-        '目标：' + d.goal + '\n' +
-        '允许：' + d.allowed.join('；') + '\n' +
-        '禁止：' + d.forbidden.join('；') + '\n' +
-        '话术：' + d.phrase + '\n' +
-        '退出：' + d.exit;
-    })
-    .join('\n\n');
+  // 默认只发当前状态定义（省 token）；设 LLM_FULL_SPEC=1 时发送全量十状态规范
+  const fullSpec = typeof process !== 'undefined' && process.env && process.env.LLM_FULL_SPEC === '1';
+  let stateSection;
+  if (fullSpec) {
+    stateSection = STATE_ORDER
+      .map((s, i) => {
+        const d = STATE_MACHINE[s];
+        return (i + 1) + '. ' + s + '（' + d.label + '）\n' +
+          '进入：' + d.enter + '\n目标：' + d.goal + '\n允许：' + d.allowed.join('；') +
+          '\n禁止：' + d.forbidden.join('；') + '\n话术：' + d.phrase + '\n退出：' + d.exit;
+      })
+      .join('\n\n');
+  } else {
+    const d = STATE_MACHINE[sess.state];
+    stateSection =
+      '状态机共 10 个状态，按序推进：' + STATE_ORDER.join(' → ') + '\n\n' +
+      '【当前状态定义】\n状态：' + sess.state + '（' + d.label + '）\n' +
+      '进入：' + d.enter + '\n目标：' + d.goal + '\n允许：' + d.allowed.join('；') +
+      '\n禁止：' + d.forbidden.join('；') + '\n话术：' + d.phrase + '\n退出：' + d.exit;
+  }
   let prompt =
     '# 角色\n你是小学三年级数学 AI 引导老师。\n\n' +
     '# 目标\n让学生自己思考、自己走完解题过程，而不是你讲给他听。\n\n' +
     '# 总原则\n- 先情绪，后内容\n- 先思路，后答案\n- 先小步，后完整\n\n' +
     '# 语言要求\n- 简短，一句话不超过 25 个字\n- 适合三年级学生阅读\n- 鼓励性，不评判\n- 不用成人术语\n\n' +
     '# 禁止\n- 不要说"这道题很简单"\n- 不要直接给最终答案\n- 不要一次问多个问题\n- 不要说"你粗心""你又错了"\n\n' +
-    '# 状态机（10 个状态，严格按当前状态的话术风格回应）\n' + perState + '\n\n' +
+    '# 状态机（严格按当前状态的话术风格回应）\n' + stateSection + '\n\n' +
     '# 核心规则（最高优先级）\n' +
     '1. 绝不直接给最终答案：只有学生尝试后、且走完 SCAFFOLD 全部分层提示仍不会时，才可作为兜底完整讲解并给出答案。\n' +
     '2. 一次只问一个问题；一次只给一层提示。\n' +
@@ -482,7 +490,7 @@ function buildSystemPrompt(sess, check) {
 }
 
 function buildUserMessage(sess, studentText, check) {
-  const hist = sess.history.slice(-6).map((h) => (h.role === 'tutor' ? '老师：' : '学生：') + h.text).join('\n');
+  const hist = sess.history.slice(-4).map((h) => (h.role === 'tutor' ? '老师：' : '学生：') + h.text).join('\n');
   return '对话记录：\n' + hist + '\n\n学生刚刚说：' + studentText;
 }
 

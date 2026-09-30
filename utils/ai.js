@@ -2,6 +2,7 @@
 
 const config = require('./config');
 const solver = require('./solver');
+const storage = require('./storage');
 
 function solve(problem) {
   return new Promise((resolve) => {
@@ -13,7 +14,7 @@ function solve(problem) {
       wx.request({
         url: config.llm.baseUrl.replace(/\/$/, '') + '/tutor',
         method: 'POST',
-        data: { problem: problem },
+        data: { problem: problem, code: storage.getSyncCode() },
         timeout: 20000,
         success: (res) => {
           const d = res.data || {};
@@ -72,7 +73,8 @@ function explain(problem, myAnswer, rightAnswer) {
           problem: problem,
           myAnswer: myAnswer,
           rightAnswer: rightAnswer,
-          mode: 'wrong'
+          mode: 'wrong',
+          code: storage.getSyncCode()
         },
         timeout: 20000,
         success: (res) => {
@@ -112,7 +114,7 @@ function variant(problem, knowledge) {
       wx.request({
         url: config.llm.baseUrl.replace(/\/$/, '') + '/variant',
         method: 'POST',
-        data: { problem: problem, knowledge: knowledge || '' },
+        data: { problem: problem, knowledge: knowledge || '', code: storage.getSyncCode() },
         timeout: 25000,
         success: (res) => {
           const d = res.data || {};
