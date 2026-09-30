@@ -26,8 +26,10 @@ function parseLoose(text) {
   return null;
 }
 
-// 把当天行为事件与错题汇总成"事实"（供 LLM 或兜底模板使用）
-function buildFacts(userId, name, events, wrongs) {
+// 把行为事件与错题汇总成"事实"（供 LLM 或兜底模板使用）
+// opts.periodLabel：报告时间范围的称呼（默认"今天"，周报传"最近 7 天"）
+function buildFacts(userId, name, events, wrongs, opts) {
+  const periodLabel = (opts && opts.periodLabel) || '今天';
   const knowledge = new Set();
   const wrongKnowledge = new Set();
   const sessions = new Set();
@@ -63,6 +65,7 @@ function buildFacts(userId, name, events, wrongs) {
   return {
     userId: userId,
     name: name || '孩子',
+    periodLabel: periodLabel,
     hasActivity: (events || []).length > 0,
     sessionCount: sessions.size,
     knowledgeList: Array.from(knowledge),
@@ -79,20 +82,20 @@ function buildFacts(userId, name, events, wrongs) {
 function buildUserMessage(facts) {
   const lines = [];
   lines.push('孩子昵称：' + facts.name);
-  lines.push('今天的学习记录：');
+  lines.push('学习记录（' + facts.periodLabel + '）：');
   lines.push('- 学习次数：' + facts.sessionCount + ' 次');
   lines.push('- 作答次数：' + facts.attempts + ' 次');
   lines.push('- 练习的知识点：' + (facts.knowledgeList.join('、') || '无记录'));
   lines.push('- 做错后继续尝试：' + facts.retries + ' 次');
   lines.push('- 变形题：完成 ' + facts.deformOk + ' / ' + facts.deformTotal);
   lines.push('- 大约用时：' + facts.durationMin + ' 分钟');
-  lines.push('今天的错题：');
+  lines.push('错题（' + facts.periodLabel + '）：');
   if (facts.wrongList.length) {
     facts.wrongList.forEach((w) => {
       lines.push('· ' + w.problem + '（孩子写：' + w.myAnswer + '；正确答案：' + w.rightAnswer + '）');
     });
   } else {
-    lines.push('（今天没有新错题）');
+    lines.push('（这段时间没有新错题）');
   }
   lines.push('要求：');
   lines.push('1. translated_report 用家长能理解、不焦虑的语言描述今天的学习，' +
@@ -109,13 +112,13 @@ function localFallback(facts) {
   if (!facts.hasActivity) {
     return {
       translated_report:
-        '今天' + facts.name + '还没有留下练习记录。没关系，学习从什么时候开始都不晚，' +
+        facts.periodLabel + '还没有留下练习记录。没关系，学习从什么时候开始都不晚，' +
         '也许明天从一道小题开始，就有了第一份成长记录。',
       communication_script:
         '饭后可以问问孩子：今天学校数学课上学了什么好玩的新知识？注意不要问"做对了几道"。'
     };
   }
-  let report = '今天' + facts.name + '主动练习了数学，和「' +
+  let report = facts.periodLabel + facts.name + '主动练习了数学，和「' +
     (facts.knowledgeList.join('、') || '不同题型') + '」打交道。';
   if (facts.wrongKnowledgeList.length) {
     report += '在「' + facts.wrongKnowledgeList.join('、') + '」上多花了一点时间，';

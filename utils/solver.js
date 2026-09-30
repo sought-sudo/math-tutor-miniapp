@@ -870,9 +870,21 @@ function getKnowledge(name) {
   return KNOWLEDGE_LIB[name] || KNOWLEDGE_LIB['综合'];
 }
 
+// 按知识点定向出题（掌握度薄弱优先练习用）；无匹配时退回随机题
+function generateByKnowledge(knowledge) {
+  const gen = VARIANT_MAP[knowledge];
+  if (gen) {
+    const p = gen();
+    p.source = 'local';
+    return p;
+  }
+  return generatePractice();
+}
+
 const solverApi = {
   solveText: solveText,
   generatePractice: generatePractice,
+  generateByKnowledge: generateByKnowledge,
   sampleProblems: sampleProblems,
   evaluate: evaluate,
   genericGuide: genericGuide,

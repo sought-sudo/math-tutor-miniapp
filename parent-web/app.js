@@ -99,6 +99,47 @@
     '长方形面积': '"长乘宽"算出来的是哪一块地方？单位写对了吗？'
   };
 
+  // 掌握度条形卡
+  function loadMastery(code) {
+    api('/api/mastery/' + encodeURIComponent(code)).then(function (res) {
+      if (!res.ok || !res.mastery) return;
+      var box = $('masterybox');
+      box.innerHTML = '';
+      if (!res.mastery.length) {
+        box.innerHTML = '<div class="empty">还没有足够数据，练几题后这里会出现掌握度</div>';
+        return;
+      }
+      res.mastery.forEach(function (m) {
+        var cls = m.score >= 80 ? 'good' : (m.score >= 50 ? 'mid' : 'weak');
+        var row = document.createElement('div');
+        row.className = 'krow';
+        row.innerHTML =
+          '<div class="kname">' + esc(m.knowledge_point) + '</div>' +
+          '<div class="ktrack"><div class="kfill ' + cls + '" style="width:' + Math.max(4, m.score) + '%"></div></div>' +
+          '<div class="kcount">' + m.score + '分</div>';
+        box.appendChild(row);
+      });
+    }).catch(function () {});
+  }
+
+  // 一键复制沟通脚本
+  function copyScript() {
+    var lines = [];
+    var empty = document.querySelector('#scriptbox .empty');
+    if (empty) lines.push(empty.textContent.replace(/\s+/g, ' ').trim());
+    document.querySelectorAll('.script-item').forEach(function (el) {
+      lines.push(el.textContent.replace(/\s+/g, ' ').trim());
+    });
+    var tip = document.querySelector('.script-tip');
+    if (tip) lines.push(tip.textContent.trim());
+    var text = lines.join('\n\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { alert('沟通脚本已复制，去粘贴给家里人吧 📋'); });
+    } else {
+      alert(text);
+    }
+  }
+
   function buildScripts(wrongs) {
     var actives = wrongs.filter(function (w) { return w.status === 'active'; })
       .sort(function (a, b) { return (b.times || 1) - (a.times || 1); })
@@ -107,6 +148,7 @@
     box.innerHTML = '';
     if (!actives.length) {
       box.innerHTML = '<div class="empty">🎉 没有待复习的错题。今晚可以问问孩子：今天数学练习里，哪道题最有意思？</div>';
+      appendTipAndCopy(box);
       return;
     }
     actives.forEach(function (w) {
@@ -119,10 +161,21 @@
         '<div class="script-a">听完孩子的思路再补充：正确答案是 ' + esc(w.rightAnswer) + '。多听思路，少直接给答案。</div>';
       box.appendChild(div);
     });
-    var tip = document.createElement('div');
-    tip.className = 'script-tip';
-    tip.textContent = '小贴士：孩子讲错时，先说"这个思路有意思"，再一起找问题；讲对时追问一句"你是怎么想到的？"比表扬更有用。';
-    box.appendChild(tip);
+    appendTipAndCopy(box, false);
+  }
+
+  function appendTipAndCopy(box, hasTip) {
+    if (!hasTip) {
+      var tip = document.createElement('div');
+      tip.className = 'script-tip';
+      tip.textContent = '小贴士：孩子讲错时，先说"这个思路有意思"，再一起找问题；讲对时追问一句"你是怎么想到的？"比表扬更有用。';
+      box.appendChild(tip);
+    }
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-ghost btn-sm copy-btn';
+    copyBtn.textContent = '📋 一键复制沟通脚本';
+    copyBtn.addEventListener('click', copyScript);
+    box.appendChild(copyBtn);
   }
 
   function adviceText(s) {
@@ -273,6 +326,7 @@
         };
         localStorage.setItem(LS_CODE, code);
         render();
+        loadMastery(code);
         // 行为日志：家长查看报告/沟通脚本
         fetch(apiBase + '/api/event', {
           method: 'POST',

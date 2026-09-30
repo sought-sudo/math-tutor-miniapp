@@ -159,6 +159,18 @@ math-tutor-miniapp/
 - **communication_script**：具体、可执行的饭后沟通建议
 - 数据来源：当天 `learning_events` 行为日志 + 错题本
 - 生成：DeepSeek（提示词：家庭教育沟通顾问，语言温暖、具体、可执行，不要笼统说"多鼓励"），未配置模型时由本地温言模板兜底（`server/services/reportService.js`）
+- 周报：`GET /api/report/:userId?period=week` 返回最近 7 天聚合
+
+## 掌握度接口
+
+`GET /api/mastery/:userId` 返回各知识点掌握度（0-100 分，薄弱在前）：
+
+```json
+{ "ok": true, "mastery": [ { "knowledge_point": "小数的加法", "score": 42, "attempts": 5, "lastAt": "…" } ] }
+```
+
+- 算法：`answer_correct`/`deformation_correct` 加分、`answer_wrong` 减分，**指数时间衰减**（半衰期 7 天，近期表现权重高）+ 拉普拉斯平滑
+- 应用：学生端「每日练习」按 **70% 薄弱优先 + 30% 随机**加权出题；家长端「各知识点掌握度」条形卡（绿≥80 / 黄 50-79 / 红 <50）；沟通脚本支持一键复制
 
 ## 错题变形服务（deformService）
 

@@ -102,16 +102,69 @@ function getRetryRate(userId) {
 
 // 某用户当天（本地时区零点起）的行为事件，按时间升序
 function getTodayEvents(userId) {
-  if (!db) return [];
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  const start = d.toISOString();
+  return getEventsSince(userId, d.toISOString());
+}
+
+// 某用户自某个时间点以来的行为事件
+function getEventsSince(userId, sinceIso) {
+  if (!db) return [];
   try {
     const rows = db.prepare(
       'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at ' +
       'FROM learning_events WHERE user_id = ? AND created_at >= ? ORDER BY id'
-    ).all(userId, start);
+    ).all(userId, sinceIso);
     return rows || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// ---------------- 掌握度计算 ----------------
+// 纯函数（便于单测）：指数时间衰减（半衰期 7 天，近期表现权重高）+ 拉普拉斯平滑
+// 输出按分数升序（薄弱在前）：[{ knowledge_point, score(0-100), attempts, lastAt }]
+function computeMastery(events) {
+  const now = Date.now();
+  const map = {};
+  (events || []).forEach((ev) => {
+    const k = ev.knowledge_point;
+    if (!k) return;
+    const isCorrect = ev.event_type === 'answer_correct' || ev.event_type === 'deformation_correct';
+    const isWrong = ev.event_type === 'answer_wrong';
+    if (!isCorrect && !isWrong) return;
+    const ageDays = Math.max(0, (now - new Date(ev.created_at).getTime()) / 86400000);
+    const w = Math.exp(-ageDays / 7);
+    const m = map[k] || (map[k] = { correctSum: 0, wrongSum: 0, attempts: 0, lastTs: 0 });
+    m.attempts++;
+    if (isCorrect) m.correctSum += w;
+    else m.wrongSum += w;
+    const ts = new Date(ev.created_at).getTime();
+    if (ts > m.lastTs) m.lastTs = ts;
+  });
+  return Object.keys(map)
+    .map((k) => {
+      const m = map[k];
+      const rate = (m.correctSum + 1) / (m.correctSum + m.wrongSum + 2);
+      return {
+        knowledge_point: k,
+        score: Math.round(rate * 100),
+        attempts: m.attempts,
+        lastAt: new Date(m.lastTs).toISOString()
+      };
+    })
+    .sort((a, b) => a.score - b.score);
+}
+
+// 某用户各知识点掌握度（薄弱在前）
+function getMastery(userId) {
+  if (!db) return [];
+  try {
+    const rows = db.prepare(
+      "SELECT event_type, knowledge_point, created_at FROM learning_events " +
+      "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct')"
+    ).all(userId);
+    return computeMastery(rows || []);
   } catch (e) {
     return [];
   }
@@ -132,6 +185,9 @@ module.exports = {
   logEvent: logEvent,
   getRetryRate: getRetryRate,
   getTodayEvents: getTodayEvents,
+  getEventsSince: getEventsSince,
+  getMastery: getMastery,
+  computeMastery: computeMastery,
   questionIdOf: questionIdOf,
   EVENT_TYPES: EVENT_TYPES
 };

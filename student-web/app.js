@@ -197,6 +197,42 @@
     return S.solveText(problem) || S.genericGuide(problem);
   }
 
+  // ---------------- 掌握度（薄弱优先出题） ----------------
+
+  var masteryCache = null;
+
+  function refreshMastery() {
+    var base = getApiBase();
+    if (!syncOn()) {
+      masteryCache = null;
+      return;
+    }
+    fetch(base + '/api/mastery/' + encodeURIComponent(getCode()))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        masteryCache = j && j.ok && Array.isArray(j.mastery) ? j.mastery : null;
+      })
+      .catch(function () { masteryCache = null; });
+  }
+
+  // 70% 按薄弱加权选题，30% 随机（无数据时返回 null → 随机）
+  function pickWeakKnowledge() {
+    if (!masteryCache || !masteryCache.length) return null;
+    if (Math.random() < 0.3) return null;
+    var total = 0;
+    var weights = masteryCache.map(function (m) {
+      var w = Math.max(1, 100 - m.score);
+      total += w;
+      return w;
+    });
+    var r = Math.random() * total;
+    for (var i = 0; i < masteryCache.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return masteryCache[i].knowledge_point;
+    }
+    return masteryCache[0].knowledge_point;
+  }
+
   // ---------------- 对话式 AI 辅导（引导式状态机） ----------------
 
   var chat = { sessionId: '', state: '', busy: false, ctx: null };
@@ -425,6 +461,7 @@
       rewardSync();
     }
     if (window.TTS) TTS.playCorrect();
+    refreshMastery(); // 会话结束后刷新掌握度
   }
 
   function renderQuickReplies(list) {
@@ -572,7 +609,12 @@
   function newPractice() {
     guide = null;
     beginPracticeSession();
-    applyResult(S.generatePractice(), { retry: false, task: 'practice' });
+    var weak = pickWeakKnowledge();
+    if (weak) {
+      applyResult(S.generateByKnowledge(weak), { retry: false, task: 'practice' });
+    } else {
+      applyResult(S.generatePractice(), { retry: false, task: 'practice' });
+    }
   }
 
   function startGuide(problem) {
@@ -981,6 +1023,7 @@
       }
     }
     if (correct && window.TTS) TTS.playCorrect();
+    refreshMastery(); // 答题后刷新掌握度，驱动薄弱优先出题
 
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'block';
@@ -1209,6 +1252,7 @@
 
   refreshSamples();
   refreshStatus();
+  refreshMastery();
   refreshHome();
   showView('home');
 })();

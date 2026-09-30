@@ -117,6 +117,10 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
 .kname { width: 180px; font-size: 13px; color: #555; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ktrack { flex: 1; height: 20px; background: #FFF1DC; border-radius: 999px; overflow: hidden; }
 .kfill { height: 100%; background: linear-gradient(90deg, #FFC53D, #FF8A00); border-radius: 999px; }
+.kfill.good { background: linear-gradient(90deg, #35D0AA, #14A98C); }
+.kfill.mid { background: linear-gradient(90deg, #FFC53D, #FF9F1C); }
+.kfill.weak { background: linear-gradient(90deg, #FF9E9E, #FF6B6B); }
+.copy-btn { margin-top: 10px; }
 .kcount { width: 60px; text-align: right; font-size: 13px; color: #FF8A00; font-weight: 700; flex-shrink: 0; }
 
 .wrong-item {

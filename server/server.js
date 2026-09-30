@@ -532,21 +532,46 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 家长报告：翻译报告 + 沟通脚本（读当天行为日志与错题）
+    // 家长报告：翻译报告 + 沟通脚本（period=week 为最近 7 天，默认当天）
     if (req.method === 'GET' && req.url.indexOf('/api/report/') === 0) {
-      const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      const urlParts = req.url.split('?');
+      const userId = decodeURIComponent((urlParts[0].split('/').pop() || '').split('?')[0]);
       if (!userId) throw new Error('缺少用户 id');
-      const events = db.getTodayEvents(userId);
+      let period = 'day';
+      try {
+        period = new URL(req.url, 'http://x').searchParams.get('period') || 'day';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      let events;
+      let periodLabel = '今天';
+      if (period === 'week') {
+        const since = new Date(Date.now() - 6 * 86400000);
+        since.setHours(0, 0, 0, 0);
+        events = db.getEventsSince(userId, since.toISOString());
+        periodLabel = '最近 7 天';
+      } else {
+        events = db.getTodayEvents(userId);
+      }
       const child = store.children[userId];
       const facts = reportService.buildFacts(
         userId,
         child ? child.name : '孩子',
         events,
-        child ? Object.keys(child.wrongs).map((k) => child.wrongs[k]) : []
+        child ? Object.keys(child.wrongs).map((k) => child.wrongs[k]) : [],
+        { periodLabel: periodLabel }
       );
       const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
       const r = await reportService.generateReport(chatFn, facts);
-      send(res, 200, { ok: true, userId: userId, translated_report: r.translated_report, communication_script: r.communication_script });
+      send(res, 200, { ok: true, userId: userId, period: period, translated_report: r.translated_report, communication_script: r.communication_script });
+      return;
+    }
+
+    // 掌握度：各知识点分数（薄弱在前）
+    if (req.method === 'GET' && req.url.indexOf('/api/mastery/') === 0) {
+      const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      if (!userId) throw new Error('缺少用户 id');
+      send(res, 200, { ok: true, userId: userId, mastery: db.getMastery(userId) });
       return;
     }
 
