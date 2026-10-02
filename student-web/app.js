@@ -660,6 +660,7 @@
     }
     $('home-sub').textContent = sub;
     $('hero-bond').textContent = bondIcon(c.bond || 0) + ' ' + bondLevel(c.bond || 0);
+    refreshTaskCard(s.today);
     if (window.Mascot) {
       Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64);
     }
@@ -699,6 +700,56 @@
     showBadgeToast._t = setTimeout(function () {
       $('badge-toast').style.display = 'none';
     }, 2600);
+  }
+
+  // ---------------- 每日任务卡 ----------------
+
+  var TASK_GOAL = 3;
+
+  function refreshTaskCard(today) {
+    var done = Math.min(today, TASK_GOAL);
+    var complete = today >= TASK_GOAL;
+    $('task-text').textContent = complete
+      ? '🎉 任务完成！小狐给你点赞！'
+      : '今天小狐想和你一起闯 ' + TASK_GOAL + ' 关，还差 ' + (TASK_GOAL - done) + ' 关';
+    $('task-progress').textContent = '已完成 ' + done + ' / ' + TASK_GOAL;
+    $('task-fill').style.width = Math.round((done / TASK_GOAL) * 100) + '%';
+    if (window.Mascot) {
+      Mascot.render($('task-mascot'), complete ? 'cheer' : 'encourage', 44);
+    }
+  }
+
+  // ---------------- 徽章墙 ----------------
+
+  function openBadgeWall() {
+    if (!window.Rewards) return;
+    var list = $('bw-list');
+    list.innerHTML = '';
+    Object.keys(Rewards.BADGES).forEach(function (id) {
+      var b = Rewards.BADGES[id];
+      var earned = Rewards.badges().indexOf(id) > -1;
+      var div = document.createElement('div');
+      div.className = 'bw-item' + (earned ? ' earned' : '');
+      div.innerHTML = '<div class="bw-icon">' + (earned ? b.icon : '🔒') + '</div>' +
+        '<div class="bw-name">' + b.name + '</div><div class="bw-desc">' + b.desc + '</div>';
+      list.appendChild(div);
+    });
+    // 伙伴等级徽章（亲密度）
+    var c = compGet();
+    var bond = c.bond || 0;
+    var next = bond >= 60 ? null : bond >= 30 ? 60 : bond >= 10 ? 30 : 10;
+    var div2 = document.createElement('div');
+    div2.className = 'bw-item earned bond-item';
+    div2.innerHTML = '<div class="bw-icon">' + bondIcon(bond) + '</div>' +
+      '<div class="bw-name">' + bondLevel(bond) + '（亲密度 ' + bond + '）</div>' +
+      '<div class="bw-desc">' + (next ? '再获得 ' + (next - bond) + ' 点亲密度，升级 ' + bondLevel(next) : '已是最高等级：最佳拍档！') + '</div>';
+    list.appendChild(div2);
+    if (window.Mascot) Mascot.render($('bw-mascot'), 'proud', 48);
+    $('badge-wall').style.display = 'block';
+  }
+
+  function closeBadgeWall() {
+    $('badge-wall').style.display = 'none';
   }
 
   function rewardSync() {
@@ -1430,6 +1481,11 @@
     storeSetStr('stu_unit', currentUnit);
     syncSend('unit', { unit: currentUnit });
   });
+
+  // 徽章墙
+  $('hero-badges').addEventListener('click', openBadgeWall);
+  $('btn-bw-close').addEventListener('click', closeBadgeWall);
+  $('bw-mask').addEventListener('click', closeBadgeWall);
 
   // 打印错题本（打印样式见 style.css 的 @media print）
   $('btn-print-wrong').addEventListener('click', function () {

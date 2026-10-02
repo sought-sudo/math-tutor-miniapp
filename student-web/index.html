@@ -30,6 +30,18 @@
         <div class="card stat"><div class="num" id="home-acc">--</div><div class="lbl">🎯 正确率</div></div>
         <div class="card stat"><div class="num" id="home-active">0</div><div class="lbl">📕 待复习</div></div>
       </div>
+
+      <div class="card task-card" id="task-card">
+        <div class="task-head">
+          <div class="task-mascot" id="task-mascot"></div>
+          <div class="task-info">
+            <div class="task-title">📋 小狐的今日任务</div>
+            <div class="task-text" id="task-text">今天小狐想和你一起闯 3 关</div>
+          </div>
+        </div>
+        <div class="task-track"><div class="task-fill" id="task-fill"></div></div>
+        <div class="task-progress" id="task-progress">已完成 0 / 3</div>
+      </div>
       <div class="grid">
         <div class="card feature" data-go="camera">
           <div class="f-icon f-orange">📷</div><div class="f-title">拍照识题</div><div class="f-desc">拍一拍，小助手来教你</div>
@@ -226,6 +238,17 @@
         <button class="btn btn-primary btn-sm" id="chat-send">发送</button>
       </div>
     </section>
+
+    <!-- 徽章墙 -->
+    <div class="badge-wall" id="badge-wall" style="display:none">
+      <div class="bw-mask" id="bw-mask"></div>
+      <div class="bw-panel">
+        <div class="bw-title">🏅 我的徽章墙</div>
+        <div class="bw-mascot" id="bw-mascot"></div>
+        <div class="bw-list" id="bw-list"></div>
+        <button class="btn btn-primary btn-sm" id="btn-bw-close">关 闭</button>
+      </div>
+    </div>
 
     <!-- 徽章解锁提示 -->
     <div class="badge-toast" id="badge-toast" style="display:none">

@@ -100,7 +100,51 @@ textarea { resize: vertical; min-height: 72px; }
   cursor: pointer;
   line-height: 1;
 }
-.hero-badges { margin-top: 8px; font-size: 18px; letter-spacing: 6px; min-height: 20px; }
+.hero-badges { margin-top: 8px; font-size: 18px; letter-spacing: 6px; min-height: 20px; cursor: pointer; }
+
+/* 每日任务卡 */
+.task-card { background: linear-gradient(135deg, #FFFBF0, #FFF3D6); border: 1px solid #FFE9C0; }
+.task-head { display: flex; align-items: center; margin-bottom: 10px; }
+.task-mascot { flex-shrink: 0; margin-right: 12px; }
+.task-title { font-weight: 800; color: #B26A00; font-size: 14px; }
+.task-text { font-size: 13px; color: #8a5a00; margin-top: 2px; }
+.task-track { height: 10px; background: #FFE9C9; border-radius: 999px; overflow: hidden; }
+.task-fill { height: 100%; width: 0; background: linear-gradient(90deg, #FFC53D, #FF9F1C); border-radius: 999px; transition: width 0.3s ease; }
+.task-progress { text-align: right; font-size: 11px; color: #B26A00; margin-top: 4px; }
+
+/* 徽章墙 */
+.badge-wall { position: fixed; inset: 0; z-index: 400; }
+.bw-mask { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+.bw-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 86%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #FFF8EC;
+  border-radius: 20px;
+  padding: 20px;
+  text-align: center;
+  animation: pop 0.3s ease;
+}
+.bw-title { font-weight: 800; font-size: 17px; color: #B26A00; }
+.bw-mascot { display: flex; justify-content: center; margin: 6px 0; }
+.bw-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 14px; }
+.bw-item {
+  width: calc(50% - 5px);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 8px;
+  box-shadow: 0 2px 8px rgba(255, 159, 28, 0.1);
+}
+.bw-item:not(.earned) { opacity: 0.45; }
+.bw-icon { font-size: 26px; }
+.bw-name { font-weight: 800; font-size: 13px; margin-top: 2px; }
+.bw-desc { font-size: 11px; color: #999; margin-top: 2px; }
+.bw-item.bond-item { width: 100%; }
 
 /* 虚拟伙伴：小狐老师 */
 .mascot { display: inline-block; flex-shrink: 0; }

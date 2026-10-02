@@ -132,6 +132,7 @@
     });
     var tip = document.querySelector('.script-tip');
     if (tip) lines.push(tip.textContent.trim());
+    lines.push('—— 小狐老师 🦊');
     var text = lines.join('\n\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { alert('沟通脚本已复制，去粘贴给家里人吧 📋'); });
@@ -176,6 +177,11 @@
     copyBtn.textContent = '📋 一键复制沟通脚本';
     copyBtn.addEventListener('click', copyScript);
     box.appendChild(copyBtn);
+
+    var sign = document.createElement('div');
+    sign.className = 'script-sign';
+    sign.textContent = '—— 小狐老师 🦊';
+    box.appendChild(sign);
   }
 
   function adviceText(s) {
@@ -270,7 +276,9 @@
     // 沟通脚本
     buildScripts(current.wrongs);
     if (current.stars > 0 || current.streak > 0) {
-      $('child-stars').textContent = '⭐ ' + current.name + ' 已获得 ' + current.stars + ' 颗星 · 连续练习 ' + current.streak + ' 天';
+      var bond = current.companion ? current.companion.bond || 0 : 0;
+      var bondName = bond >= 60 ? '最佳拍档' : bond >= 30 ? '好伙伴' : bond >= 10 ? '朋友' : '初识';
+      $('child-stars').textContent = '⭐ ' + current.name + ' 已获得 ' + current.stars + ' 颗星 · 连续练习 ' + current.streak + ' 天 · 和小狐是「' + bondName + '」';
       $('child-stars').style.display = 'block';
     } else {
       $('child-stars').style.display = 'none';
@@ -323,7 +331,8 @@
           wrongs: res.child.wrongs || [],
           stars: res.child.stars || 0,
           streak: res.child.streak || 0,
-          unitLabel: res.child.unitLabel || ''
+          unitLabel: res.child.unitLabel || '',
+          companion: res.child.companion || { bond: 0 }
         };
         localStorage.setItem(LS_CODE, code);
         render();
