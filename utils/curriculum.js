@@ -99,6 +99,83 @@ const CURRICULUM = [
     unit: '第 9 单元',
     title: '数学广角——鸡兔同笼',
     knowledge: ['鸡兔同笼']
+  },
+  {
+    id: 'SA1',
+    book: '北师大版四年级上册',
+    unit: '第 1 单元',
+    title: '认识更大的数',
+    knowledge: ['大数的认识']
+  },
+  {
+    id: 'SA2',
+    book: '北师大版四年级上册',
+    unit: '第 2 单元',
+    title: '线与角',
+    knowledge: ['角的度量', '垂直与平行']
+  },
+  {
+    id: 'SA3',
+    book: '北师大版四年级上册',
+    unit: '第 3 单元',
+    title: '乘法',
+    knowledge: ['三位数乘两位数', '运算定律·简算']
+  },
+  {
+    id: 'SA4',
+    book: '北师大版四年级上册',
+    unit: '第 4 单元',
+    title: '运算律',
+    knowledge: ['运算定律·简算']
+  },
+  {
+    id: 'SA6',
+    book: '北师大版四年级上册',
+    unit: '第 6 单元',
+    title: '除法',
+    knowledge: ['除数是两位数的除法']
+  },
+  {
+    id: 'SA7',
+    book: '北师大版四年级上册',
+    unit: '第 7 单元',
+    title: '生活中的负数',
+    knowledge: ['正负数']
+  },
+  {
+    id: 'SB1',
+    book: '北师大版四年级下册',
+    unit: '第 1 单元',
+    title: '小数的意义和加减法',
+    knowledge: ['小数的意义和性质', '小数的加法', '小数的减法']
+  },
+  {
+    id: 'SB2',
+    book: '北师大版四年级下册',
+    unit: '第 2 单元',
+    title: '认识三角形和四边形',
+    knowledge: ['三角形', '长方形周长', '长方形面积', '垂直与平行']
+  },
+  {
+    id: 'SB3',
+    book: '北师大版四年级下册',
+    unit: '第 3 单元',
+    title: '小数乘法',
+    knowledge: ['小数乘法']
+  },
+  {
+    id: 'SB5',
+    book: '北师大版四年级下册',
+    unit: '第 5 单元',
+    title: '认识方程',
+    knowledge: ['简易方程']
+  },
+  {
+    id: 'SB6',
+    book: '北师大版四年级下册',
+    unit: '第 6 单元',
+    title: '数据的表示和分析',
+    knowledge: ['平均数']
   }
 ];
 
@@ -106,11 +183,15 @@ function unitById(id) {
   return CURRICULUM.find((u) => u.id === id) || null;
 }
 
-// 单元显示名，如"四上 · 第 4 单元 三位数乘两位数"
+// 单元显示名，如"四上 · 第 4 单元 三位数乘两位数"、"北师四下 · 第 5 单元 认识方程"
 function unitLabel(id) {
   const u = unitById(id);
   if (!u) return '';
-  return (u.book.indexOf('上册') > -1 ? '四上' : '四下') + ' · ' + u.unit + ' ' + u.title;
+  let prefix = u.book.indexOf('上册') > -1 ? '四上' : '四下';
+  if (u.book.indexOf('北师大') > -1) {
+    prefix = u.book.indexOf('上册') > -1 ? '北师四上' : '北师四下';
+  }
+  return prefix + ' · ' + u.unit + ' ' + u.title;
 }
 
 const curriculumApi = {

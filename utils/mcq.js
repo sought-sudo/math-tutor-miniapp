@@ -381,6 +381,113 @@ function genSymmetry() {
     ]);
 }
 
+function genNegativeNumber() {
+  const kind = pick(['record', 'compare']);
+  if (kind === 'record') {
+    const t = pick([2, 3, 5, 7, 8, 10, 12]);
+    const options = shuffle(['-' + t + '℃', '+' + t + '℃', t + '℃', '0℃']);
+    return mcq('正负数',
+      '零上 ' + t + '℃ 记作 +' + t + '℃，那么零下 ' + t + '℃ 记作什么？',
+      options,
+      options.indexOf('-' + t + '℃'),
+      [
+        { title: '① 想规定', content: '我们规定：零上的温度用正数表示，零下的温度用负数表示。' },
+        { title: '② 对应', content: '零上 ' + t + '℃ 是 +' + t + '℃，零下 ' + t + '℃ 就是 -' + t + '℃。' },
+        { title: '③ 作答', content: '所以记作 -' + t + '℃。' }
+      ]);
+  }
+  const a = pick([2, 3, 4, 5, 6, 8]);
+  const b = pick([1, 2, 3, 5, 7, 9]);
+  const cmp = (-a) < (-b) ? '-' + a + ' ＜ -' + b : '-' + a + ' ＞ -' + b;
+  const options = shuffle([
+    cmp,
+    '-' + a + ' ＞ -' + b,
+    '-' + a + ' ＝ -' + b,
+    '无法比较'
+  ].filter((v, i, arr) => arr.indexOf(v) === i));
+  return mcq('正负数',
+    '比较大小：-' + a + ' ○ -' + b,
+    options,
+    options.indexOf(cmp),
+    [
+      { title: '① 想数轴', content: '负数在 0 的左边，离 0 越远反而越小。' },
+      { title: '② 比较', content: a + ' 比 ' + b + ' 离 0 更' + (a > b ? '远' : '近') + '，所以 -' + a + ' 更' + (a > b ? '小' : '大') + '。' },
+      { title: '③ 作答', content: '所以 ' + cmp + '。' }
+    ]);
+}
+
+function genDecimalMultiply() {
+  const kind = pick(['move', 'multi']);
+  if (kind === 'move') {
+    const n = pick([12, 25, 36, 48, 57, 64]);
+    const d = pick([10, 100]);
+    const right = round2(n * d);
+    const options = shuffle([right].concat(numericOptions(right)));
+    return mcq('小数乘法',
+      n + ' × ' + d + ' = （ ）',
+      options,
+      options.indexOf(right),
+      [
+        { title: '① 想规律', content: '乘 10，小数点向右移动一位；乘 100，向右移动两位。' },
+        { title: '② 移动', content: n + ' × ' + d + '，小数点向右移动 ' + (d === 10 ? '一' : '两') + ' 位，得到 ' + right + '。' },
+        { title: '③ 作答', content: '所以结果是 ' + right + '。' }
+      ]);
+  }
+  const a = pick([2, 3, 4, 5]) / 10;
+  const b = pick([2, 3, 4, 5, 6, 7]) / 10;
+  const right = round2(a * b);
+  const options = shuffle([right].concat(numericOptions(right)));
+  return mcq('小数乘法',
+    round2(a) + ' × ' + round2(b) + ' = （ ）',
+    options,
+    options.indexOf(right),
+    [
+      { title: '① 先当整数算', content: '把小数看成整数：' + (a * 10) + ' × ' + (b * 10) + ' = ' + round2(a * 10 * b * 10) + '。' },
+      { title: '② 点小数点', content: '两个因数一共有两位小数，积也有两位小数：' + right + '。' },
+      { title: '③ 作答', content: '所以结果是 ' + right + '。' }
+    ]);
+}
+
+function genSimpleEquation() {
+  const kind = pick(['add', 'sub', 'mul']);
+  let problem;
+  let right;
+  let steps;
+  if (kind === 'add') {
+    const a = pick([12, 15, 18, 21, 24, 27]);
+    const s = pick([30, 40, 45, 50, 60]);
+    right = s - a;
+    problem = '解方程：x + ' + a + ' = ' + s;
+    steps = [
+      { title: '① 想原理', content: '等式的两边同时减去同一个数，等式仍然成立。' },
+      { title: '② 两边同减', content: 'x + ' + a + ' - ' + a + ' = ' + s + ' - ' + a },
+      { title: '③ 作答', content: 'x = ' + right + '。' }
+    ];
+  } else if (kind === 'sub') {
+    const a = pick([5, 7, 8, 9, 12]);
+    const s = pick([20, 25, 30, 40, 50]);
+    right = s + a;
+    problem = '解方程：x - ' + a + ' = ' + s;
+    steps = [
+      { title: '① 想原理', content: '等式的两边同时加上同一个数，等式仍然成立。' },
+      { title: '② 两边同加', content: 'x - ' + a + ' + ' + a + ' = ' + s + ' + ' + a },
+      { title: '③ 作答', content: 'x = ' + right + '。' }
+    ];
+  } else {
+    const m = pick([2, 3, 4, 5, 6]);
+    const p = pick([5, 6, 7, 8, 9]);
+    right = m * p;
+    problem = '解方程：x ÷ ' + m + ' = ' + p;
+    steps = [
+      { title: '① 想原理', content: '等式的两边同时乘同一个数，等式仍然成立。' },
+      { title: '② 两边同乘', content: 'x ÷ ' + m + ' × ' + m + ' = ' + p + ' × ' + m },
+      { title: '③ 作答', content: 'x = ' + right + '。' }
+    ];
+  }
+  const options = shuffle([right].concat(numericOptions(right)));
+  return mcq('简易方程', problem, options, options.indexOf(right), steps);
+}
+
 const CONCEPT_BANK = {
   '大数的认识': genBigNumber,
   '公顷和平方千米': genAreaUnit,
@@ -388,7 +495,10 @@ const CONCEPT_BANK = {
   '垂直与平行': genPerpParallel,
   '小数的意义和性质': genDecimalConcept,
   '三角形': genTriangle,
-  '图形的运动': genSymmetry
+  '图形的运动': genSymmetry,
+  '正负数': genNegativeNumber,
+  '小数乘法': genDecimalMultiply,
+  '简易方程': genSimpleEquation
 };
 
 // 随机出一题选择题：50% 概念新题型 + 50% 包装现有题型
@@ -414,7 +524,11 @@ const mcqApi = {
   generateMcqByKnowledge: generateMcqByKnowledge,
   wrapMcq: wrapMcq,
   toChineseNum: toChineseNum,
-  CONCEPT_BANK: CONCEPT_BANK
+  CONCEPT_BANK: CONCEPT_BANK,
+  // 该知识点是否只有概念选择题（无填空生成器，出题时必须用选择题）
+  isConcept: function (knowledge) {
+    return !!CONCEPT_BANK[knowledge];
+  }
 };
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -1033,9 +1033,9 @@
     var difficulty = pickDifficulty();
     var pool = unitKnowledgePool();
     if (pool) {
-      // 已选教材单元：单元内薄弱优先；70% 选择题
+      // 已选教材单元：单元内薄弱优先；概念题必为选择题，其余 70% 选择题
       var k = pickWeakInPool(pool);
-      if (window.MCQ && Math.random() < 0.7) {
+      if (window.MCQ && (window.MCQ.isConcept(k) || Math.random() < 0.7)) {
         applyResult(window.MCQ.generateMcqByKnowledge(k, difficulty), { retry: false, task: 'practice' });
       } else {
         applyResult(S.generateByKnowledge(k, difficulty), { retry: false, task: 'practice' });
@@ -1043,7 +1043,7 @@
       return;
     }
     var weak = pickWeakKnowledge();
-    if (window.MCQ && Math.random() < 0.7) {
+    if (window.MCQ && (window.MCQ.isConcept(weak) || Math.random() < 0.7)) {
       applyResult(weak ? window.MCQ.generateMcqByKnowledge(weak, difficulty) : window.MCQ.generateMcq(null, difficulty), { retry: false, task: 'practice' });
     } else if (weak) {
       applyResult(S.generateByKnowledge(weak, difficulty), { retry: false, task: 'practice' });
@@ -1087,6 +1087,11 @@
   // 变形题巩固：AI 优先，失败用本地生成器，再失败退回随机练习
   function variantPractice(problem, knowledge, originalWrongId) {
     beginPracticeSession();
+    // 概念题没有填空生成器：变形题同样用同知识点概念选择题
+    if (window.MCQ && window.MCQ.isConcept(knowledge)) {
+      applyResult(window.MCQ.generateMcqByKnowledge(knowledge), { retry: false, task: 'variant', variantOf: originalWrongId || '' });
+      return;
+    }
     var done = function (res) {
       if (res && res.problem) {
         applyResult(res, { retry: false, task: 'variant', variantOf: originalWrongId || '' });

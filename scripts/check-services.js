@@ -130,7 +130,7 @@ const assert = (c, m) => {
     assert(M.toChineseNum(10000000) === '一千万', '整万读数: ' + M.toChineseNum(10000000));
 
     const keys = Object.keys(M.CONCEPT_BANK);
-    assert(keys.length === 7, '应有 7 类概念题型，实际 ' + keys.length);
+    assert(keys.length === 10, '应有 10 类概念题型，实际 ' + keys.length);
     keys.forEach((k) => {
       for (let i = 0; i < 20; i++) {
         const p = M.generateMcqByKnowledge(k);
@@ -152,6 +152,18 @@ const assert = (c, m) => {
         assert(String(p.options[p.answerIndex]) === String(p.displayAnswer), '正确选项应在选项中');
       }
     }
+
+    // 教材目录（人教+北师大）所有知识点都能出选择题
+    const cur = require('../utils/curriculum');
+    const allKnowledge = new Set();
+    cur.CURRICULUM.forEach((u) => u.knowledge.forEach((k) => allKnowledge.add(k)));
+    assert(cur.CURRICULUM.length === 25, '教材应含 25 个单元（人教 14 + 北师大 11），实际 ' + cur.CURRICULUM.length);
+    assert(cur.unitLabel('SB5').indexOf('北师四下') === 0, '北师大单元标签应为北师四下开头');
+    assert(cur.unitLabel('A4').indexOf('四上') === 0, '人教版单元标签不受影响');
+    allKnowledge.forEach((k) => {
+      const p = M.generateMcqByKnowledge(k);
+      assert(p.knowledge === k, '知识点 ' + k + ' 应能定向出选择题');
+    });
   }
 
   console.log(fail ? '❌ 存在 ' + fail + ' 个问题' : '✅ 服务层单测全部通过');
