@@ -45,6 +45,14 @@ function numericOptions(answer) {
   return cands.slice(0, 3);
 }
 
+// 把步骤文本中"作为结果出现"的答案数字掩蔽为 □（前面是运算符号/小数点的跳过，如除数 ÷4 不掩蔽）
+function maskAnswerNumber(text, answerStr) {
+  if (!text || !answerStr) return text;
+  const esc = answerStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(?<![0-9.÷×+\\-*/（(＝])' + esc + '(?![0-9.])', 'g');
+  return text.replace(re, '□');
+}
+
 // 把现有填空题包装成选择题
 function wrapMcq(p) {
   let options;
@@ -57,6 +65,26 @@ function wrapMcq(p) {
     options = shuffle([ans, '无法确定', '答案不唯一', '以上都不对']);
     answerIndex = options.indexOf(ans);
   }
+  // 步骤处理：掩蔽答案数字；最后一步若是"作答/写结果"则换成引导，验算/检查步保留（答案掩蔽为 □）
+  const ansStr = typeof p.answer === 'number' ? String(p.answer) : '';
+  const rawSteps = p.steps || [];
+  const steps = [];
+  for (let i = 0; i < rawSteps.length; i++) {
+    const s = rawSteps[i];
+    const isLast = i === rawSteps.length - 1;
+    const isCheck = /检查|验算/.test(s.title || '') || /检查|验算/.test(s.content || '');
+    if (isLast && !isCheck) {
+      steps.push({
+        title: /作答|写结果|结果|答案/.test(s.title || '') ? s.title.replace(/作答|写结果|答案/g, '想一想') : '想一想',
+        content: '方法都写在前面的页面里了，自己算一算，从选项里选出正确答案吧！'
+      });
+    } else {
+      steps.push({ title: s.title, content: maskAnswerNumber(s.content, ansStr), tip: s.tip, ask: s.ask });
+    }
+  }
+  if (!steps.length) {
+    steps.push({ title: '想一想', content: '自己算一算，从选项里选出正确答案吧！' });
+  }
   return {
     problem: p.problem,
     options: options,
@@ -64,7 +92,7 @@ function wrapMcq(p) {
     answerValue: p.answer,
     displayAnswer: p.displayAnswer || String(p.answer),
     knowledge: p.knowledge,
-    steps: p.steps || [],
+    steps: steps,
     id: p.id || 'mcq',
     mcq: true
   };
@@ -108,6 +136,22 @@ function toChineseNum(n) {
 }
 
 function mcq(knowledge, problem, options, answerIndex, steps, answerValue) {
+  // 选择题的步骤不能直接给出答案：
+  // 1) 最后的"作答"步换成引导；2) 数字答案若出现在倒数第二步（计算/观察结论），掩蔽为 □
+  if (steps && steps.length) {
+    const ansStr = String(options[answerIndex]);
+    const last = steps[steps.length - 1];
+    const kept = steps.slice(0, -1);
+    if (kept.length && /^-?\d+(\.\d+)?$/.test(ansStr)) {
+      const s = kept[kept.length - 1];
+      kept[kept.length - 1] = { title: s.title, content: maskAnswerNumber(s.content, ansStr), tip: s.tip, ask: s.ask };
+    }
+    kept.push({
+      title: /作答/.test(last.title || '') ? last.title.replace('作答', '想一想') : '想一想',
+      content: '思路都藏在前面几步里，现在从下面的选项里选出正确答案吧！'
+    });
+    steps = kept;
+  }
   return {
     problem: problem,
     options: options,
@@ -215,7 +259,7 @@ function genAngle() {
       options,
       options.indexOf(ans),
       [
-        { title: '① 想分类', content: '小于 90° 是锐角；等于 90° 是直角；大于 90° 且小于 180° 是钝角。' },
+        { title: '① 想分类', content: '先回想：小于 90° 的角叫什么？正好等于 90° 呢？大于 90° 且小于 180° 呢？' },
         { title: '② 判断', content: deg + '°' + (deg < 90 ? ' 小于 90°' : deg === 90 ? ' 正好等于 90°' : deg === 180 ? ' 正好等于 180°' : ' 在 90° 和 180° 之间') + '。' },
         { title: '③ 作答', content: '所以是' + ans + '。' }
       ]);
@@ -240,8 +284,8 @@ function genAngle() {
     options,
     options.indexOf('周角'),
     [
-      { title: '① 想定义', content: '射线旋转一周是 360°，这个角叫周角。' },
-      { title: '② 对比', content: '180° 是平角，90° 是直角，360° 是周角。' },
+      { title: '① 想定义', content: '射线绕端点旋转一周是 360°，想一想：这样的角叫什么名字？' },
+      { title: '② 对比', content: '想一想：180° 的角叫什么？90° 的角叫什么？那 360° 的角呢？' },
       { title: '③ 作答', content: '旋转一周形成的是周角。' }
     ]);
 }
@@ -256,7 +300,7 @@ function genPerpParallel() {
       options.indexOf('互相平行'),
       [
         { title: '① 想定义', content: '同一平面内不相交的两条直线叫平行线。' },
-        { title: '② 观察', content: '黑板的两条对边永远不相交，所以互相平行。' },
+        { title: '② 观察', content: '黑板的两条对边永远不相交，想一想：这叫什么关系？' },
         { title: '③ 作答', content: '对边的关系是互相平行。' }
       ]);
   }
@@ -266,8 +310,8 @@ function genPerpParallel() {
     options,
     options.indexOf('互相垂直'),
     [
-      { title: '① 想定义', content: '相交成直角的两条直线互相垂直。' },
-      { title: '② 判断', content: '题目说相交成直角，正好符合垂直的定义。' },
+      { title: '① 想定义', content: '两条直线相交成直角，想一想：这种关系叫什么名字？' },
+      { title: '② 判断', content: '题目说这两条直线相交成直角。' },
       { title: '③ 作答', content: '它们是互相垂直的关系。' }
     ]);
 }
@@ -296,7 +340,7 @@ function genDecimalConcept() {
       options.indexOf('扩大到原来的 100 倍'),
       [
         { title: '① 观察', content: '3.05 去掉小数点变成 305。' },
-        { title: '② 对比', content: '305 ÷ 3.05 = 100，所以扩大到原来的 100 倍。' },
+        { title: '② 对比', content: '305 ÷ 3.05 = 100，想一想：这个数发生了什么变化？' },
         { title: '③ 作答', content: '小数点向右移动两位，扩大到 100 倍。' }
       ]);
   }
@@ -346,7 +390,7 @@ function genTriangle() {
     options.indexOf('5cm、5cm、5cm'),
     [
       { title: '① 想规则', content: '三角形任意两边之和要大于第三边。' },
-      { title: '② 逐一检查', content: '3+4=7＜8 不行；2+3=5＜6 不行；1+4=5＜6 不行；5+5=10＞5 可以。' },
+      { title: '② 逐一检查', content: '3+4=7＜8 不行；2+3=5＜6 不行；1+4=5＜6 不行；再检查 5、5、5 这一组。' },
       { title: '③ 作答', content: '所以 5cm、5cm、5cm 能围成三角形。' }
     ]);
 }
@@ -361,7 +405,7 @@ function genSymmetry() {
       options.indexOf('等腰三角形'),
       [
         { title: '① 想定义', content: '对折后两边能完全重合的图形是轴对称图形。' },
-        { title: '② 逐一判断', content: '等腰三角形沿高对折能重合；普通三角形、普通梯形、平行四边形（一般）都不能。' },
+        { title: '② 逐一判断', content: '先想：哪种三角形对折后两边能完全重合？平行四边形和普通梯形一般能对折重合吗？' },
         { title: '③ 作答', content: '一定是轴对称图形的是等腰三角形。' }
       ]);
   }
@@ -372,7 +416,7 @@ function genSymmetry() {
     options.indexOf('2 条'),
     [
       { title: '① 想折法', content: '长方形可以沿"两条对边中点的连线"对折，横竖各一条。' },
-      { title: '② 数一数', content: '横向一条、纵向一条，共 2 条。' },
+      { title: '② 数一数', content: '横向一条、纵向一条，想一想：一共有几条？' },
       { title: '③ 作答', content: '长方形有 2 条对称轴。' }
     ]);
 }
@@ -388,7 +432,7 @@ function genNegativeNumber() {
       options.indexOf('-' + t + '℃'),
       [
         { title: '① 想规定', content: '我们规定：零上的温度用正数表示，零下的温度用负数表示。' },
-        { title: '② 对应', content: '零上 ' + t + '℃ 是 +' + t + '℃，零下 ' + t + '℃ 就是 -' + t + '℃。' },
+        { title: '② 对应', content: '零上 ' + t + '℃ 是 +' + t + '℃，那么零下 ' + t + '℃ 该记作什么？想一想再选。' },
         { title: '③ 作答', content: '所以记作 -' + t + '℃。' }
       ]);
   }
@@ -407,7 +451,7 @@ function genNegativeNumber() {
     options.indexOf(cmp),
     [
       { title: '① 想数轴', content: '负数在 0 的左边，离 0 越远反而越小。' },
-      { title: '② 比较', content: a + ' 比 ' + b + ' 离 0 更' + (a > b ? '远' : '近') + '，所以 -' + a + ' 更' + (a > b ? '小' : '大') + '。' },
+      { title: '② 比较', content: '想一想：' + a + ' 和 ' + b + ' 谁离 0 更远？离 0 更远的那个负数反而更小。' },
       { title: '③ 作答', content: '所以 ' + cmp + '。' }
     ]);
 }

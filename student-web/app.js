@@ -1110,6 +1110,11 @@
     }
   }
 
+  function showGuideLoading(msg) {
+    $('book-nav').style.display = 'none';
+    $('book-page').innerHTML = '<div class="loading-line">' + (msg || '🤖 小助手正在认真读题，马上就好…') + '</div>';
+  }
+
   function applyResultLoading(problem, msg) {
     showView('guide');
     guide = { loading: true };
@@ -1118,8 +1123,8 @@
     $('guide-problem').textContent = problem;
     $('guide-note').style.display = 'none';
     $('guide-progress').textContent = '';
-    $('guide-steps').innerHTML =
-      '<div class="card"><div class="loading-line">' + (msg || '🤖 小助手正在认真读题，马上就好…') + '</div></div>';
+    $('progress-fill').style.width = '0%';
+    showGuideLoading(msg);
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'none';
     $('explain-box').style.display = 'none';
@@ -1135,7 +1140,8 @@
       problem: item.problem,
       knowledge: item.knowledge,
       steps: [],
-      revealed: 0,
+      revealed: 1,
+      currentPage: 0,
       wrongId: item.id,
       retry: false,
       note: '',
@@ -1167,8 +1173,7 @@
     }
     $('guide-progress').textContent = '';
     if ($('progress-fill')) $('progress-fill').style.width = '0%';
-    $('guide-steps').innerHTML =
-      '<div class="card"><div class="loading-line">👩‍🏫 老师正在备课，马上开始…</div></div>';
+    showGuideLoading('👩‍🏫 老师正在备课，马上开始…');
     if (aiReady) {
       fetchTutor({
         problem: item.problem,
@@ -1271,7 +1276,8 @@
       knowledge: res.knowledge || '综合',
       note: res.note || '',
       steps: steps,
-      revealed: 0,
+      revealed: 1,
+      currentPage: 0,
       rightNum: rightNum === null ? null : rightNum,
       rightAnswerText: res.displayAnswer || (res.answer == null ? '' : String(res.answer)),
       options: res.options || null,
@@ -1289,6 +1295,7 @@
     };
     $('result-combo').style.display = 'none';
     $('result-mastery').style.display = 'none';
+    $('guide-answer').style.display = 'none';
     showView('guide');
     $('retry-banner').style.display = guide.retry ? 'block' : 'none';
     $('retry-banner').textContent = '💪 错题重练：认真想一想，这次一定能做对！';
@@ -1305,87 +1312,105 @@
     renderGuide();
   }
 
-  var FLIP_MS = 380; // 翻页动画时长，与 style.css 的 transition 一致
-  var flipping = false;
-
   function renderGuide() {
-    if (guide.page === undefined) guide.page = 0;
-    updateChrome();
-    renderPage(false, 0);
-  }
-
-  function updateChrome() {
     var lesson = guide.mode === 'lesson';
-    var m = guide.steps.length;
-    var page = guide.page;
-    $('guide-progress').textContent = (lesson ? '听老师讲 · ' : '') + '第 ' + (page + 1) + ' / ' + m + ' 页';
-    var fill = $('progress-fill');
-    if (fill) fill.style.width = Math.round((page + 1) / m * 100) + '%';
+    var total = guide.steps.length;
+    var page = guide.currentPage || 0;
+    var shown = guide.revealed || 1;
+    if (page > total - 1) page = total - 1;
+    if (page < 0) page = 0;
+    guide.currentPage = page;
+
+    // 书页导航恢复（loading 时隐藏）
+    $('book-nav').style.display = 'flex';
+    var pg = $('book-page');
+    if (!pg.querySelector('.page-head')) {
+      pg.innerHTML =
+        '<div class="page-head"><span class="page-num" id="page-num"></span><span class="page-title" id="page-title"></span></div>' +
+        '<div class="page-content" id="page-content"></div>' +
+        '<div class="page-extra" id="page-extra"></div>';
+    }
+    var s = guide.steps[page] || { title: '想一想', content: '这道题你会怎么开始呢？' };
+    $('page-num').textContent = '第 ' + (page + 1) + ' / ' + total + ' 页';
+    $('page-title').textContent = s.title || ('第' + (page + 1) + '步');
+    $('page-content').textContent = s.content || '';
+    var extra = $('page-extra');
+    extra.innerHTML = '';
+    if (s.tip) {
+      var tip = document.createElement('div');
+      tip.className = 'step-tip';
+      tip.textContent = '📌 ' + s.tip;
+      extra.appendChild(tip);
+    }
+    if (s.ask) {
+      var ask = document.createElement('div');
+      ask.className = 'step-ask';
+      ask.textContent = '🤔 想一想：' + s.ask;
+      extra.appendChild(ask);
+    }
+
+    // 页码圆点：已解锁可点，当前页拉长
     var dots = $('page-dots');
     dots.innerHTML = '';
-    for (var i = 0; i < m; i++) {
-      var d = document.createElement('span');
-      d.className = 'dot' + (i === page ? ' on' : '') + (i < page ? ' done' : '');
-      dots.appendChild(d);
+    for (var i = 0; i < total; i++) {
+      (function (idx) {
+        var d = document.createElement('span');
+        d.className = 'dot' + (idx < shown ? ' on' : '') + (idx === page ? ' cur' : '');
+        if (idx < shown && idx !== page) {
+          d.addEventListener('click', function () { goPage(idx, idx > page ? 'next' : 'prev'); });
+        }
+        dots.appendChild(d);
+      })(i);
     }
-    $('step-nav').style.display = 'block';
-    $('btn-prev-step').style.visibility = page > 0 ? 'visible' : 'hidden';
-    $('btn-next-step').innerHTML = page >= m - 1
-      ? (lesson ? '🎯 来挑战变形题' : '✏️ 我来作答')
-      : '下一页 ›';
+
+    // 翻页按钮
+    var prevBtn = $('btn-prev-page');
+    prevBtn.classList.toggle('off', page === 0);
+    var nextBtn = $('btn-next-page');
+    if (page < total - 1) {
+      nextBtn.textContent = page >= shown - 1 ? '翻开下一页 ✨' : '下一页 →';
+    } else {
+      nextBtn.textContent = lesson ? '开始挑战 🎯' : '开始作答 ✏️';
+    }
+
+    // 进度条与文字
+    $('guide-progress').textContent = lesson
+      ? '已听 ' + shown + ' / ' + total + ' 页'
+      : '已翻开 ' + shown + ' / ' + total + ' 页';
+    var fill = $('progress-fill');
+    if (fill) {
+      fill.style.width = (total ? Math.round(shown / total * 100) : 0) + '%';
+    }
   }
 
-  function renderPage(animate, dir) {
-    var box = $('guide-steps');
-    var s = guide.steps[guide.page];
-    var extra = '';
-    if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
-    if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
-    var pageEl = document.createElement('div');
-    pageEl.className = 'page-card' + (animate ? (dir < 0 ? ' entering back' : ' entering') : '');
-    pageEl.innerHTML =
-      '<div class="step-title"><span class="step-num">' + (guide.page + 1) + '</span>' + esc(s.title) + '</div>' +
-      '<div class="step-content">' + esc(s.content) + '</div>' + extra;
-    var old = box.querySelector('.page-card:not(.ghost)');
-    if (animate && old) {
-      // 旧页做成"翻走的书页"浮层，新页在其下滑入
-      var ghost = old.cloneNode(true);
-      ghost.className = 'page-card ghost' + (dir < 0 ? ' back' : '');
-      box.appendChild(ghost);
-      requestAnimationFrame(function () {
-        ghost.classList.add('leaving');
-        pageEl.classList.remove('entering', 'back');
-      });
-      setTimeout(function () {
-        if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
-      }, FLIP_MS);
-    }
-    if (old) box.removeChild(old);
-    box.appendChild(pageEl);
+  function goPage(idx, dir) {
+    guide.currentPage = idx;
+    var el = $('book-page');
+    el.classList.remove('flip-next', 'flip-prev');
+    void el.offsetWidth; // 重排以重新触发动画
+    el.classList.add(dir === 'next' ? 'flip-next' : 'flip-prev');
+    renderGuide();
   }
 
-  function onNext() {
-    if (!guide || flipping) return;
-    var m = guide.steps.length;
-    if (guide.page >= m - 1) {
+  function bookNext() {
+    if (!guide || guide.loading) return;
+    var total = guide.steps.length;
+    var page = guide.currentPage || 0;
+    if (page < total - 1) {
+      if (page >= (guide.revealed || 1) - 1) guide.revealed = page + 2; // 翻到下一页 = 解锁它
+      goPage(page + 1, 'next');
+    } else {
+      guide.revealed = total;
+      renderGuide();
       if (guide.mode === 'lesson') showLessonChallenge();
       else showAnswerArea();
-      return;
     }
-    flipping = true;
-    guide.page++;
-    updateChrome();
-    renderPage(true, 1);
-    setTimeout(function () { flipping = false; }, FLIP_MS);
   }
 
-  function onPrev() {
-    if (!guide || flipping || guide.page <= 0) return;
-    flipping = true;
-    guide.page--;
-    updateChrome();
-    renderPage(true, -1);
-    setTimeout(function () { flipping = false; }, FLIP_MS);
+  function bookPrev() {
+    if (!guide || guide.loading) return;
+    var page = guide.currentPage || 0;
+    if (page > 0) goPage(page - 1, 'prev');
   }
 
   var MCQ_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -1606,7 +1631,6 @@
     compTouch(guide.knowledge, correct);
 
     $('guide-answer').style.display = 'none';
-    $('step-nav').style.display = 'none';
     $('guide-result').style.display = 'block';
     $('guide-result').className = 'card result-card ' + (correct ? 'ok' : 'no');
     if (window.Mascot) {
@@ -1947,22 +1971,22 @@
   });
   $('btn-submit').addEventListener('click', submitAnswer);
   $('answer-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAnswer(); });
+
+  // 书页翻页：按钮 + 左右滑动
+  $('btn-next-page').addEventListener('click', bookNext);
+  $('btn-prev-page').addEventListener('click', bookPrev);
+  (function () {
+    var sx = 0;
+    var bp = $('book-page');
+    bp.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+    bp.addEventListener('touchend', function (e) {
+      var dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) < 50) return;
+      if (dx < 0) bookNext(); else bookPrev();
+    }, { passive: true });
+  })();
   $('btn-self-ok').addEventListener('click', function () { finish(true, ''); });
   $('btn-self-no').addEventListener('click', function () { finish(false, ''); });
-  $('btn-prev-step').addEventListener('click', onPrev);
-  $('btn-next-step').addEventListener('click', onNext);
-  // 书页翻页手势：左右滑动切换步骤
-  var touchX = null;
-  $('guide-steps').addEventListener('touchstart', function (e) {
-    if (e.touches.length) touchX = e.touches[0].clientX;
-  }, { passive: true });
-  $('guide-steps').addEventListener('touchend', function (e) {
-    if (touchX === null || !e.changedTouches.length) return;
-    var dx = e.changedTouches[0].clientX - touchX;
-    touchX = null;
-    if (dx < -50) onNext();
-    else if (dx > 50) onPrev();
-  });
   $('btn-again').addEventListener('click', newPractice);
   $('btn-home').addEventListener('click', function () { showView('home'); });
   $('btn-lesson-variant').addEventListener('click', function () {

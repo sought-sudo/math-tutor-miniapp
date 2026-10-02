@@ -334,52 +334,67 @@ textarea { resize: vertical; min-height: 72px; }
   margin-top: 4px;
 }
 
-/* 书页翻页：一屏一页，像翻书一样切换 */
-#guide-steps { position: relative; min-height: 200px; perspective: 1200px; }
-.page-card {
+/* 书页式分步讲解：一页一步，翻页解锁 */
+.book-page {
   background: #fff;
   border-radius: 16px;
-  padding: 18px 18px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  transition: transform 0.38s ease, opacity 0.38s ease;
+  border: 1px solid #FFE3B8;
+  padding: 18px 18px 22px;
+  min-height: 170px;
+  position: relative;
 }
-.page-card.entering { transform: translateX(8%) rotateY(16deg); opacity: 0.1; }
-.page-card.entering.back { transform: translateX(-8%) rotateY(-16deg); }
-.page-card.ghost {
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  z-index: 5;
-  transform-origin: left center;
-  pointer-events: none;
+.book-page.flip-next { animation: flipNext 0.28s ease; }
+.book-page.flip-prev { animation: flipPrev 0.28s ease; }
+@keyframes flipNext {
+  0% { transform: translateX(46px) rotateY(14deg); opacity: 0.2; }
+  100% { transform: translateX(0) rotateY(0); opacity: 1; }
 }
-.page-card.ghost.leaving { transform: translateX(-55%) rotateY(-88deg); opacity: 0; }
-.page-card.ghost.back { transform-origin: right center; }
-.page-card.ghost.back.leaving { transform: translateX(55%) rotateY(88deg); }
-.step-nav { margin-top: 14px; }
-.page-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: #FFE9C9; transition: background 0.2s, transform 0.2s; }
-.dot.done { background: #FFC53D; }
-.dot.on { background: #FF9F1C; transform: scale(1.4); }
-.pager-btns { display: flex; gap: 10px; }
-.pager-btns .btn { flex: 1; }
-
-.step-title { font-weight: 800; color: #FF8A00; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; }
-.step-num {
+@keyframes flipPrev {
+  0% { transform: translateX(-46px) rotateY(-14deg); opacity: 0.2; }
+  100% { transform: translateX(0) rotateY(0); opacity: 1; }
+}
+.page-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.page-num {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
   background: #FFF4E0;
   color: #FF8A00;
+  border-radius: 999px;
+  padding: 2px 10px;
   font-size: 12px;
   font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
 }
-.step-content { color: #444; line-height: 1.8; white-space: pre-line; font-size: 14px; }
-
+.page-title { font-weight: 800; color: #FF8A00; font-size: 16px; }
+.page-content { color: #444; line-height: 1.9; white-space: pre-line; font-size: 15px; }
+.book-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.book-btn {
+  flex-shrink: 0;
+  border: none;
+  background: #FFF4E0;
+  color: #B26A00;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.book-btn-next {
+  background: linear-gradient(90deg, #FFC53D, #FF9F1C);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(255, 159, 28, 0.35);
+}
+.book-btn.off { opacity: 0.4; pointer-events: none; }
+.page-dots { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #FFE3B8;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dot.on { background: #FFB400; }
+.dot.cur { width: 22px; border-radius: 999px; background: #FF8A00; }
 .loading-line { text-align: center; color: #FF8A00; font-weight: 700; font-size: 15px; padding: 10px 0; }
 
 .step-tip {

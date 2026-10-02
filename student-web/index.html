@@ -157,14 +157,21 @@
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
         <div class="progress-text" id="guide-progress"></div>
       </div>
-      <div id="guide-steps"></div>
-    <div class="step-nav" id="step-nav" style="display:none">
-      <div class="page-dots" id="page-dots"></div>
-      <div class="pager-btns">
-        <button class="btn btn-ghost btn-sm" id="btn-prev-step">‹ 上一页</button>
-        <button class="btn btn-primary btn-sm" id="btn-next-step">下一页 ›</button>
+      <div class="book" id="book">
+        <div class="book-page" id="book-page">
+          <div class="page-head">
+            <span class="page-num" id="page-num"></span>
+            <span class="page-title" id="page-title"></span>
+          </div>
+          <div class="page-content" id="page-content"></div>
+          <div class="page-extra" id="page-extra"></div>
+        </div>
+        <div class="book-nav" id="book-nav">
+          <button class="book-btn" id="btn-prev-page">← 上一页</button>
+          <div class="page-dots" id="page-dots"></div>
+          <button class="book-btn book-btn-next" id="btn-next-page">下一页 →</button>
+        </div>
       </div>
-    </div>
       <div class="card lesson-challenge" id="lesson-challenge" style="display:none">
         <div class="lc-title">🎯 讲解结束！现在轮到你了</div>
         <div class="lc-text">老师给你出了一道变形题，做对它，这道错题就变成"已掌握"啦！</div>
@@ -335,14 +342,13 @@
   <script src="js/voice.js"></script>
   <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
-  <!-- 教材目录 / 选择题库 / 解题引擎：优先同目录加载（直接双击本文件时走该路径）；
-       失败则从后端拉取；全部就绪后再加载 app.js，避免时序问题 -->
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
+  <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
+       两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
   <script src="solver.js" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
-      var BASE = location.protocol === 'file:' ? 'http://127.0.0.1:8787' : '';
       function boot() {
         var s = document.createElement('script');
         s.src = 'app.js';
@@ -353,28 +359,14 @@
           '<p style="padding:40px;text-align:center;font-size:16px;color:#666">' +
           '解题引擎加载失败：请先启动后端（双击 start-server.bat），再刷新本页。</p>';
       }
-      function loadFromServer(name, onOk, fatal) {
-        var s = document.createElement('script');
-        s.src = BASE + '/student/' + name + '.js';
-        s.onload = onOk;
-        if (fatal) s.onerror = fail;
-        document.head.appendChild(s);
-      }
-      function bootCurriculumOrBoot() {
-        // solver 是硬依赖（失败则提示启动后端）；mcq/curriculum 失败时静默降级为填空题/无教材选择器
-        var missing = [];
-        if (window.__curriculumFailed) missing.push('curriculum');
-        if (window.__mcqFailed) missing.push('mcq');
-        var i = 0;
-        (function next() {
-          if (i < missing.length) { loadFromServer(missing[i++], next, false); return; }
-          boot();
-        })();
-      }
       if (window.__solverFailed) {
-        loadFromServer('solver', bootCurriculumOrBoot, true);
+        var s = document.createElement('script');
+        s.src = (location.protocol === 'file:' ? 'http://127.0.0.1:8787' : '') + '/student/solver.js';
+        s.onload = boot;
+        s.onerror = fail;
+        document.head.appendChild(s);
       } else {
-        bootCurriculumOrBoot();
+        boot();
       }
     })();
   </script>
