@@ -277,7 +277,7 @@
 
   var masteryCache = null;
 
-  function refreshMastery() {
+  function refreshMastery(cb) {
     var base = getApiBase();
     if (!syncOn()) {
       masteryCache = null;
@@ -287,8 +287,12 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         masteryCache = j && j.ok && Array.isArray(j.mastery) ? j.mastery : null;
+        if (cb) cb();
       })
-      .catch(function () { masteryCache = null; });
+      .catch(function () {
+        masteryCache = null;
+        if (cb) cb();
+      });
   }
 
   // 70% 按薄弱加权选题，30% 随机（无数据时返回 null → 随机）
@@ -704,16 +708,42 @@
 
   // ---------------- 每日任务卡 ----------------
 
-  var TASK_GOAL = 3;
+  // 每日目标：按近 7 天日均练习量自适应（3~10 关）
+  function dynamicGoal() {
+    var records = getRecords();
+    var weekAgo = Date.now() - 7 * 86400000;
+    var days = {};
+    records.forEach(function (r) {
+      if (r.ts >= weekAgo) {
+        var d = dateStr(r.ts);
+        days[d] = (days[d] || 0) + 1;
+      }
+    });
+    var counts = Object.keys(days).map(function (k) { return days[k]; });
+    var avg = counts.length ? counts.reduce(function (a, b) { return a + b; }, 0) / counts.length : 0;
+    return Math.max(3, Math.min(10, Math.round(avg) + 2));
+  }
 
   function refreshTaskCard(today) {
-    var done = Math.min(today, TASK_GOAL);
-    var complete = today >= TASK_GOAL;
+    var goal = dynamicGoal();
+    var done = Math.min(today, goal);
+    var complete = today >= goal;
     $('task-text').textContent = complete
       ? '🎉 任务完成！小狐给你点赞！'
-      : '今天小狐想和你一起闯 ' + TASK_GOAL + ' 关，还差 ' + (TASK_GOAL - done) + ' 关';
-    $('task-progress').textContent = '已完成 ' + done + ' / ' + TASK_GOAL;
-    $('task-fill').style.width = Math.round((done / TASK_GOAL) * 100) + '%';
+      : '今天小狐想和你一起闯 ' + goal + ' 关，还差 ' + (goal - done) + ' 关';
+    $('task-progress').textContent = '已完成 ' + done + ' / ' + goal;
+    $('task-fill').style.width = Math.round((done / goal) * 100) + '%';
+    // 达标奖励（每天一次 +3 星）
+    if (complete && window.Rewards) {
+      var c = compGet();
+      var t = dateStr();
+      if (c.taskRewardedDate !== t) {
+        c.taskRewardedDate = t;
+        compSet(c);
+        Rewards.addStars(3);
+        showBadgeToast({ icon: '🎯', name: '今日任务', desc: '完成闯关目标，+3 颗星！' });
+      }
+    }
     if (window.Mascot) {
       Mascot.render($('task-mascot'), complete ? 'cheer' : 'encourage', 44);
     }
@@ -818,28 +848,60 @@
   // ---------------- 分步引导 ----------------
 
   var guide = null; // 当前辅导会话
+  var combo = 0; // 连续答对连击
+
+  // 掌握度 → 难度策略（薄弱偏好 easy，扎实掺 hard）
+  function pickDifficulty() {
+    var score = 70;
+    if (masteryCache && masteryCache.length) {
+      var pool = unitKnowledgePool();
+      var relevant = pool
+        ? masteryCache.filter(function (m) { return pool.indexOf(m.knowledge_point) > -1; })
+        : masteryCache;
+      if (relevant.length) score = relevant[0].score;
+    }
+    if (score < 40) return Math.random() < 0.7 ? 'easy' : 'medium';
+    if (score > 70) return Math.random() < 0.3 ? 'hard' : 'medium';
+    return 'medium';
+  }
+
+  // 25% 概率穿插一道已掌握错题的复习（间隔复习简化版，越早掌握的越优先）
+  function pickReviewWrong() {
+    if (Math.random() >= 0.25) return null;
+    var list = getWrongs().filter(function (w) { return w.status === 'mastered'; });
+    if (!list.length) return null;
+    list.sort(function (a, b) { return (a.masteredAt || '').localeCompare(b.masteredAt || ''); });
+    return list[0];
+  }
 
   function newPractice() {
     guide = null;
     beginPracticeSession();
+    var review = pickReviewWrong();
+    if (review) {
+      startGuide(review.problem);
+      return;
+    }
+    var difficulty = pickDifficulty();
     var pool = unitKnowledgePool();
     if (pool) {
       // 已选教材单元：单元内薄弱优先（或随机）
-      applyResult(S.generateByKnowledge(pickWeakInPool(pool)), { retry: false, task: 'practice' });
+      applyResult(S.generateByKnowledge(pickWeakInPool(pool), difficulty), { retry: false, task: 'practice' });
       return;
     }
     var weak = pickWeakKnowledge();
     if (weak) {
-      applyResult(S.generateByKnowledge(weak), { retry: false, task: 'practice' });
+      applyResult(S.generateByKnowledge(weak, difficulty), { retry: false, task: 'practice' });
     } else {
-      applyResult(S.generatePractice(), { retry: false, task: 'practice' });
+      applyResult(S.generatePractice(null, difficulty), { retry: false, task: 'practice' });
     }
   }
 
   function startGuide(problem) {
     beginPracticeSession();
-    // 错题重练：优先用错题本里存好的步骤与答案
-    var item = getWrongs().find(function (w) { return w.problem === problem && w.status === 'active'; });
+    // 错题重练：优先用错题本里存好的步骤与答案（已掌握的错题也可复习）
+    var item = getWrongs().find(function (w) { return w.problem === problem && w.status === 'active'; }) ||
+      getWrongs().find(function (w) { return w.problem === problem; });
     if (item && item.steps && item.steps.length) {
       applyResult({
         source: 'local',
@@ -1054,8 +1116,15 @@
       retry: !!(opts && opts.retry),
       wrongId: opts && opts.wrongId ? opts.wrongId : '',
       wrongTimes: 0,
+      prevScore: (function () {
+        if (!masteryCache) return null;
+        var m = masteryCache.find(function (x) { return x.knowledge_point === res.knowledge; });
+        return m ? m.score : null;
+      })(),
       phase: 'solving'
     };
+    $('result-combo').style.display = 'none';
+    $('result-mastery').style.display = 'none';
     showView('guide');
     $('retry-banner').style.display = guide.retry ? 'block' : 'none';
     $('retry-banner').textContent = '💪 错题重练：认真想一想，这次一定能做对！';
@@ -1201,7 +1270,12 @@
     } else if (guide.retry && guide.wrongId) {
       var ws2 = getWrongs();
       var it2 = ws2.find(function (w) { return w.id === guide.wrongId; });
-      if (it2) { it2.times = (it2.times || 1) + 1; it2.lastAt = dateStr(); saveWrongs(ws2); }
+      if (it2) {
+        it2.times = (it2.times || 1) + 1;
+        it2.lastAt = dateStr();
+        if (it2.status === 'mastered') it2.status = 'active'; // 复习又错了 → 回到待复习
+        saveWrongs(ws2);
+      }
       syncSend('wrong', { problem: it2.problem, myAnswer: it2.myAnswer, rightAnswer: it2.rightAnswer, knowledge: it2.knowledge, times: it2.times });
     } else {
       var wrongs = getWrongs();
@@ -1242,7 +1316,35 @@
       }
     }
     if (correct && window.TTS) TTS.playCorrect();
-    refreshMastery(); // 答题后刷新掌握度，驱动薄弱优先出题
+    // 连击：连续答对奖励
+    if (correct) {
+      combo++;
+      if (combo % 5 === 0 && window.Rewards) {
+        Rewards.addStars(1);
+      }
+      if (combo === 10) {
+        showBadgeToast({ icon: '🔥', name: '连击大师', desc: '连续答对 10 题，太厉害了！' });
+      }
+      $('result-combo').textContent = '🔥 连击 x' + combo;
+      $('result-combo').style.display = combo >= 2 ? 'block' : 'none';
+    } else {
+      combo = 0;
+      $('result-combo').style.display = 'none';
+    }
+    refreshMastery(function () {
+      // 掌握度进步反馈
+      if (correct && guide.prevScore !== null && guide.prevScore !== undefined && masteryCache) {
+        var m = masteryCache.find(function (x) { return x.knowledge_point === guide.knowledge; });
+        var el = $('result-mastery');
+        if (m && el) {
+          var delta = m.score - guide.prevScore;
+          el.style.display = 'block';
+          el.textContent = delta > 0
+            ? '「' + guide.knowledge + '」掌握度 +' + delta + '，继续加油！'
+            : '「' + guide.knowledge + '」掌握度很稳，小狐为你高兴！';
+        }
+      }
+    }); // 答题后刷新掌握度，驱动薄弱优先出题
     addBond(correct ? 1 : 0); // 伙伴亲密度
     compTouch(guide.knowledge, correct);
 

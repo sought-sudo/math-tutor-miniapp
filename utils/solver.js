@@ -640,7 +640,38 @@ const generators = [
   { id: 'area', g: genArea, w: 1 }
 ];
 
-function generatePractice(excludeId) {
+// 难度评级：仅对算式类题型评 easy/medium/hard（按数字规模/运算步数/括号），应用题统一 medium
+function rankProblem(problem) {
+  const text = String(problem || '');
+  const expr = text.replace(/计算[:：]?/g, '').replace(/[=＝?？。\s]/g, '');
+  if (/^[0-9+\-*×÷/()（）.]+$/.test(expr)) {
+    const nums = (expr.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+    const maxNum = nums.length ? Math.max.apply(null, nums) : 0;
+    const ops = (expr.match(/[+\-*×÷/]/g) || []).length;
+    const parens = /[\(（]/.test(expr);
+    if (maxNum < 20 && ops <= 1 && !parens) return 'easy';
+    if (maxNum >= 100 || ops >= 3 || parens) return 'hard';
+    return 'medium';
+  }
+  return 'medium';
+}
+
+// 生成指定难度的题：循环生成直至命中目标难度，拿不到返回最接近的（不阻塞出题）
+function genWithDifficulty(gen, difficulty) {
+  let fallback = null;
+  for (let i = 0; i < 12; i++) {
+    const p = gen();
+    if (fallback === null) fallback = p;
+    if (!difficulty || rankProblem(p.problem) === difficulty) {
+      p.source = 'local';
+      return p;
+    }
+  }
+  fallback.source = 'local';
+  return fallback;
+}
+
+function generatePractice(excludeId, difficulty) {
   const pool = excludeId ? generators.filter((x) => x.id !== excludeId) : generators;
   const total = pool.reduce((s, x) => s + x.w, 0);
   let r = Math.random() * total;
@@ -652,9 +683,7 @@ function generatePractice(excludeId) {
       break;
     }
   }
-  const p = chosen.g();
-  p.source = 'local';
-  return p;
+  return genWithDifficulty(chosen.g, difficulty);
 }
 
 function sampleProblems(n) {
@@ -870,29 +899,34 @@ function getKnowledge(name) {
   return KNOWLEDGE_LIB[name] || KNOWLEDGE_LIB['综合'];
 }
 
-// 按知识点定向出题（掌握度薄弱优先练习用）；无匹配时退回随机题
-function generateByKnowledge(knowledge) {
+// 按知识点定向出题（掌握度薄弱优先练习用）；可指定难度；无匹配时退回随机题
+function generateByKnowledge(knowledge, difficulty) {
   const gen = VARIANT_MAP[knowledge];
   if (gen) {
-    // 小数的加法/减法共用同一生成器，重试直到命中对应知识点
-    for (let i = 0; i < 10; i++) {
+    // 小数的加法/减法共用同一生成器：先保证知识点匹配，再匹配难度
+    let fallback = null;
+    for (let i = 0; i < 14; i++) {
       const p = gen();
-      if (p.knowledge === knowledge) {
+      if (p.knowledge !== knowledge) continue;
+      if (fallback === null) fallback = p;
+      if (!difficulty || rankProblem(p.problem) === difficulty) {
         p.source = 'local';
         return p;
       }
     }
-    const p = gen();
-    p.source = 'local';
-    return p;
+    if (fallback) {
+      fallback.source = 'local';
+      return fallback;
+    }
   }
-  return generatePractice();
+  return generatePractice(null, difficulty);
 }
 
 const solverApi = {
   solveText: solveText,
   generatePractice: generatePractice,
   generateByKnowledge: generateByKnowledge,
+  rankProblem: rankProblem,
   sampleProblems: sampleProblems,
   evaluate: evaluate,
   genericGuide: genericGuide,

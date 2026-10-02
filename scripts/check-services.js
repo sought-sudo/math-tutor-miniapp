@@ -105,6 +105,21 @@ const assert = (c, m) => {
     states.forEach((s) => assert(M.EXPRESSIONS.indexOf(M.mapState(s)) > -1, '状态 ' + s + ' 应有表情映射'));
   }
 
+  // ---------- rankProblem 难度评级 ----------
+  {
+    const S = require('../utils/solver');
+    assert(S.rankProblem('计算：5+3 = ?') === 'easy', '小数字单步应为 easy');
+    assert(S.rankProblem('计算：56×7 = ?') === 'medium', '两位数一步应为 medium');
+    assert(S.rankProblem('计算：125×8+25×4 = ?') === 'hard', '三位数多步应为 hard');
+    assert(S.rankProblem('计算：(360-24×6)÷18 = ?') === 'hard', '含括号应为 hard');
+    assert(S.rankProblem('小明买了 35 个面包，又买了 27 个，一共几个？') === 'medium', '应用题统一 medium');
+    // 难度定向出题不阻塞：调用不抛错、返回有效题
+    for (const d of ['easy', 'medium', 'hard']) {
+      const p = S.generateByKnowledge('四则混合运算', d);
+      assert(p && p.problem && p.knowledge, '难度定向出题应返回有效题');
+    }
+  }
+
   console.log(fail ? '❌ 存在 ' + fail + ' 个问题' : '✅ 服务层单测全部通过');
   process.exit(fail ? 1 : 0);
 })();
