@@ -585,15 +585,23 @@
     div.querySelector('#chat-again').addEventListener('click', newPractice);
     div.querySelector('#chat-home').addEventListener('click', function () { showView('home'); });
     scrollChat();
-    // 完成效果：变形题通过 → 原错题标记已掌握；否则记复习提醒
+    // 完成效果：变形题通过 → 原错题标记已掌握；否则记复习提醒与错因
     var ctx = chat.ctx;
     if (ctx && ctx.wrongId) {
       var item = getWrongs().find(function (w) { return w.id === ctx.wrongId; });
       if (item) {
         if (ex.masteredOriginal) {
           markWrongMastered(ctx.wrongId);
-        } else if (ex.reviewDue) {
-          item.reviewDue = ex.reviewDue;
+        } else {
+          if (ex.reviewDue) {
+            var m = String(ex.reviewDue).match(/(\d+)/);
+            var days = m ? parseInt(m[1], 10) : 2;
+            var due = new Date();
+            due.setDate(due.getDate() + days);
+            item.reviewDue = ex.reviewDue;
+            item.reviewDueDate = dateStr(due.getTime());
+          }
+          if (ex.errorType) item.errorType = ex.errorType;
           saveWrongs(getWrongs());
         }
       }
@@ -671,6 +679,13 @@
     $('home-today').textContent = s.today;
     $('home-acc').textContent = s.accuracy === null ? '--' : Math.round(s.accuracy * 100) + '%';
     $('home-active').textContent = s.activeCount;
+    // 错题本入口红点：今日到期复习数
+    var dueTodayCount = getWrongs().filter(function (w) { return w.status === 'active' && isDueToday(w); }).length;
+    var dot = $('wrong-dot');
+    if (dot) {
+      dot.style.display = dueTodayCount ? 'block' : 'none';
+      dot.textContent = dueTodayCount;
+    }
     $('home-tip').textContent = pick([
       '先算乘除，后算加减，有括号先算括号里的！',
       '算完记得回头检查一遍，单位和"答"别忘啦。',
@@ -1276,7 +1291,7 @@
         if (it2.status === 'mastered') it2.status = 'active'; // 复习又错了 → 回到待复习
         saveWrongs(ws2);
       }
-      syncSend('wrong', { problem: it2.problem, myAnswer: it2.myAnswer, rightAnswer: it2.rightAnswer, knowledge: it2.knowledge, times: it2.times });
+      syncSend('wrong', { problem: it2.problem, myAnswer: it2.myAnswer, rightAnswer: it2.rightAnswer, knowledge: it2.knowledge, times: it2.times, errorType: it2.errorType || '' });
     } else {
       var wrongs = getWrongs();
       var exist = wrongs.find(function (w) { return w.problem === guide.problem && w.status === 'active'; });
@@ -1303,7 +1318,7 @@
         wrongs.unshift(item);
       }
       saveWrongs(wrongs);
-      syncSend('wrong', { problem: item.problem, myAnswer: item.myAnswer, rightAnswer: item.rightAnswer, knowledge: item.knowledge, times: item.times });
+      syncSend('wrong', { problem: item.problem, myAnswer: item.myAnswer, rightAnswer: item.rightAnswer, knowledge: item.knowledge, times: item.times, errorType: item.errorType || '' });
     }
 
     // 奖励：每日打卡 + 星星（变形题成功 +2），答对播放轻音效
@@ -1371,29 +1386,87 @@
 
   var wrongTab = 'active';
 
+  // ---------------- 错题本状态 ----------------
+
+  var wrongFilterK = '';
+  var wrongFilterQ = '';
+  var multiMode = false;
+  var selectedIds = {};
+
+  function errLabel(t) {
+    return { method_unknown: '方法不熟', calc_error: '计算出错', read_error: '读题不清' }[t] || '';
+  }
+
+  function isDueToday(item) {
+    if (!item.reviewDueDate) return false;
+    return item.reviewDueDate <= dateStr();
+  }
+
+  function dueLabel(item) {
+    if (!item.reviewDue) return '';
+    return isDueToday(item) ? '⏰ 已到期复习' : '⏰ ' + item.reviewDue;
+  }
+
   function refreshWrong() {
     var all = getWrongs();
-    $('wrong-active-count').textContent = all.filter(function (w) { return w.status === 'active'; }).length;
-    $('wrong-mastered-count').textContent = all.filter(function (w) { return w.status === 'mastered'; }).length;
+    var actives = all.filter(function (w) { return w.status === 'active'; });
+    var mastered = all.filter(function (w) { return w.status === 'mastered'; });
+    var dueToday = actives.filter(isDueToday).length;
+    $('wrong-active-count').textContent = actives.length + (dueToday ? '（今日到期 ' + dueToday + '）' : '');
+    $('wrong-mastered-count').textContent = mastered.length;
     // 错题清零徽章
     if (window.Rewards) {
-      var act = all.filter(function (w) { return w.status === 'active'; }).length;
-      var mas = all.filter(function (w) { return w.status === 'mastered'; }).length;
-      if (act === 0 && mas > 0) Rewards.unlock('wrong_clear');
+      if (actives.length === 0 && mastered.length > 0) Rewards.unlock('wrong_clear');
     }
     $('tab-active').classList.toggle('on', wrongTab === 'active');
     $('tab-mastered').classList.toggle('on', wrongTab === 'mastered');
+
     var list = all.filter(function (w) { return w.status === wrongTab; });
+    // 筛选
+    if (wrongFilterK) {
+      list = list.filter(function (w) { return (w.knowledge || '综合') === wrongFilterK; });
+    }
+    if (wrongFilterQ) {
+      list = list.filter(function (w) { return w.problem.indexOf(wrongFilterQ) > -1; });
+    }
+    // 到期优先排序
+    list.sort(function (a, b) {
+      var da = isDueToday(a) ? 1 : 0;
+      var db = isDueToday(b) ? 1 : 0;
+      if (da !== db) return db - da;
+      return (b.lastAt || '').localeCompare(a.lastAt || '');
+    });
+
     var box = $('wrong-list');
     box.innerHTML = '';
     $('btn-clear-mastered').style.display = wrongTab === 'mastered' && list.length ? 'block' : 'none';
 
+    // 知识点筛选 chips
+    var chips = $('wrong-filters');
+    chips.innerHTML = '';
+    if (all.length) {
+      var ks = {};
+      all.forEach(function (w) { ks[w.knowledge || '综合'] = 1; });
+      Object.keys(ks).forEach(function (k) {
+        var c = document.createElement('button');
+        c.className = 'w-chip' + (wrongFilterK === k ? ' on' : '');
+        c.textContent = k;
+        c.addEventListener('click', function () {
+          wrongFilterK = wrongFilterK === k ? '' : k;
+          refreshWrong();
+        });
+        chips.appendChild(c);
+      });
+    }
+
     if (!list.length) {
       var empty = document.createElement('div');
       empty.className = 'card';
-      empty.innerHTML = wrongTab === 'active'
-        ? '<div class="empty">📭 还没有错题，太棒了！</div><div class="empty-sub">做错的题会自动收进来，记得常来复习</div>'
-        : '<div class="empty">🌱 还没有掌握的错题</div><div class="empty-sub">继续加油，做对的错题会出现在这里</div>';
+      empty.innerHTML = (wrongFilterK || wrongFilterQ)
+        ? '<div class="empty">没有符合条件的错题</div>'
+        : wrongTab === 'active'
+          ? '<div class="empty">📭 还没有错题，太棒了！</div><div class="empty-sub">做错的题会自动收进来，记得常来复习</div>'
+          : '<div class="empty">🌱 还没有掌握的错题</div><div class="empty-sub">继续加油，做对的错题会出现在这里</div>';
       box.appendChild(empty);
       return;
     }
@@ -1411,10 +1484,17 @@
       box.appendChild(head);
       groups[k].forEach(function (item) {
         var div = document.createElement('div');
-        div.className = 'card wrong-item' + (item.status === 'mastered' ? ' mastered-item' : '');
+        div.className = 'card wrong-item' + (item.status === 'mastered' ? ' mastered-item' : '') + (selectedIds[item.id] ? ' selected' : '');
+        var tags = '';
+        if (errLabel(item.errorType)) tags += '<span class="w-err">' + errLabel(item.errorType) + '</span>';
+        var due = item.status === 'active' ? dueLabel(item) : '';
+        if (due) tags += '<span class="w-due">' + esc(due) + '</span>';
         var top = item.status === 'mastered'
           ? '✓ ' + esc(item.masteredAt || '') + ' 掌握'
           : '错 ' + item.times + ' 次 · ' + esc(item.lastAt || '');
+        var chk = multiMode && item.status === 'active'
+          ? '<label class="w-chk"><input type="checkbox" data-wid="' + item.id + '"' + (selectedIds[item.id] ? ' checked' : '') + '> 选择</label>'
+          : '';
         var btns = item.status === 'active'
           ? '<button class="btn btn-primary btn-sm w-btn" data-act="lesson">重新学习</button>' +
             '<button class="btn btn-green btn-sm w-btn" data-act="variant">变形题</button>' +
@@ -1423,16 +1503,90 @@
           : '<button class="btn btn-blue btn-sm w-btn" data-act="lesson">重新学习</button>' +
             '<button class="btn btn-ghost btn-sm w-btn" data-act="delete">删除</button>';
         div.innerHTML =
+          '<div class="w-top"><div>' + tags + '</div><div class="w-times">' + top + '</div></div>' +
           '<div class="w-problem">' + esc(item.problem) + '</div>' +
           '<div class="w-ans bad">✗ 我的答案：' + esc(item.myAnswer) + '</div>' +
           '<div class="w-ans good">✓ 正确答案：' + esc(item.rightAnswer) + '</div>' +
-          '<div class="w-btns">' + btns + '</div>';
+          '<div class="w-btns">' + btns + '</div>' + chk;
         div.querySelectorAll('[data-act]').forEach(function (b) {
           b.addEventListener('click', function () { wrongAction(b.dataset.act, item); });
         });
+        var cb = div.querySelector('input[type=checkbox]');
+        if (cb) {
+          cb.addEventListener('change', function () {
+            if (cb.checked) selectedIds[item.id] = true;
+            else delete selectedIds[item.id];
+            updateBatchBar();
+            div.classList.toggle('selected', !!selectedIds[item.id]);
+          });
+        }
         box.appendChild(div);
       });
     });
+  }
+
+  function updateBatchBar() {
+    var ids = Object.keys(selectedIds);
+    $('batch-count').textContent = '已选 ' + ids.length + ' 道';
+    $('wrong-batch').style.display = multiMode ? 'flex' : 'none';
+  }
+
+  function toggleMulti() {
+    multiMode = !multiMode;
+    if (!multiMode) selectedIds = {};
+    $('btn-wrong-multi').textContent = multiMode ? '✖️ 退出多选' : '☑️ 多选';
+    updateBatchBar();
+    refreshWrong();
+  }
+
+  function batchMaster() {
+    var ids = Object.keys(selectedIds);
+    if (!ids.length) return;
+    if (!confirm('把选中的 ' + ids.length + ' 道错题标记为已掌握？')) return;
+    var ws = getWrongs();
+    ids.forEach(function (id) { markWrongMastered(id); });
+    selectedIds = {};
+    updateBatchBar();
+    refreshWrong();
+  }
+
+  function batchDelete() {
+    var ids = Object.keys(selectedIds);
+    if (!ids.length) return;
+    if (!confirm('删除选中的 ' + ids.length + ' 道错题？删除后无法恢复。')) return;
+    var keep = getWrongs().filter(function (w) { return ids.indexOf(w.id) < 0; });
+    saveWrongs(keep);
+    ids.forEach(function (id) {
+      var it = getWrongs().find(function (w) { return w.id === id; });
+      if (it) syncSend('deleteWrong', { problem: it.problem });
+    });
+    selectedIds = {};
+    updateBatchBar();
+    refreshWrong();
+  }
+
+  function csvCell(v) {
+    v = String(v === null || v === undefined ? '' : v);
+    return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function exportWrongCsv() {
+    var rows = [['题目', '我的答案', '正确答案', '知识点', '错因', '状态', '最近时间']];
+    getWrongs().forEach(function (w) {
+      rows.push([
+        w.problem, w.myAnswer, w.rightAnswer, w.knowledge,
+        errLabel(w.errorType), w.status === 'mastered' ? '已掌握' : '待复习',
+        w.lastAt || w.masteredAt || ''
+      ]);
+    });
+    var csv = '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '错题本.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   function wrongAction(act, item) {
@@ -1598,6 +1752,17 @@
     });
     window.print();
   });
+
+  // 错题本：搜索 / 多选 / 批量 / 导出
+  $('wrong-search').addEventListener('input', function () {
+    wrongFilterQ = this.value.trim();
+    refreshWrong();
+  });
+  $('btn-wrong-multi').addEventListener('click', toggleMulti);
+  $('btn-batch-master').addEventListener('click', batchMaster);
+  $('btn-batch-delete').addEventListener('click', batchDelete);
+  $('btn-batch-cancel').addEventListener('click', toggleMulti);
+  $('btn-export-csv').addEventListener('click', exportWrongCsv);
 
   $('tab-active').addEventListener('click', function () { wrongTab = 'active'; refreshWrong(); });
   $('tab-mastered').addEventListener('click', function () { wrongTab = 'mastered'; refreshWrong(); });

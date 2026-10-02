@@ -149,6 +149,7 @@ function createSession(body) {
     answer: answer,
     displayAnswer: body.rightAnswer || (r && r.displayAnswer) || (answer === null || answer === undefined ? '' : String(answer)),
     myAnswer: body.myAnswer || '',
+    errorType: '',
     steps: body.steps || (r && r.steps) || [],
     state: 'GREETING',
     asked: {},
@@ -291,6 +292,14 @@ function step(sess, rawText, preCheck) {
     }
 
     case 'DIAGNOSE': {
+      // 错因识别：读题不清 / 计算出错 / 方法不熟（用于错因标签与行为日志）
+      if (/读|没懂|看不懂|题目/.test(t)) {
+        sess.errorType = 'read_error';
+      } else if (/算|计算|乘法|除法|加法|减法|进位|借位/.test(t)) {
+        sess.errorType = 'calc_error';
+      } else {
+        sess.errorType = 'method_unknown';
+      }
       return respond(
         sess,
         '好，老师明白了。这样，老师给你一个小提示，你试试看能不能继续：\n' + hintText(sess, sess.hintLevel),
@@ -391,6 +400,7 @@ function reviewResponse(sess, prefix) {
       complete: true,
       masteredOriginal: sess.masteredOriginal,
       reviewDue: days + ' 天后',
+      errorType: sess.errorType || '',
       parentScript: {
         problem: sess.problem,
         question: '可以问问孩子：这道「' + sess.knowledge + '」题，第一步你是从哪里开始的？',

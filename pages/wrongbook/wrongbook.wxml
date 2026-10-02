@@ -26,6 +26,13 @@
         <view class="w-times">{{item.items.length}} 道</view>
       </view>
       <view wx:for="{{item.items}}" wx:for-item="it" wx:key="id" class="card wrong-item">
+        <view class="w-top">
+          <view class="w-tags">
+            <text wx:if="{{it._err}}" class="w-err">{{it._err}}</text>
+            <text wx:if="{{it._due}}" class="w-due">{{it._due}}</text>
+          </view>
+          <view class="w-times">错 {{it.times}} 次 · {{it.lastAt}}</view>
+        </view>
         <view class="w-problem">{{it.problem}}</view>
         <view class="w-ans bad">✗ 我的答案：{{it.myAnswer}}</view>
         <view class="w-ans good">✓ 正确答案：{{it.rightAnswer}}</view>

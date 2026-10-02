@@ -130,7 +130,8 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
   margin-bottom: 12px;
 }
 .wrong-item.mastered { opacity: 0.7; }
-.w-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.w-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px; flex-wrap: wrap; }
+.w-err { background: #FFE9E3; color: #E05B4D; font-size: 12px; border-radius: 999px; padding: 2px 10px; }
 .tag {
   background: #FFF4E0;
   color: #FF8A00;

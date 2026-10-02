@@ -265,8 +265,11 @@
       var times = w.status === 'mastered'
         ? '✓ 已掌握 ' + esc(w.masteredAt || '')
         : '错 ' + w.times + ' 次 · ' + esc(w.lastAt || '');
+      var err = { method_unknown: '方法不熟', calc_error: '计算出错', read_error: '读题不清' }[w.errorType] || '';
       div.innerHTML =
-        '<div class="w-top"><span class="tag">' + esc(w.knowledge) + '</span><span class="w-times">' + times + '</span></div>' +
+        '<div class="w-top"><span class="tag">' + esc(w.knowledge) + '</span>' +
+        (err ? '<span class="w-err">' + esc(err) + '</span>' : '') +
+        '<span class="w-times">' + times + '</span></div>' +
         '<div class="w-problem">' + esc(w.problem) + '</div>' +
         '<div class="w-ans bad">✗ 我的答案：' + esc(w.myAnswer) + '</div>' +
         '<div class="w-ans good">✓ 正确答案：' + esc(w.rightAnswer) + '</div>';

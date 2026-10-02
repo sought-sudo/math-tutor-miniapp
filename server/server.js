@@ -154,6 +154,7 @@ function handleSync(body) {
       times: data.times || 1,
       status: 'active',
       lastAt: nowStr(),
+      errorType: data.errorType || '',
       masteredAt: old && old.masteredAt ? old.masteredAt : ''
     };
   } else if (type === 'master') {
@@ -455,6 +456,7 @@ function buildExtraForState(sess, nextState, check, preState) {
       complete: true,
       masteredOriginal: sess.masteredOriginal,
       reviewDue: days + ' 天后',
+      errorType: sess.errorType || '',
       parentScript: {
         problem: sess.problem,
         question: '可以问问孩子：这道「' + sess.knowledge + '」题，第一步你是从哪里开始的？',
@@ -486,7 +488,7 @@ function logTutorEvents(sess, body, isNew, preState, preStreak, check, out) {
       if (check.correct) {
         db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'answer_correct', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
       } else {
-        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'answer_wrong', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });
+        db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'answer_wrong', questionId: qid, knowledgePoint: sess.knowledge, errorType: sess.errorType || null, durationMs: dur });
       }
     } else if (preState === 'DEFORM') {
       db.logEvent({ userId: userId, sessionId: sess.id, eventType: 'deformation_attempt', questionId: qid, knowledgePoint: sess.knowledge, durationMs: dur });

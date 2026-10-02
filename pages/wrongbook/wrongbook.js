@@ -26,8 +26,11 @@ Page({
 
   groupBy(list) {
     const map = {};
+    const errMap = { method_unknown: '方法不熟', calc_error: '计算出错', read_error: '读题不清' };
     list.forEach((i) => {
       const k = i.knowledge || '综合';
+      i._err = errMap[i.errorType] || '';
+      i._due = i.status === 'active' && i.reviewDue ? ('⏰ ' + i.reviewDue) : '';
       (map[k] = map[k] || []).push(i);
     });
     return Object.keys(map).map((k) => ({ knowledge: k, items: map[k] }));

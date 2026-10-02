@@ -108,3 +108,25 @@
   align-items: center;
   padding: 4rpx 8rpx 12rpx;
 }
+
+.w-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.w-err {
+  background: #FFE9E3;
+  color: #E05B4D;
+  font-size: 22rpx;
+  border-radius: 999rpx;
+  padding: 2rpx 16rpx;
+}
+
+.w-due {
+  background: #EEF4FF;
+  color: #3A7BFF;
+  font-size: 22rpx;
+  border-radius: 999rpx;
+  padding: 2rpx 16rpx;
+}

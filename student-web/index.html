@@ -51,6 +51,7 @@
         </div>
         <div class="card feature" data-go="wrong">
           <div class="f-icon f-green">📕</div><div class="f-title">错题本</div><div class="f-desc">错过的题，都在这里</div>
+          <span class="red-dot" id="wrong-dot" style="display:none"></span>
         </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
@@ -174,7 +175,17 @@
         <div class="tab" id="tab-mastered">已掌握</div>
       </div>
       <div class="wrong-tools">
+        <input id="wrong-search" placeholder="🔍 搜索题目…">
+        <button class="btn btn-ghost btn-sm" id="btn-wrong-multi">☑️ 多选</button>
+        <button class="btn btn-ghost btn-sm" id="btn-export-csv">⬇️ 导出 CSV</button>
         <button class="btn btn-ghost btn-sm" id="btn-print-wrong">🖨️ 打印错题本</button>
+      </div>
+      <div class="wrong-filters" id="wrong-filters"></div>
+      <div class="wrong-batch" id="wrong-batch" style="display:none">
+        <span class="batch-count" id="batch-count">已选 0 道</span>
+        <button class="btn btn-green btn-sm" id="btn-batch-master">批量掌握</button>
+        <button class="btn btn-warn btn-sm" id="btn-batch-delete">批量删除</button>
+        <button class="btn btn-ghost btn-sm" id="btn-batch-cancel">取消</button>
       </div>
       <div id="wrong-list"></div>
       <button class="btn btn-ghost" id="btn-clear-mastered" style="display:none">清空已掌握</button>
