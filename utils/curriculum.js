@@ -1,5 +1,5 @@
-// utils/curriculum.js — 人教版四年级教材同步目录（纯数据，小程序 require / 网页 <script> 共用）
-// 单元 → 本项目知识点映射，覆盖全部 12 类题型
+// utils/curriculum.js — 人教版 + 北师大版 四年级教材同步目录（纯数据，小程序 require / 网页 <script> 共用）
+// 单元 → 本项目知识点映射，共 25 个单元（人教 14 + 北师大 11）
 
 const CURRICULUM = [
   {
