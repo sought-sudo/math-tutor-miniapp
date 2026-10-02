@@ -175,6 +175,8 @@ function handleSync(body) {
     child.streak = data.streak || 0;
   } else if (type === 'unit') {
     child.unit = data.unit || '';
+  } else if (type === 'companion') {
+    child.companion = { bond: data.bond || 0, streak: data.streak || 0 };
   } else {
     throw new Error('未知同步类型：' + type);
   }
@@ -615,7 +617,8 @@ const server = http.createServer(async (req, res) => {
           stars: child.stars || 0,
           streak: child.streak || 0,
           unit: child.unit || '',
-          unitLabel: child.unit ? curriculum.unitLabel(child.unit) : ''
+          unitLabel: child.unit ? curriculum.unitLabel(child.unit) : '',
+          companion: child.companion || { bond: 0, streak: 0 }
         }
       });
       return;

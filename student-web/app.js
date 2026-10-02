@@ -197,6 +197,82 @@
     return S.solveText(problem) || S.genericGuide(problem);
   }
 
+  // ---------------- 伙伴记忆与亲密度（小狐老师） ----------------
+
+  var COMP_KEY = 'stu_companion';
+
+  function compGet() {
+    var v = storeStr(COMP_KEY, '');
+    try { return v ? JSON.parse(v) : {}; } catch (e) { return {}; }
+  }
+  function compSet(c) { storeSetStr(COMP_KEY, JSON.stringify(c)); }
+
+  function bondLevel(bond) {
+    return bond >= 60 ? '最佳拍档' : bond >= 30 ? '好伙伴' : bond >= 10 ? '朋友' : '初识';
+  }
+  function bondIcon(bond) {
+    return bond >= 60 ? '🏆' : bond >= 30 ? '🌟' : bond >= 10 ? '🤝' : '👋';
+  }
+
+  // 亲密度 +n；每日首次互动额外 +2（连续陪伴）
+  function addBond(n) {
+    var c = compGet();
+    var t = dateStr();
+    if (c.lastBondDate !== t) {
+      c.bond = (c.bond || 0) + 2;
+      c.lastBondDate = t;
+    }
+    var prev = bondLevel(c.bond || 0);
+    c.bond = (c.bond || 0) + (n || 0);
+    compSet(c);
+    var cur = bondLevel(c.bond);
+    if (cur !== prev) {
+      showBadgeToast({ icon: bondIcon(c.bond), name: cur, desc: '小狐和你更亲近啦！' });
+      if (window.TTS) TTS.playUnlock();
+    }
+    companionSync();
+    return c;
+  }
+
+  // 记录练习知识点，形成"最喜欢/进步最多"的记忆
+  function compTouch(knowledge, correct) {
+    if (!knowledge) return;
+    var c = compGet();
+    c.knowCounts = c.knowCounts || {};
+    c.knowCounts[knowledge] = (c.knowCounts[knowledge] || 0) + (correct ? 1 : 0.5);
+    var best = '';
+    var bestN = 0;
+    Object.keys(c.knowCounts).forEach(function (k) {
+      if (c.knowCounts[k] > bestN) {
+        bestN = c.knowCounts[k];
+        best = k;
+      }
+    });
+    c.favoriteKnowledge = best;
+    compSet(c);
+  }
+
+  // 每次进入首页：记录到访，返回相隔天数
+  function companionVisit() {
+    var c = compGet();
+    var t = dateStr();
+    var awayDays = 0;
+    if (c.lastVisitAt && c.lastVisitAt !== t) {
+      var d1 = new Date(c.lastVisitAt + 'T00:00:00');
+      var d2 = new Date();
+      awayDays = Math.floor((d2.getTime() - d1.getTime()) / 86400000);
+    }
+    c.greetCount = (c.greetCount || 0) + 1;
+    c.lastVisitAt = t;
+    compSet(c);
+    return { c: c, awayDays: awayDays };
+  }
+
+  function companionSync() {
+    var c = compGet();
+    syncSend('companion', { bond: c.bond || 0, streak: window.Rewards ? Rewards.streak() : 0 });
+  }
+
   // ---------------- 掌握度（薄弱优先出题） ----------------
 
   var masteryCache = null;
@@ -526,6 +602,7 @@
     }
     if (window.TTS) TTS.playCorrect();
     refreshMastery(); // 会话结束后刷新掌握度
+    addBond(2); // 对话完成，伙伴亲近 +2
   }
 
   function renderQuickReplies(list) {
@@ -566,7 +643,23 @@
     var greet = h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
     var s = getStats();
     $('home-greet').textContent = greet + '，小数学家！';
-    $('home-sub').textContent = '我是小狐老师，今天也要一起加油！';
+    // 伙伴记忆：个性化问候
+    var visit = companionVisit();
+    var c = visit.c;
+    var sub;
+    if (visit.awayDays >= 2) {
+      sub = visit.awayDays + ' 天没见啦，小狐想你了！';
+    } else if (visit.awayDays === 1) {
+      sub = '昨天没见你，小狐一直在等你哦';
+    } else if ((c.greetCount || 0) > 1 && masteryCache && masteryCache.length) {
+      sub = '你在「' + masteryCache[0].knowledge_point + '」上进步了好多！';
+    } else if ((c.greetCount || 0) <= 1) {
+      sub = '我是小狐老师，今天也要一起加油！';
+    } else {
+      sub = '我们又见面啦！小狐陪你继续加油！';
+    }
+    $('home-sub').textContent = sub;
+    $('hero-bond').textContent = bondIcon(c.bond || 0) + ' ' + bondLevel(c.bond || 0);
     if (window.Mascot) {
       Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64);
     }
@@ -1099,6 +1192,8 @@
     }
     if (correct && window.TTS) TTS.playCorrect();
     refreshMastery(); // 答题后刷新掌握度，驱动薄弱优先出题
+    addBond(correct ? 1 : 0); // 伙伴亲密度
+    compTouch(guide.knowledge, correct);
 
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'block';
@@ -1296,6 +1391,26 @@
   });
   $('chat-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') sendChat($('chat-input').value);
+  });
+
+  // 语音输入（和小狐说话）
+  if (window.Voice && Voice.supported) {
+    $('btn-mic').style.display = 'flex';
+  }
+  $('btn-mic').addEventListener('click', function () {
+    if (!window.Voice || !Voice.supported) return;
+    if (Voice.listening()) {
+      Voice.stop();
+      $('btn-mic').classList.remove('listening');
+      return;
+    }
+    Voice.start(function (text) {
+      $('btn-mic').classList.remove('listening');
+      if (text) sendChat(text);
+    }, function () {
+      $('btn-mic').classList.remove('listening');
+    });
+    $('btn-mic').classList.add('listening');
   });
 
   // 语音与奖励

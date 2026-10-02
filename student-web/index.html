@@ -18,6 +18,7 @@
           <div class="hero-stats">
             <span id="hero-stars">⭐ 0</span>
             <span id="hero-streak">🔥 0 天</span>
+            <span id="hero-bond">👋 初识</span>
             <button class="sound-btn" id="btn-sound" title="声音开关">🔊</button>
           </div>
           <div class="hero-badges" id="hero-badges"></div>
@@ -220,6 +221,7 @@
       <div class="chat-bubbles" id="chat-bubbles"></div>
       <div class="chat-quick" id="chat-quick"></div>
       <div class="chat-input-row" id="chat-input-row">
+        <button class="mic-btn" id="btn-mic" title="和小狐说话" style="display:none">🎤</button>
         <input id="chat-input" placeholder="和老师说说你的想法…">
         <button class="btn btn-primary btn-sm" id="chat-send">发送</button>
       </div>
@@ -243,6 +245,7 @@
   </div>
 
   <script src="js/tts.js"></script>
+  <script src="js/voice.js"></script>
   <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
