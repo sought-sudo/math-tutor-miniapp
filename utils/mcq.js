@@ -121,10 +121,6 @@ function mcq(knowledge, problem, options, answerIndex, steps, answerValue) {
   };
 }
 
-const CONCEPT_STEPS_COMMON = [
-  { title: '① 读题', content: '先读懂题目问的是什么，圈出关键信息。' }
-];
-
 function genBigNumber() {
   const kind = pick(['read', 'compare', 'round']);
   if (kind === 'read') {

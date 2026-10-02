@@ -1305,46 +1305,87 @@
     renderGuide();
   }
 
+  var FLIP_MS = 380; // 翻页动画时长，与 style.css 的 transition 一致
+  var flipping = false;
+
   function renderGuide() {
+    if (guide.page === undefined) guide.page = 0;
+    updateChrome();
+    renderPage(false, 0);
+  }
+
+  function updateChrome() {
     var lesson = guide.mode === 'lesson';
-    var shown = guide.revealed;
-    $('guide-progress').textContent = lesson
-      ? '已听 ' + guide.revealed + ' / ' + guide.steps.length + ' 步'
-      : '已打开 ' + guide.revealed + ' / ' + guide.steps.length + ' 步';
+    var m = guide.steps.length;
+    var page = guide.page;
+    $('guide-progress').textContent = (lesson ? '听老师讲 · ' : '') + '第 ' + (page + 1) + ' / ' + m + ' 页';
     var fill = $('progress-fill');
-    if (fill) {
-      fill.style.width = (guide.steps.length ? Math.round(shown / guide.steps.length * 100) : 0) + '%';
+    if (fill) fill.style.width = Math.round((page + 1) / m * 100) + '%';
+    var dots = $('page-dots');
+    dots.innerHTML = '';
+    for (var i = 0; i < m; i++) {
+      var d = document.createElement('span');
+      d.className = 'dot' + (i === page ? ' on' : '') + (i < page ? ' done' : '');
+      dots.appendChild(d);
     }
+    $('step-nav').style.display = 'block';
+    $('btn-prev-step').style.visibility = page > 0 ? 'visible' : 'hidden';
+    $('btn-next-step').innerHTML = page >= m - 1
+      ? (lesson ? '🎯 来挑战变形题' : '✏️ 我来作答')
+      : '下一页 ›';
+  }
+
+  function renderPage(animate, dir) {
     var box = $('guide-steps');
-    box.innerHTML = '';
-    guide.steps.forEach(function (s, i) {
-      var div = document.createElement('div');
-      div.className = 'step' +
-        (i < shown ? ' open' : '') +
-        (i === shown ? ' current' : '');
-      if (i < shown) {
-        var extra = '';
-        if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
-        if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
-        div.innerHTML = '<div class="step-body"><div class="step-title"><span class="step-num">' + (i + 1) + '</span>' + esc(s.title) + '</div>' +
-          '<div class="step-content">' + esc(s.content) + '</div>' + extra + '</div>';
-      } else if (i === shown) {
-        div.innerHTML = '<div class="step-locked"><div class="lock-text">💡 ' +
-          (lesson ? '听老师讲第 ' + (i + 1) + ' 步' : '第 ' + (i + 1) + ' 步已准备好') + '</div>' +
-          '<button class="btn btn-primary btn-sm reveal-btn">' + (lesson ? '听老师讲' : '看这一步') + '</button></div>';
-        div.querySelector('.reveal-btn').addEventListener('click', function () {
-          guide.revealed++;
-          renderGuide();
-          if (guide.revealed >= guide.steps.length) {
-            if (guide.mode === 'lesson') showLessonChallenge();
-            else showAnswerArea();
-          }
-        });
-      } else {
-        div.innerHTML = '<div class="step-locked dim"><div class="lock-text">🔒 第 ' + (i + 1) + ' 步</div></div>';
-      }
-      box.appendChild(div);
-    });
+    var s = guide.steps[guide.page];
+    var extra = '';
+    if (s.tip) extra += '<div class="step-tip">📌 ' + esc(s.tip) + '</div>';
+    if (s.ask) extra += '<div class="step-ask">🤔 想一想：' + esc(s.ask) + '</div>';
+    var pageEl = document.createElement('div');
+    pageEl.className = 'page-card' + (animate ? (dir < 0 ? ' entering back' : ' entering') : '');
+    pageEl.innerHTML =
+      '<div class="step-title"><span class="step-num">' + (guide.page + 1) + '</span>' + esc(s.title) + '</div>' +
+      '<div class="step-content">' + esc(s.content) + '</div>' + extra;
+    var old = box.querySelector('.page-card:not(.ghost)');
+    if (animate && old) {
+      // 旧页做成"翻走的书页"浮层，新页在其下滑入
+      var ghost = old.cloneNode(true);
+      ghost.className = 'page-card ghost' + (dir < 0 ? ' back' : '');
+      box.appendChild(ghost);
+      requestAnimationFrame(function () {
+        ghost.classList.add('leaving');
+        pageEl.classList.remove('entering', 'back');
+      });
+      setTimeout(function () {
+        if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      }, FLIP_MS);
+    }
+    if (old) box.removeChild(old);
+    box.appendChild(pageEl);
+  }
+
+  function onNext() {
+    if (!guide || flipping) return;
+    var m = guide.steps.length;
+    if (guide.page >= m - 1) {
+      if (guide.mode === 'lesson') showLessonChallenge();
+      else showAnswerArea();
+      return;
+    }
+    flipping = true;
+    guide.page++;
+    updateChrome();
+    renderPage(true, 1);
+    setTimeout(function () { flipping = false; }, FLIP_MS);
+  }
+
+  function onPrev() {
+    if (!guide || flipping || guide.page <= 0) return;
+    flipping = true;
+    guide.page--;
+    updateChrome();
+    renderPage(true, -1);
+    setTimeout(function () { flipping = false; }, FLIP_MS);
   }
 
   var MCQ_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -1565,6 +1606,7 @@
     compTouch(guide.knowledge, correct);
 
     $('guide-answer').style.display = 'none';
+    $('step-nav').style.display = 'none';
     $('guide-result').style.display = 'block';
     $('guide-result').className = 'card result-card ' + (correct ? 'ok' : 'no');
     if (window.Mascot) {
@@ -1907,6 +1949,20 @@
   $('answer-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAnswer(); });
   $('btn-self-ok').addEventListener('click', function () { finish(true, ''); });
   $('btn-self-no').addEventListener('click', function () { finish(false, ''); });
+  $('btn-prev-step').addEventListener('click', onPrev);
+  $('btn-next-step').addEventListener('click', onNext);
+  // 书页翻页手势：左右滑动切换步骤
+  var touchX = null;
+  $('guide-steps').addEventListener('touchstart', function (e) {
+    if (e.touches.length) touchX = e.touches[0].clientX;
+  }, { passive: true });
+  $('guide-steps').addEventListener('touchend', function (e) {
+    if (touchX === null || !e.changedTouches.length) return;
+    var dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (dx < -50) onNext();
+    else if (dx > 50) onPrev();
+  });
   $('btn-again').addEventListener('click', newPractice);
   $('btn-home').addEventListener('click', function () { showView('home'); });
   $('btn-lesson-variant').addEventListener('click', function () {

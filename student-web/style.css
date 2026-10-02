@@ -334,10 +334,35 @@ textarea { resize: vertical; min-height: 72px; }
   margin-top: 4px;
 }
 
-.step { background: #fff; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); overflow: hidden; transition: border-color 0.2s; }
-.step.open { border-left: 6px solid #35D0AA; }
-.step.current { border: 2px dashed #FFB400; }
-.step-body { padding: 14px 16px; }
+/* 书页翻页：一屏一页，像翻书一样切换 */
+#guide-steps { position: relative; min-height: 200px; perspective: 1200px; }
+.page-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transition: transform 0.38s ease, opacity 0.38s ease;
+}
+.page-card.entering { transform: translateX(8%) rotateY(16deg); opacity: 0.1; }
+.page-card.entering.back { transform: translateX(-8%) rotateY(-16deg); }
+.page-card.ghost {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  z-index: 5;
+  transform-origin: left center;
+  pointer-events: none;
+}
+.page-card.ghost.leaving { transform: translateX(-55%) rotateY(-88deg); opacity: 0; }
+.page-card.ghost.back { transform-origin: right center; }
+.page-card.ghost.back.leaving { transform: translateX(55%) rotateY(88deg); }
+.step-nav { margin-top: 14px; }
+.page-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #FFE9C9; transition: background 0.2s, transform 0.2s; }
+.dot.done { background: #FFC53D; }
+.dot.on { background: #FF9F1C; transform: scale(1.4); }
+.pager-btns { display: flex; gap: 10px; }
+.pager-btns .btn { flex: 1; }
+
 .step-title { font-weight: 800; color: #FF8A00; margin-bottom: 6px; font-size: 15px; display: flex; align-items: center; }
 .step-num {
   flex-shrink: 0;
@@ -353,11 +378,7 @@ textarea { resize: vertical; min-height: 72px; }
   justify-content: center;
   margin-right: 8px;
 }
-.step.open .step-num { background: #DFF5EE; color: #14A98C; }
 .step-content { color: #444; line-height: 1.8; white-space: pre-line; font-size: 14px; }
-.step-locked { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; }
-.step-locked.dim { opacity: 0.55; }
-.lock-text { color: #999; font-size: 14px; }
 
 .loading-line { text-align: center; color: #FF8A00; font-weight: 700; font-size: 15px; padding: 10px 0; }
 
