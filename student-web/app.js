@@ -646,6 +646,7 @@
     if (name === 'home') refreshHome();
     if (name === 'wrong') refreshWrong();
     if (name === 'parent') refreshParent();
+    if (name === 'camera') cameraOnShow();
   }
 
   // ---------------- 首页 ----------------
@@ -804,17 +805,24 @@
 
   // ---------------- 拍照识题 ----------------
 
+  var camRotateDeg = 0;
+
   function handleImage(file) {
     if (!file) return;
     var url = URL.createObjectURL(file);
     var img = $('camera-img');
     img.src = url;
     img.style.display = 'block';
+    img.style.transform = 'rotate(0deg)';
+    camRotateDeg = 0;
+    $('btn-rotate').style.display = 'flex';
+    $('blur-hint').style.display = 'none';
     $('camera-guide').style.display = 'none';
     $('recog-card').style.display = 'block';
     $('recog-note').style.display = 'none';
     $('recog-input').value = '';
     $('camera-scan').style.display = 'block';
+    detectBlur(url);
 
     var base = getApiBase();
     if (!syncOn()) {
@@ -848,7 +856,27 @@
   }
 
   function refreshSamples() {
-    var list = S.sampleProblems(3);
+    // 示例题优先按当前教材单元/薄弱知识点生成
+    var list = [];
+    var pool = unitKnowledgePool();
+    if (!pool && masteryCache && masteryCache.length) {
+      pool = masteryCache.slice(0, 3).map(function (m) { return m.knowledge_point; });
+    }
+    if (pool && pool.length) {
+      var seen = {};
+      var guard = 0;
+      while (list.length < 3 && guard++ < 24) {
+        var k = pool[Math.floor(Math.random() * pool.length)];
+        if (seen[k]) continue;
+        seen[k] = true;
+        list.push(S.generateByKnowledge(k));
+      }
+    }
+    var guard2 = 0;
+    while (list.length < 3 && guard2++ < 24) {
+      var p = S.generatePractice();
+      if (!list.some(function (x) { return x.problem === p.problem; })) list.push(p);
+    }
     var box = $('sample-list');
     box.innerHTML = '';
     list.forEach(function (p) {
@@ -858,6 +886,111 @@
       div.addEventListener('click', function () { startChatSession({ problem: p.problem, knowledge: p.knowledge }); });
       box.appendChild(div);
     });
+  }
+
+  // ---------------- 拍照增强：模糊检测 / 历史 / 引导 ----------------
+
+  function detectBlur(url) {
+    try {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          c.width = 64;
+          c.height = 64;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, 64, 64);
+          var data = ctx.getImageData(0, 0, 64, 64).data;
+          var vals = [];
+          var sum = 0;
+          for (var i = 0; i < data.length; i += 4) {
+            var l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            vals.push(l);
+            sum += l;
+          }
+          var mean = sum / vals.length;
+          var vsum = 0;
+          vals.forEach(function (v) { vsum += (v - mean) * (v - mean); });
+          var std = Math.sqrt(vsum / vals.length);
+          if (std < 14) $('blur-hint').style.display = 'block';
+        } catch (e) {
+          // 渐进增强：检测失败不打扰
+        }
+      };
+      img.src = url;
+    } catch (e) {
+      // 忽略
+    }
+  }
+
+  function makeThumb(url, cb) {
+    try {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          var scale = Math.min(1, 120 / img.width);
+          c.width = Math.max(1, Math.round(img.width * scale));
+          c.height = Math.max(1, Math.round(img.height * scale));
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          cb(c.toDataURL('image/jpeg', 0.7));
+        } catch (e) { cb(null); }
+      };
+      img.onerror = function () { cb(null); };
+      img.src = url;
+    } catch (e) { cb(null); }
+  }
+
+  function camHistory() {
+    var v = storeStr('stu_cam_history', '');
+    try { return v ? JSON.parse(v) : []; } catch (e) { return []; }
+  }
+
+  function camPushHistory(problem) {
+    var img = $('camera-img');
+    if (!img || !img.src || img.style.display === 'none') return;
+    makeThumb(img.src, function (thumb) {
+      var list = camHistory();
+      list.unshift({ thumb: thumb || '', problem: problem || '', ts: Date.now() });
+      storeSetStr('stu_cam_history', JSON.stringify(list.slice(0, 5)));
+      renderCamHistory();
+    });
+  }
+
+  function renderCamHistory() {
+    var list = camHistory();
+    var card = $('history-card');
+    var box = $('history-list');
+    if (!card || !box) return;
+    card.style.display = list.length ? 'block' : 'none';
+    box.innerHTML = '';
+    list.forEach(function (h) {
+      var div = document.createElement('div');
+      div.className = 'hist-item';
+      div.innerHTML = (h.thumb ? '<img class="hist-thumb" src="' + h.thumb + '" alt="">' : '<div class="hist-thumb ph">📷</div>') +
+        '<div class="hist-text">' + esc(h.problem || '（未输入题目）') + '</div>';
+      div.addEventListener('click', function () {
+        var img = $('camera-img');
+        img.src = h.thumb || '';
+        img.style.display = 'block';
+        img.style.transform = 'rotate(0deg)';
+        camRotateDeg = 0;
+        $('btn-rotate').style.display = 'flex';
+        $('camera-guide').style.display = 'none';
+        $('blur-hint').style.display = 'none';
+        $('recog-card').style.display = 'block';
+        $('recog-note').style.display = 'block';
+        $('recog-input').value = h.problem || '';
+      });
+      box.appendChild(div);
+    });
+  }
+
+  function cameraOnShow() {
+    renderCamHistory();
+    if (!storeStr('stu_cam_guide', '')) {
+      $('guide-overlay').style.display = 'block';
+    }
   }
 
   // ---------------- 分步引导 ----------------
@@ -1662,11 +1795,37 @@
 
   $('btn-camera').addEventListener('click', function () { $('cam-file').click(); });
   $('btn-album').addEventListener('click', function () { $('alb-file').click(); });
+  $('btn-rotate').addEventListener('click', function () {
+    camRotateDeg = (camRotateDeg + 90) % 360;
+    $('camera-img').style.transform = 'rotate(' + camRotateDeg + 'deg)';
+  });
+  $('camera-img').addEventListener('click', function () {
+    if ($('camera-img').style.display === 'none') return;
+    $('zoom-img').src = $('camera-img').src;
+    $('zoom-img').style.transform = 'rotate(' + camRotateDeg + 'deg)';
+    $('zoom-overlay').style.display = 'block';
+  });
+  $('btn-zoom-close').addEventListener('click', function () { $('zoom-overlay').style.display = 'none'; });
+  $('zoom-overlay').addEventListener('click', function (e) {
+    if (e.target === $('zoom-overlay')) $('zoom-overlay').style.display = 'none';
+  });
+  $('btn-guide-ok').addEventListener('click', function () {
+    storeSetStr('stu_cam_guide', '1');
+    $('guide-overlay').style.display = 'none';
+  });
+  document.querySelectorAll('#math-chips .w-chip').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var ta = $('recog-input');
+      ta.value = (ta.value || '') + b.dataset.ch;
+      ta.focus();
+    });
+  });
   $('cam-file').addEventListener('change', function (e) { handleImage(e.target.files[0]); });
   $('alb-file').addEventListener('change', function (e) { handleImage(e.target.files[0]); });
   $('btn-start-guide').addEventListener('click', function () {
     var t = $('recog-input').value.trim();
     if (!t) { alert('先写一道题目吧 ✍️'); return; }
+    camPushHistory(t); // 记入拍照历史
     // 拍照/搜题 → 对话式 AI 辅导（状态机）；本地引擎已知答案时传给后端用于判题
     var r = localSolve(t);
     startChatSession({

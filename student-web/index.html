@@ -81,13 +81,24 @@
         </div>
       </div>
       <div class="scanning" id="camera-scan" style="display:none">🔍 小助手正在认题…</div>
+      <div class="blur-hint" id="blur-hint" style="display:none">💡 这张图可能看不清，重拍一张更准哦</div>
       <div class="tip-line" id="camera-tip">📐 光线亮一点，拍清楚整道题</div>
       <div class="actions">
         <button class="btn btn-primary act" id="btn-camera">📷 拍照</button>
         <button class="btn btn-blue act" id="btn-album">🖼️ 从相册选择</button>
+        <button class="btn btn-ghost act" id="btn-rotate" style="display:none">↻ 旋转</button>
       </div>
       <div class="card" id="recog-card" style="display:none">
         <div class="label">识别的题目（可以手动修改）</div>
+        <div class="math-chips" id="math-chips">
+          <button class="w-chip" data-ch="×">×</button>
+          <button class="w-chip" data-ch="÷">÷</button>
+          <button class="w-chip" data-ch="=">=</button>
+          <button class="w-chip" data-ch="(">(</button>
+          <button class="w-chip" data-ch=")">)</button>
+          <button class="w-chip" data-ch="计算：">计算：</button>
+          <button class="w-chip" data-ch="应用题：">应用题：</button>
+        </div>
         <textarea id="recog-input" rows="3" placeholder="输入或粘贴题目，例如：计算：125×8+25×4=?"></textarea>
         <div class="note" id="recog-note" style="display:none">ℹ️ 未配置 OCR：请手动输入题目，或用下面的示例题体验。</div>
         <button class="btn btn-primary" id="btn-start-guide">开始辅导 🚀</button>
@@ -95,6 +106,27 @@
       <div class="card" id="sample-card">
         <div class="label">没有题目？先用示例题体验：</div>
         <div id="sample-list"></div>
+      </div>
+      <div class="card" id="history-card" style="display:none">
+        <div class="label">🕘 最近拍过</div>
+        <div id="history-list"></div>
+      </div>
+
+      <!-- 图片放大预览 -->
+      <div class="zoom-overlay" id="zoom-overlay" style="display:none">
+        <img id="zoom-img" alt="">
+        <button class="btn btn-ghost btn-sm zoom-close" id="btn-zoom-close">✖️ 关闭</button>
+      </div>
+
+      <!-- 首次使用引导 -->
+      <div class="guide-overlay" id="guide-overlay" style="display:none">
+        <div class="go-panel">
+          <div class="go-title">📷 拍题三步走</div>
+          <div class="go-step">1️⃣ 把题目放平，横平竖直拍正</div>
+          <div class="go-step">2️⃣ 光线亮一点，整道题都在框里</div>
+          <div class="go-step">3️⃣ 拍好后检查一下，再开始辅导</div>
+          <button class="btn btn-primary" id="btn-guide-ok">知道啦！</button>
+        </div>
       </div>
     </section>
 
