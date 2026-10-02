@@ -1033,12 +1033,19 @@
     var difficulty = pickDifficulty();
     var pool = unitKnowledgePool();
     if (pool) {
-      // 已选教材单元：单元内薄弱优先（或随机）
-      applyResult(S.generateByKnowledge(pickWeakInPool(pool), difficulty), { retry: false, task: 'practice' });
+      // 已选教材单元：单元内薄弱优先；70% 选择题
+      var k = pickWeakInPool(pool);
+      if (window.MCQ && Math.random() < 0.7) {
+        applyResult(window.MCQ.generateMcqByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+      } else {
+        applyResult(S.generateByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+      }
       return;
     }
     var weak = pickWeakKnowledge();
-    if (weak) {
+    if (window.MCQ && Math.random() < 0.7) {
+      applyResult(weak ? window.MCQ.generateMcqByKnowledge(weak, difficulty) : window.MCQ.generateMcq(null, difficulty), { retry: false, task: 'practice' });
+    } else if (weak) {
       applyResult(S.generateByKnowledge(weak, difficulty), { retry: false, task: 'practice' });
     } else {
       applyResult(S.generatePractice(null, difficulty), { retry: false, task: 'practice' });
@@ -1058,6 +1065,8 @@
         answer: item.rightNum,
         displayAnswer: item.rightAnswer,
         steps: item.steps,
+        options: item.options || null,
+        answerIndex: item.answerIndex !== undefined ? item.answerIndex : -1,
         note: ''
       }, { retry: true, wrongId: item.id, task: 'retry' });
       return;
@@ -1260,6 +1269,8 @@
       revealed: 0,
       rightNum: rightNum === null ? null : rightNum,
       rightAnswerText: res.displayAnswer || (res.answer == null ? '' : String(res.answer)),
+      options: res.options || null,
+      answerIndex: res.answerIndex !== undefined ? res.answerIndex : -1,
       startTs: Date.now(),
       retry: !!(opts && opts.retry),
       wrongId: opts && opts.wrongId ? opts.wrongId : '',
@@ -1331,14 +1342,55 @@
     });
   }
 
+  var MCQ_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
   function showAnswerArea() {
     $('guide-answer').style.display = 'block';
-    var numeric = guide.rightNum !== null && guide.rightNum !== undefined;
+    var mc = !!(guide.options && guide.options.length);
+    var numeric = !mc && guide.rightNum !== null && guide.rightNum !== undefined;
+    $('answer-mcq-box').style.display = mc ? 'block' : 'none';
     $('answer-input-box').style.display = numeric ? 'block' : 'none';
-    $('answer-self-box').style.display = numeric ? 'none' : 'block';
+    $('answer-self-box').style.display = (!mc && !numeric) ? 'block' : 'none';
+    if (mc) renderMcqOptions();
     if (numeric) {
       $('answer-input').value = '';
       $('answer-input').focus();
+    }
+  }
+
+  function renderMcqOptions() {
+    var box = $('mcq-options');
+    box.innerHTML = '';
+    guide.options.forEach(function (opt, i) {
+      var b = document.createElement('button');
+      b.className = 'mcq-opt';
+      b.innerHTML = '<span class="mcq-letter">' + MCQ_LETTERS[i] + '</span><span class="mcq-text">' + esc(opt) + '</span>';
+      b.addEventListener('click', function () { selectOption(i, b); });
+      box.appendChild(b);
+    });
+  }
+
+  function selectOption(i, btn) {
+    if (guide.phase !== 'solving') return;
+    var myText = MCQ_LETTERS[i] + '. ' + guide.options[i];
+    if (i === guide.answerIndex) {
+      if (btn) btn.classList.add('right');
+      finish(true, myText);
+    } else {
+      guide.wrongTimes++;
+      if (btn) btn.classList.add('wrong');
+      if (guide.wrongTimes < 2) {
+        var fb = $('answer-feedback');
+        fb.style.display = 'block';
+        fb.textContent = pick([
+          '差一点点！回看第 2 步，会有启发哦 💪',
+          '再想想哦，把第 3 步重看一遍，你很接近了 ✨',
+          '别着急！检查一下再选一次 👀',
+          '思路不错！回看上面的步骤，再选一次 ✅'
+        ]);
+      } else {
+        finish(false, myText);
+      }
     }
   }
 
@@ -1391,6 +1443,10 @@
   }
 
   function finish(correct, userAnswer) {
+    // 选择题：正确答案带字母前缀展示
+    if (guide.options && guide.options.length) {
+      guide.rightAnswerText = MCQ_LETTERS[guide.answerIndex] + '. ' + guide.options[guide.answerIndex];
+    }
     var seconds = Math.round((Date.now() - guide.startTs) / 1000);
     var attempts = guide.wrongTimes + 1; // 第几次作答定结果（行为数据）
     var task = guide.task || 'practice';
@@ -1428,25 +1484,32 @@
     } else {
       var wrongs = getWrongs();
       var exist = wrongs.find(function (w) { return w.problem === guide.problem && w.status === 'active'; });
+      var rightText = guide.options && guide.options.length
+        ? MCQ_LETTERS[guide.answerIndex] + '. ' + guide.options[guide.answerIndex]
+        : (guide.rightAnswerText || '见步骤');
       var item;
       if (exist) {
         exist.times = (exist.times || 1) + 1;
         exist.myAnswer = userAnswer || '未作答';
         exist.lastAt = dateStr();
+        exist.options = guide.options;
+        exist.answerIndex = guide.answerIndex;
         item = exist;
       } else {
         item = {
           id: 'w' + Date.now() + Math.floor(Math.random() * 1000),
           problem: guide.problem,
           myAnswer: userAnswer || '未作答',
-          rightAnswer: guide.rightAnswerText || '见步骤',
+          rightAnswer: rightText,
           rightNum: guide.rightNum,
           steps: guide.steps,
           knowledge: guide.knowledge,
           times: 1,
           createdAt: dateStr(),
           lastAt: dateStr(),
-          status: 'active'
+          status: 'active',
+          options: guide.options,
+          answerIndex: guide.answerIndex
         };
         wrongs.unshift(item);
       }

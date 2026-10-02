@@ -167,6 +167,10 @@
         </div>
       </div>
       <div class="card answer-card" id="guide-answer" style="display:none">
+        <div id="answer-mcq-box" style="display:none">
+          <div class="ask">✏️ 选一选，哪个答案是对的？</div>
+          <div class="mcq-options" id="mcq-options"></div>
+        </div>
         <div id="answer-input-box">
           <div class="ask">✏️ 该你啦！把答案写下来：</div>
           <input id="answer-input" type="text" inputmode="decimal" placeholder="输入答案，不带单位也可以">
@@ -317,6 +321,7 @@
   <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
   <script src="solver.js" onerror="window.__solverFailed = true"></script>

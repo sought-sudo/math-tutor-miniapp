@@ -120,6 +120,40 @@ const assert = (c, m) => {
     }
   }
 
+  // ---------- mcq 选择题题型库 ----------
+  {
+    const M = require('../utils/mcq');
+    assert(M.toChineseNum(0) === '零', '0 应读作零');
+    assert(M.toChineseNum(1005) === '一千零五', '中间零读数: ' + M.toChineseNum(1005));
+    assert(M.toChineseNum(3004050) === '三百万四千零五十', '万级读数: ' + M.toChineseNum(3004050));
+    assert(M.toChineseNum(10001) === '一万零一', '组间零读数: ' + M.toChineseNum(10001));
+    assert(M.toChineseNum(10000000) === '一千万', '整万读数: ' + M.toChineseNum(10000000));
+
+    const keys = Object.keys(M.CONCEPT_BANK);
+    assert(keys.length === 7, '应有 7 类概念题型，实际 ' + keys.length);
+    keys.forEach((k) => {
+      for (let i = 0; i < 20; i++) {
+        const p = M.generateMcqByKnowledge(k);
+        assert(p.mcq === true && p.options.length >= 3, k + ' 应为选择题且有选项');
+        assert(p.answerIndex >= 0 && p.answerIndex < p.options.length, k + ' 答案索引合法');
+        assert(p.steps.length >= 2, k + ' 应有讲解步骤');
+        const uniq = new Set(p.options.map((o) => String(o)));
+        assert(uniq.size === p.options.length, k + ' 选项不得重复: ' + JSON.stringify(p.options));
+        assert(String(p.options[p.answerIndex]) === p.displayAnswer, k + ' 正确选项与答案一致');
+      }
+    });
+
+    for (let i = 0; i < 30; i++) {
+      const p = M.generateMcq(null, null);
+      assert(p.options.length >= 3 && p.answerIndex >= 0, '包装选择题合法');
+      if (p.answerValue !== null && p.answerValue !== undefined && typeof p.answerValue === 'number') {
+        assert(Math.abs(Number(p.options[p.answerIndex]) - p.answerValue) < 0.011, '正确选项应等于答案值');
+      } else {
+        assert(String(p.options[p.answerIndex]) === String(p.displayAnswer), '正确选项应在选项中');
+      }
+    }
+  }
+
   console.log(fail ? '❌ 存在 ' + fail + ' 个问题' : '✅ 服务层单测全部通过');
   process.exit(fail ? 1 : 0);
 })();

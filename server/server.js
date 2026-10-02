@@ -48,6 +48,7 @@ const PARENT_DIR = path.join(__dirname, '..', 'parent-web');
 const STUDENT_DIR = path.join(__dirname, '..', 'student-web');
 const SOLVER_FILE = path.join(__dirname, '..', 'utils', 'solver.js');
 const CURRICULUM_FILE = path.join(__dirname, '..', 'utils', 'curriculum.js');
+const MCQ_FILE = path.join(__dirname, '..', 'utils', 'mcq.js');
 
 // ---------------- 数据存储（JSON 文件） ----------------
 
@@ -649,6 +650,11 @@ const server = http.createServer(async (req, res) => {
     // 学生端共用 utils/curriculum.js 教材目录
     if (req.url === '/student/curriculum.js') {
       serveUtilFile(res, CURRICULUM_FILE);
+      return;
+    }
+    // 学生端共用 utils/mcq.js 选择题题型库
+    if (req.url === '/student/mcq.js') {
+      serveUtilFile(res, MCQ_FILE);
       return;
     }
     if (req.url.indexOf('/student/') === 0) {

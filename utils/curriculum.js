@@ -3,6 +3,27 @@
 
 const CURRICULUM = [
   {
+    id: 'A1',
+    book: '人教版四年级上册',
+    unit: '第 1 单元',
+    title: '大数的认识',
+    knowledge: ['大数的认识']
+  },
+  {
+    id: 'A2',
+    book: '人教版四年级上册',
+    unit: '第 2 单元',
+    title: '公顷和平方千米',
+    knowledge: ['公顷和平方千米']
+  },
+  {
+    id: 'A3',
+    book: '人教版四年级上册',
+    unit: '第 3 单元',
+    title: '角的度量',
+    knowledge: ['角的度量']
+  },
+  {
     id: 'A4',
     book: '人教版四年级上册',
     unit: '第 4 单元',
@@ -14,7 +35,7 @@ const CURRICULUM = [
     book: '人教版四年级上册',
     unit: '第 5 单元',
     title: '平行四边形和梯形',
-    knowledge: ['长方形周长', '长方形面积']
+    knowledge: ['长方形周长', '长方形面积', '垂直与平行']
   },
   {
     id: 'A6',
@@ -38,11 +59,32 @@ const CURRICULUM = [
     knowledge: ['运算定律·简算']
   },
   {
+    id: 'B4',
+    book: '人教版四年级下册',
+    unit: '第 4 单元',
+    title: '小数的意义和性质',
+    knowledge: ['小数的意义和性质']
+  },
+  {
+    id: 'B5',
+    book: '人教版四年级下册',
+    unit: '第 5 单元',
+    title: '三角形',
+    knowledge: ['三角形']
+  },
+  {
     id: 'B6',
     book: '人教版四年级下册',
     unit: '第 6 单元',
     title: '小数的加法和减法',
     knowledge: ['小数的加法', '小数的减法']
+  },
+  {
+    id: 'B7',
+    book: '人教版四年级下册',
+    unit: '第 7 单元',
+    title: '图形的运动（二）',
+    knowledge: ['图形的运动']
   },
   {
     id: 'B8',

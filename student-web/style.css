@@ -379,6 +379,40 @@ textarea { resize: vertical; min-height: 72px; }
 }
 
 .answer-card .ask { font-weight: 800; margin-bottom: 12px; }
+.mcq-options { display: flex; flex-direction: column; gap: 10px; }
+.mcq-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #FFF9EE;
+  border: 2px solid #FFE3B3;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.mcq-opt:active { transform: scale(0.98); }
+.mcq-letter {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #FFE9C9;
+  color: #B26A00;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.mcq-text { flex: 1; color: #333; }
+.mcq-opt.right { border-color: #35D0AA; background: #E8F8F2; }
+.mcq-opt.right .mcq-letter { background: #35D0AA; color: #fff; }
+.mcq-opt.wrong { border-color: #FF9E9E; background: #FFF0EE; }
+.mcq-opt.wrong .mcq-letter { background: #FF6B6B; color: #fff; }
 .answer-card input { font-size: 18px; margin-bottom: 12px; }
 .answer-feedback {
   background: #FFF4E0;
