@@ -88,6 +88,23 @@ const assert = (c, m) => {
   ]);
   assert(m3.length === 2 && m3[0].knowledge_point === '长方形周长', '薄弱知识点应排在最前');
 
+  // ---------- mascot（虚拟伙伴 SVG 表情与状态映射） ----------
+  {
+    const fs = require('fs');
+    const w = {};
+    global.window = w;
+    eval(fs.readFileSync(require('path').join(__dirname, '..', 'student-web', 'js', 'mascot.js'), 'utf8'));
+    const M = w.Mascot;
+    assert(M && M.EXPRESSIONS.length === 6, '应有 6 个表情，实际 ' + (M && M.EXPRESSIONS.length));
+    assert(M.mapState('GREETING') === 'greet', 'GREETING 应为 greet');
+    assert(M.mapState('SCAFFOLD') === 'encourage', 'SCAFFOLD 应为 encourage');
+    assert(M.mapState('VERIFY') === 'proud', 'VERIFY 应为 proud');
+    assert(M.mapState('REVIEW') === 'cheer', 'REVIEW 应为 cheer');
+    assert(M.svg('cheer').indexOf('<svg') > -1, 'SVG 应可生成');
+    const states = ['GREETING', 'READ_PROBLEM', 'ACTIVATE_KNOWLEDGE', 'STUDENT_ATTEMPT', 'DIAGNOSE', 'SCAFFOLD', 'VERIFY', 'REFLECT', 'DEFORM', 'REVIEW'];
+    states.forEach((s) => assert(M.EXPRESSIONS.indexOf(M.mapState(s)) > -1, '状态 ' + s + ' 应有表情映射'));
+  }
+
   console.log(fail ? '❌ 存在 ' + fail + ' 个问题' : '✅ 服务层单测全部通过');
   process.exit(fail ? 1 : 0);
 })();

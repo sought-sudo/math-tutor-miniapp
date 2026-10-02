@@ -412,8 +412,11 @@
     var div = document.createElement('div');
     div.className = 'bubble tutor typing';
     div.id = 'typing-bubble';
-    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">老师正在打字…</div>';
+    div.innerHTML = '<div class="bubble-avatar" data-mascot="1"></div><div class="bubble-text">小狐正在打字…</div>';
     $('chat-bubbles').appendChild(div);
+    if (window.Mascot) {
+      Mascot.render(div.querySelector('[data-mascot]'), 'think', 30);
+    }
     scrollChat();
   }
 
@@ -425,11 +428,14 @@
   function addTutorBubble(text) {
     var div = document.createElement('div');
     div.className = 'bubble tutor';
-    div.innerHTML = '<div class="bubble-avatar">👩‍🏫</div><div class="bubble-text">' + esc(text).replace(/\n/g, '<br>') + '<span class="bubble-speak" title="朗读">🔊</span></div>';
+    div.innerHTML = '<div class="bubble-avatar" data-mascot="1"></div><div class="bubble-text">' + esc(text).replace(/\n/g, '<br>') + '<span class="bubble-speak" title="朗读">🔊</span></div>';
     div.querySelector('.bubble-speak').addEventListener('click', function () {
       if (window.TTS) TTS.speak(text);
     });
     $('chat-bubbles').appendChild(div);
+    if (window.Mascot) {
+      Mascot.render(div.querySelector('[data-mascot]'), Mascot.mapState(chat.state || 'GREETING'), 30);
+    }
     scrollChat();
   }
 
@@ -560,6 +566,10 @@
     var greet = h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
     var s = getStats();
     $('home-greet').textContent = greet + '，小数学家！';
+    $('home-sub').textContent = '我是小狐老师，今天也要一起加油！';
+    if (window.Mascot) {
+      Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64);
+    }
     $('home-today').textContent = s.today;
     $('home-acc').textContent = s.accuracy === null ? '--' : Math.round(s.accuracy * 100) + '%';
     $('home-active').textContent = s.activeCount;
@@ -586,6 +596,7 @@
 
   function showBadgeToast(badge) {
     if (!$('badge-toast')) return;
+    if (window.Mascot) Mascot.render($('badge-toast-mascot'), 'cheer', 44);
     $('badge-toast-icon').textContent = badge.icon;
     $('badge-toast-title').textContent = '解锁新徽章：' + badge.name + '！';
     $('badge-toast-text').textContent = badge.desc;
@@ -1092,7 +1103,11 @@
     $('guide-answer').style.display = 'none';
     $('guide-result').style.display = 'block';
     $('guide-result').className = 'card result-card ' + (correct ? 'ok' : 'no');
-    $('result-icon').textContent = correct ? '🎉' : '📕';
+    if (window.Mascot) {
+      Mascot.render($('result-icon'), correct ? 'cheer' : 'comfort', 56);
+    } else {
+      $('result-icon').textContent = correct ? '🎉' : '📕';
+    }
     $('result-title').textContent = praise;
     $('result-sub').textContent = '用时 ' + seconds + ' 秒 · 已记入今日练习';
     $('btn-variant').style.display = correct ? 'none' : 'block';
@@ -1347,5 +1362,6 @@
   refreshMastery();
   initUnitSelect();
   refreshHome();
+  if (window.Mascot) Mascot.render($('chat-avatar'), 'greet', 34);
   showView('home');
 })();

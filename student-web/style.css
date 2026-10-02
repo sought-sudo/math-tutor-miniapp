@@ -101,6 +101,22 @@ textarea { resize: vertical; min-height: 72px; }
   line-height: 1;
 }
 .hero-badges { margin-top: 8px; font-size: 18px; letter-spacing: 6px; min-height: 20px; }
+
+/* 虚拟伙伴：小狐老师 */
+.mascot { display: inline-block; flex-shrink: 0; }
+.hero-icon .mascot { display: block; }
+.hero-icon { display: flex; align-items: center; justify-content: center; }
+.mascot-greet, .mascot-think, .mascot-proud, .mascot-comfort { animation: bob 2.6s ease-in-out infinite; }
+.mascot-cheer { animation: celebrate 0.6s ease-in-out infinite; }
+.mascot-encourage { animation: bob 1.8s ease-in-out infinite; }
+@keyframes celebrate {
+  0%, 100% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-7px) scale(1.06) rotate(-4deg); }
+  70% { transform: translateY(0) scale(1.02) rotate(4deg); }
+}
+.bubble-avatar .mascot { display: block; }
+.bt-mascot { display: flex; justify-content: center; margin-bottom: 4px; }
+.result-icon .mascot { display: block; margin: 0 auto; }
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-7px); }

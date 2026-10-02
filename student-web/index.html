@@ -14,7 +14,7 @@
       <div class="card hero">
         <div>
           <div class="hello" id="home-greet">你好，小数学家！</div>
-          <div class="sub">今天也要坚持练习哦 🦁</div>
+          <div class="sub" id="home-sub">今天也要坚持练习哦</div>
           <div class="hero-stats">
             <span id="hero-stars">⭐ 0</span>
             <span id="hero-streak">🔥 0 天</span>
@@ -22,7 +22,7 @@
           </div>
           <div class="hero-badges" id="hero-badges"></div>
         </div>
-        <div class="hero-icon">🦁</div>
+        <div class="hero-icon" id="hero-mascot"></div>
       </div>
       <div class="stats-row">
         <div class="card stat"><div class="num" id="home-today">0</div><div class="lbl">🏅 今日闯关</div></div>
@@ -211,9 +211,9 @@
     <!-- 对话式 AI 辅导（引导式状态机） -->
     <section id="view-chat" class="view" style="display:none">
       <div class="chat-head">
-        <div class="chat-avatar">👩‍🏫</div>
+        <div class="chat-avatar" id="chat-avatar"></div>
         <div class="chat-info">
-          <div class="chat-name">数学小老师</div>
+          <div class="chat-name">小狐老师</div>
           <div class="chat-state" id="chat-state">打招呼中</div>
         </div>
       </div>
@@ -227,6 +227,7 @@
 
     <!-- 徽章解锁提示 -->
     <div class="badge-toast" id="badge-toast" style="display:none">
+      <div class="bt-mascot" id="badge-toast-mascot"></div>
       <div class="bt-icon" id="badge-toast-icon">🏅</div>
       <div class="bt-title" id="badge-toast-title"></div>
       <div class="bt-text" id="badge-toast-text"></div>
@@ -242,6 +243,7 @@
   </div>
 
   <script src="js/tts.js"></script>
+  <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。

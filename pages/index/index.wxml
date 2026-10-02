@@ -2,9 +2,9 @@
   <view class="card hero">
     <view class="hero-left">
       <view class="hello">{{greeting}}，小数学家！</view>
-      <view class="sub">今天也要坚持练习哦 🦁</view>
+      <view class="sub">我是小狐老师，今天也要一起加油！</view>
     </view>
-    <view class="hero-icon">🦁</view>
+    <view class="hero-icon">🦊</view>
   </view>
 
   <view class="stats-row">
