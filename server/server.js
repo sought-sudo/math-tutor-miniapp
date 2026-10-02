@@ -31,6 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const tutorEngine = require('./tutor-engine');
 const db = require('./db');
+const auth = require('./auth');
 const solver = require('../utils/solver');
 const curriculum = require('../utils/curriculum');
 const deformService = require('./services/deformService');
@@ -100,6 +101,20 @@ function llmRateLimit(res, kind, code) {
     return false;
   }
   return true;
+}
+
+// 登录失败计数与锁定（内存）
+const loginFails = new Map();
+const loginLocks = new Map();
+
+// 孩子码生成：与学生端同一字符集（去掉易混淆字符）
+const CHILD_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function genChildCode() {
+  let s = '';
+  for (let i = 0; i < 12; i++) {
+    s += CHILD_CODE_CHARS[Math.floor(Math.random() * CHILD_CODE_CHARS.length)];
+  }
+  return s;
 }
 
 function handleSync(body) {
@@ -511,6 +526,128 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, CORS);
       res.end();
+      return;
+    }
+
+    // ================= 账号认证 =================
+    if (req.method === 'POST' && req.url === '/api/auth/register') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const ip = req.socket.remoteAddress || 'ip';
+      if (!rateLimit.allow('auth-reg:' + ip, 5, 3600000)) {
+        send(res, 429, { ok: false, code: 'RATE_LIMITED', error: '注册太频繁，请稍后再试' });
+        return;
+      }
+      const phone = String(body.phone || '').trim();
+      const password = String(body.password || '');
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        send(res, 400, { ok: false, error: '手机号格式不正确' });
+        return;
+      }
+      if (password.length < 6) {
+        send(res, 400, { ok: false, error: '密码至少 6 位' });
+        return;
+      }
+      const userId = db.createUser(phone, auth.hashPassword(password));
+      if (!userId) {
+        send(res, 409, { ok: false, error: '该手机号已注册，请直接登录' });
+        return;
+      }
+      send(res, 200, { ok: true, token: auth.issueToken(userId), user: { id: userId, phone: phone } });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/auth/login') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const ip = req.socket.remoteAddress || 'ip';
+      const phone = String(body.phone || '').trim();
+      const password = String(body.password || '');
+      const lockKey = 'auth-lock:' + phone;
+      if (loginLocks.get(lockKey) && Date.now() < loginLocks.get(lockKey)) {
+        send(res, 429, { ok: false, error: '失败次数过多，请 15 分钟后再试' });
+        return;
+      }
+      if (!rateLimit.allow('auth-login:' + ip, 10, 900000)) {
+        send(res, 429, { ok: false, code: 'RATE_LIMITED', error: '登录太频繁，请稍后再试' });
+        return;
+      }
+      const user = db.getUserByPhone(phone);
+      if (!user || !auth.verifyPassword(password, user.password_hash)) {
+        const fails = (loginFails.get(phone) || 0) + 1;
+        loginFails.set(phone, fails);
+        if (fails >= 5) {
+          loginLocks.set(lockKey, Date.now() + 15 * 60000);
+          loginFails.set(phone, 0);
+          send(res, 429, { ok: false, error: '失败次数过多，请 15 分钟后再试' });
+          return;
+        }
+        send(res, 401, { ok: false, error: '手机号或密码不正确' });
+        return;
+      }
+      loginFails.set(phone, 0);
+      send(res, 200, { ok: true, token: auth.issueToken(user.id), user: { id: user.id, phone: user.phone } });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/api/my/children') {
+      const userId = auth.verifyToken(auth.getToken(req));
+      if (!userId) {
+        send(res, 401, { ok: false, error: '请先登录' });
+        return;
+      }
+      send(res, 200, {
+        ok: true,
+        children: db.listChildren(userId).map((c) => ({ name: c.name, code: c.code }))
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/my/children') {
+      const userId = auth.verifyToken(auth.getToken(req));
+      if (!userId) {
+        send(res, 401, { ok: false, error: '请先登录' });
+        return;
+      }
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (db.childCountByUser(userId) >= 5) {
+        send(res, 400, { ok: false, error: '最多创建 5 个孩子档案' });
+        return;
+      }
+      const name = String(body.name || '小朋友').trim().slice(0, 12) || '小朋友';
+      let code = genChildCode();
+      let guard = 0;
+      while (db.findChildByCode(code) && guard++ < 10) code = genChildCode();
+      if (!db.addChildProfile(userId, name, code)) {
+        send(res, 500, { ok: false, error: '创建失败，请重试' });
+        return;
+      }
+      send(res, 200, { ok: true, child: { name: name, code: code } });
+      return;
+    }
+
+    // 绑定已有同步码到账号（孩子端显示的码）
+    if (req.method === 'POST' && req.url.indexOf('/api/children/') === 0 && req.url.indexOf('/bind') > 0) {
+      const userId = auth.verifyToken(auth.getToken(req));
+      if (!userId) {
+        send(res, 401, { ok: false, error: '请先登录' });
+        return;
+      }
+      const code = decodeURIComponent(req.url.split('/api/children/')[1].split('/')[0]);
+      if (!isValidCode(code)) {
+        send(res, 400, { ok: false, error: '同步码格式不正确' });
+        return;
+      }
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (db.findChildByCode(code)) {
+        send(res, 409, { ok: false, error: '该同步码已被绑定' });
+        return;
+      }
+      const child = store.children[code];
+      const name = String(body.name || (child && child.name) || '小朋友').trim().slice(0, 12) || '小朋友';
+      if (!db.addChildProfile(userId, name, code)) {
+        send(res, 409, { ok: false, error: '绑定失败，请重试' });
+        return;
+      }
+      send(res, 200, { ok: true, child: { name: name, code: code } });
       return;
     }
 

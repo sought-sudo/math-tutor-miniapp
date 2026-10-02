@@ -51,6 +51,24 @@ function init() {
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_events_type ON learning_events(event_type)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_events_user ON learning_events(user_id)');
+    // 账号表
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS users (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  phone TEXT NOT NULL UNIQUE,' +
+      '  password_hash TEXT NOT NULL,' +
+      '  created_at TEXT NOT NULL' +
+      ')'
+    );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS child_profiles (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  user_id INTEGER NOT NULL,' +
+      '  name TEXT NOT NULL DEFAULT \'小朋友\',' +
+      '  code TEXT NOT NULL UNIQUE,' +
+      '  created_at TEXT NOT NULL' +
+      ')'
+    );
     console.log('[db] 行为日志已就绪：server/math_tutor.db');
   } catch (e) {
     console.error('[db] 初始化失败：' + e.message);
@@ -157,8 +175,7 @@ function computeMastery(events) {
 }
 
 // 某用户各知识点掌握度（薄弱在前）
-function getMastery(userId) {
-  if (!db) return [];
+function getMastery(userId) {  if (!db) return [];
   try {
     const rows = db.prepare(
       "SELECT event_type, knowledge_point, created_at FROM learning_events " +
@@ -168,6 +185,66 @@ function getMastery(userId) {
   } catch (e) {
     return [];
   }
+}
+
+// ---------------- 账号（users / child_profiles） ----------------
+
+function createUser(phone, passwordHash) {
+  if (!db) return null;
+  try {
+    const r = db.prepare('INSERT INTO users (phone, password_hash, created_at) VALUES (?, ?, ?)')
+      .run(phone, passwordHash, new Date().toISOString());
+    return Number(r.lastInsertRowid);
+  } catch (e) {
+    return null; // 手机号重复
+  }
+}
+
+function getUserByPhone(phone) {
+  if (!db) return null;
+  const r = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+  return r || null;
+}
+
+function getUserById(id) {
+  if (!db) return null;
+  const r = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  return r || null;
+}
+
+function deleteUserByPhone(phone) {
+  if (!db) return;
+  try { db.prepare('DELETE FROM users WHERE phone = ?').run(phone); } catch (e) {}
+}
+
+// 新增孩子档案；code 重复返回 false
+function addChildProfile(userId, name, code) {
+  if (!db) return false;
+  try {
+    db.prepare('INSERT INTO child_profiles (user_id, name, code, created_at) VALUES (?, ?, ?, ?)')
+      .run(userId, name, code, new Date().toISOString());
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function listChildren(userId) {
+  if (!db) return [];
+  const rows = db.prepare('SELECT id, name, code, created_at FROM child_profiles WHERE user_id = ? ORDER BY id').all(userId);
+  return rows || [];
+}
+
+function findChildByCode(code) {
+  if (!db) return null;
+  const r = db.prepare('SELECT * FROM child_profiles WHERE code = ?').get(code);
+  return r || null;
+}
+
+function childCountByUser(userId) {
+  if (!db) return 0;
+  const r = db.prepare('SELECT COUNT(*) AS c FROM child_profiles WHERE user_id = ?').get(userId);
+  return r ? r.c : 0;
 }
 
 // 由题目文本生成稳定的 question_id
@@ -189,5 +266,13 @@ module.exports = {
   getMastery: getMastery,
   computeMastery: computeMastery,
   questionIdOf: questionIdOf,
+  createUser: createUser,
+  getUserByPhone: getUserByPhone,
+  getUserById: getUserById,
+  deleteUserByPhone: deleteUserByPhone,
+  addChildProfile: addChildProfile,
+  listChildren: listChildren,
+  findChildByCode: findChildByCode,
+  childCountByUser: childCountByUser,
   EVENT_TYPES: EVENT_TYPES
 };

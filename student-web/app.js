@@ -2009,6 +2009,19 @@
     syncSend('name', { name: n });
     alert('已保存');
   });
+  // 使用家长提供的孩子码
+  $('btn-adopt-code').addEventListener('click', function () {
+    var code = $('adopt-code').value.trim();
+    if (!code || !/^[A-Za-z0-9]{6,32}$/.test(code)) {
+      alert('孩子码格式不对，请核对后重试');
+      return;
+    }
+    storeSetStr(KEY.code, code);
+    $('adopt-code').value = '';
+    refreshParent();
+    refreshMastery();
+    alert('已切换到这个孩子码，以后的练习都会记在它上面！');
+  });
   $('api-input').addEventListener('change', function () {
     setApiBase(this.value.trim().replace(/\/$/, ''));
     refreshStatus();

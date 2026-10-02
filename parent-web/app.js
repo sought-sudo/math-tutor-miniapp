@@ -315,6 +315,75 @@
     $('api-input').value = apiBase;
   }
 
+  // ---------------- 账号登录 ----------------
+
+  var LS_TOKEN = 'parent_token';
+  var LS_PHONE = 'parent_phone';
+
+  function authHeaders() {
+    var token = localStorage.getItem(LS_TOKEN);
+    return token ? { 'Authorization': 'Bearer ' + token } : {};
+  }
+
+  function refreshAuthPanel() {
+    var token = localStorage.getItem(LS_TOKEN);
+    $('auth-form').style.display = token ? 'none' : 'block';
+    $('auth-panel').style.display = token ? 'block' : 'none';
+    if (token) {
+      $('logged-phone').textContent = '已登录：' + (localStorage.getItem(LS_PHONE) || '');
+      loadMyChildren();
+    }
+  }
+
+  function loadMyChildren() {
+    fetch(apiBase + '/api/my/children', { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var box = $('my-children');
+        box.innerHTML = '';
+        if (!j.ok) {
+          if (j.error) box.innerHTML = '<div class="sub">' + esc(j.error) + '</div>';
+          return;
+        }
+        if (!j.children.length) {
+          box.innerHTML = '<div class="sub">还没有绑定孩子：输入孩子端的同步码绑定，或创建新档案。</div>';
+          return;
+        }
+        j.children.forEach(function (c) {
+          var div = document.createElement('div');
+          div.className = 'child-item';
+          div.innerHTML = '<span class="child-name">' + esc(c.name) + '</span><span class="child-code">' + esc(c.code) + '</span>';
+          div.addEventListener('click', function () {
+            $('code-input').value = c.code;
+            load(c.code, false);
+          });
+          box.appendChild(div);
+        });
+      })
+      .catch(function () {});
+  }
+
+  function authSubmit(path) {
+    var phone = $('login-phone').value.trim();
+    var password = $('login-password').value;
+    var err = $('auth-err');
+    err.textContent = '';
+    fetch(apiBase + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone, password: password })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.ok && j.token) {
+        localStorage.setItem(LS_TOKEN, j.token);
+        localStorage.setItem(LS_PHONE, j.user.phone);
+        $('login-password').value = '';
+        refreshAuthPanel();
+      } else {
+        err.textContent = j.error || '操作失败';
+      }
+    }).catch(function () { err.textContent = '网络错误，请重试'; });
+  }
+
   function load(code, demo) {
     $('err').textContent = '';
     if (demo) {
@@ -384,10 +453,70 @@
       localStorage.setItem(LS_API, apiBase);
     }
     if (!code) {
-      $('err').textContent = '请输入 6 位同步码';
+      $('err').textContent = '请输入同步码';
       return;
     }
     load(code, false);
+  });
+
+  // 登录 tab 切换
+  $('tab-code').addEventListener('click', function () {
+    $('tab-code').classList.add('on');
+    $('tab-account').classList.remove('on');
+    $('code-panel').style.display = 'block';
+    $('account-panel').style.display = 'none';
+  });
+  $('tab-account').addEventListener('click', function () {
+    $('tab-account').classList.add('on');
+    $('tab-code').classList.remove('on');
+    $('code-panel').style.display = 'none';
+    $('account-panel').style.display = 'block';
+    refreshAuthPanel();
+  });
+
+  // 登录 / 注册 / 退出
+  $('btn-login').addEventListener('click', function () { authSubmit('/api/auth/login'); });
+  $('btn-register').addEventListener('click', function () { authSubmit('/api/auth/register'); });
+  $('btn-logout').addEventListener('click', function () {
+    localStorage.removeItem(LS_TOKEN);
+    refreshAuthPanel();
+  });
+
+  // 绑定同步码 / 创建孩子
+  $('btn-bind').addEventListener('click', function () {
+    var code = $('bind-code').value.trim();
+    if (!code) { $('auth-err').textContent = '请输入同步码'; return; }
+    fetch(apiBase + '/api/children/' + encodeURIComponent(code) + '/bind', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({})
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      $('auth-err').textContent = '';
+      if (j.ok) {
+        $('bind-code').value = '';
+        loadMyChildren();
+      } else {
+        $('auth-err').textContent = j.error || '绑定失败';
+      }
+    }).catch(function () { $('auth-err').textContent = '网络错误，请重试'; });
+  });
+  $('btn-create-child').addEventListener('click', function () {
+    var name = $('new-child-name').value.trim() || '小朋友';
+    fetch(apiBase + '/api/my/children', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ name: name })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      $('auth-err').textContent = '';
+      if (j.ok && j.child) {
+        $('new-code-text').textContent = j.child.code;
+        $('new-child-code').style.display = 'block';
+        $('new-child-name').value = '';
+        loadMyChildren();
+      } else {
+        $('auth-err').textContent = j.error || '创建失败';
+      }
+    }).catch(function () { $('auth-err').textContent = '网络错误，请重试'; });
   });
 
   $('btn-demo').addEventListener('click', function () { load('', true); });

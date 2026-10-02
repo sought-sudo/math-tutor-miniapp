@@ -114,6 +114,15 @@ math-tutor-miniapp/
 
 接口：`POST /tutor-chat`（`sessionId` 为空时创建会话并返回开场白）；单测：`node scripts/check-tutor-engine.js`。
 
+## 账号登录（家长账号 + 孩子档案）
+
+- **家长账号**：手机号 + 密码注册/登录（零依赖：PBKDF2 盐化哈希 + HMAC 签名会话 token，7 天有效；连续 5 次密码错误锁定 15 分钟）
+- **登录可选**：不登录仍可用同步码轻量模式；家长登录后可**创建孩子档案**（服务端生成 12 位孩子码，到孩子端「家长端」页粘贴使用）或**绑定已有同步码**（绑定一次即锁定，防抢绑）
+- **接口**：`POST /api/auth/register`、`POST /api/auth/login`、`GET/POST /api/my/children`（需 Bearer token）、`POST /api/children/:code/bind`
+- **数据零迁移**：孩子档案的 code 就是同步码，学习数据存储结构不变
+- **部署要求**：设置环境变量 `SERVER_SECRET`（未设置时重启会话失效，启动有警告）；公网部署必须 HTTPS；注册 5 次/小时、登录 10 次/15 分钟限流
+- 儿童数据合规：孩子不注册、不收集手机号，仅昵称与孩子码
+
 ## 行为日志与指标（SQLite）
 
 学习行为自动写入 SQLite（`server/math_tutor.db`，零依赖，使用 Node 内置 `node:sqlite`，需 Node ≥ 22.13；旧版本自动关闭日志、不影响其他功能）。
