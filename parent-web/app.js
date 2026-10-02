@@ -184,30 +184,6 @@
     box.appendChild(sign);
   }
 
-  function adviceText(s) {
-    if (s.total === 0) {
-      return '孩子还没有开始练习。可以从孩子小程序首页的"每日练习"开始，每天 3~5 道题，坚持就有进步！';
-    }
-    var pct = Math.round(s.accuracy * 100) + '%';
-    var text;
-    if (s.accuracy >= 0.9) {
-      text = '正确率很高（' + pct + '），基础扎实！可以适当挑战难题，或提前预习。';
-    } else if (s.accuracy >= 0.7) {
-      text = '正确率不错（' + pct + '）。建议每天把错题本里的题复习一遍，巩固薄弱点。';
-    } else if (s.accuracy >= 0.5) {
-      text = '正确率一般（' + pct + '）。建议家长陪着孩子重做错题，找到卡住的地方。';
-    } else {
-      text = '最近错误偏多（' + pct + '）。先别急着做新题，把错题一道道讲清楚更重要。';
-    }
-    if (s.knowledge.length) {
-      text += ' 错题主要集中在：' + s.knowledge.slice(0, 3).map(function (k) { return k.name; }).join('、') + '。';
-    }
-    if (s.total > 0) {
-      text += ' 其中 ' + s.onePass + '/' + s.total + ' 题一次通过。具体怎么和孩子聊，可以看下面的沟通脚本。';
-    }
-    return text;
-  }
-
   function render() {
     $('view-login').style.display = 'none';
     $('view-dash').style.display = 'block';
@@ -219,7 +195,6 @@
     $('stat-acc').textContent = s.accuracy === null ? '--' : Math.round(s.accuracy * 100) + '%';
     $('stat-active').textContent = s.activeCount;
     $('stat-mastered').textContent = s.masteredCount;
-    $('advice').textContent = adviceText(s);
 
     // 最近 7 天柱状图
     var max = Math.max.apply(null, [1].concat(s.last7.map(function (d) { return d.count; })));
