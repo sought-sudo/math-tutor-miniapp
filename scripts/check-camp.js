@@ -87,7 +87,8 @@ const masteryFake = [
 const spec = camp.buildPlanSpec(summary.perK, masteryFake);
 assert(!spec.needDiagnostic, '有诊断数据不要求先测评');
 assert(spec.lessons.length >= 2, '课表至少 2 节（诊断弱项+掌握度补充）');
-assert(spec.lessons[0].knowledge === weakDiag[0], '最薄弱的知识点排第一节');
+assert(spec.lessons.some((l) => l.knowledge === weakDiag[0]), '诊断最弱知识点入选课表');
+assert(spec.lessons.every((l, i) => i === 0 || spec.lessons[i - 1].baseScore <= l.baseScore), '课表按薄弱分升序排列');
 spec.lessons.forEach((l) => {
   assert(l.lesson_type === 'concept' || l.lesson_type === 'compute', l.knowledge + ' 课型合法');
   if (mcq.isConcept(l.knowledge)) assert(l.lesson_type === 'concept', l.knowledge + ' 概念课型匹配');
