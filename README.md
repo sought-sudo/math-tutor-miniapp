@@ -200,6 +200,8 @@ math-tutor-miniapp/
 
   也可以用阿里百炼 `qwen-vl-plus`（`OCR_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`）。讲解 AI 与识图 AI 互相独立：不配 `OCR_*` 时回落主模型配置。配套的 **✂️ 裁剪 / ✏️ 标注** 编辑可以先把题目区域裁出来再识别，准确率更高。拍照页已带取景引导（四角框 + 横平竖直提示）。
 
+- **读图入题**：题目带插图（钟面、几何图形、线段图、条形统计图、量角器等）时，识别结果会把图中关键信息以「图中：…」附在题干后（如「图中：钟面时针指向3，分针指向12」），AI 辅导即可基于图信息引导讲解。识别后请核对一眼图信息是否读对。
+
 ## 错题变形服务（deformService）
 
 `server/services/deformService.js`：输入原题、知识点、错误类型，输出最多 3 道变形题 `{ stem, answer, knowledge_point, difficulty }`。
