@@ -635,7 +635,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat'].forEach(function (v) {
+    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
@@ -647,6 +647,7 @@
     if (name === 'wrong') refreshWrong();
     if (name === 'parent') refreshParent();
     if (name === 'camera') cameraOnShow();
+    if (name === 'camp') refreshCamp();
   }
 
   // ---------------- 首页 ----------------
@@ -1370,7 +1371,7 @@
     if (page < total - 1) {
       nextBtn.textContent = page >= shown - 1 ? '翻开下一页 ✨' : '下一页 →';
     } else {
-      nextBtn.textContent = lesson ? '开始挑战 🎯' : '开始作答 ✏️';
+      nextBtn.textContent = lesson ? '开始挑战 🎯' : (guide.isExample ? '开始练习 ✏️' : '开始作答 ✏️');
     }
 
     // 进度条与文字
@@ -1403,6 +1404,7 @@
       guide.revealed = total;
       renderGuide();
       if (guide.mode === 'lesson') showLessonChallenge();
+      else if (guide.isExample) campNextItem();
       else showAnswerArea();
     }
   }
@@ -1443,6 +1445,7 @@
 
   function selectOption(i, btn) {
     if (guide.phase !== 'solving') return;
+    guide.lastValue = i; // 训练营上报用：选项下标
     var myText = MCQ_LETTERS[i] + '. ' + guide.options[i];
     if (i === guide.answerIndex) {
       if (btn) btn.classList.add('right');
@@ -1477,6 +1480,7 @@
   function submitAnswer() {
     var user = $('answer-input').value.trim();
     if (!user) { alert('先写上你的答案吧 ✍️'); return; }
+    guide.lastValue = user; // 训练营上报用：文本答案
     var num = parseUserAnswer(user);
     var right = num !== null && guide.rightNum !== null && guide.rightNum !== undefined &&
       Math.abs(num - guide.rightNum) < 0.011;
@@ -1646,6 +1650,13 @@
       $('result-answer').textContent = '✅ 正确答案：' + (guide.rightAnswerText || '见上面步骤');
     } else {
       $('result-answer').style.display = 'none';
+    }
+
+    // 训练营模式：结果卡按钮切换为课程流程
+    if (guide.task === 'camp' && !guide.isExample) {
+      $('btn-variant').style.display = 'none';
+      $('btn-again').textContent = correct ? '下一题 →' : '再试一次 💪';
+      campAfterAnswer(correct);
     }
   }
 
@@ -1915,6 +1926,430 @@
     $('parent-active').textContent = s.activeCount;
   }
 
+  // ---------------- 查漏补缺训练营 ----------------
+
+  var camp = {
+    plan: null,       // 课表（GET /api/camp/plan）
+    diag: null,       // 测评会话 {id, questions, cur, answered, total, isFinal}
+    lesson: null,     // 当前课内容
+    lessonIndex: 0,
+    queue: null,      // 上课题目队列 [{kind:'example'|'practice'|'quiz', data}]
+    queueIdx: 0,
+    retryFlag: false,
+    finalResult: null
+  };
+
+  function campFetch(path, method, body) {
+    var base = getApiBase();
+    return fetch(base + path, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json(); });
+  }
+
+  function campShowPanel(name) {
+    $('camp-home-panel').style.display = name === 'home' ? 'block' : 'none';
+    $('camp-diagnostic-panel').style.display = name === 'diagnostic' ? 'block' : 'none';
+    $('camp-report-panel').style.display = name === 'report' ? 'block' : 'none';
+  }
+
+  // 营首页：入学测入口 / 继续测评 / 生成课表 / 课表与进度 / 结课报告
+  function refreshCamp() {
+    campShowPanel('home');
+    campFetch('/api/camp/plan/' + encodeURIComponent(getCode())).then(function (j) {
+      if (!j.ok) { renderCampOffline(); return; }
+      if (j.plan) {
+        camp.plan = j.plan;
+        // 已结课：直接展示结课报告
+        if (j.plan.status === 'done' && j.plan.result) {
+          storeSet('stu_camp_result', j.plan.result);
+          camp.finalResult = j.plan.result;
+          renderCampFinal(j.plan.result);
+          return;
+        }
+        renderCampPlan(j.plan);
+        return;
+      }
+      // 已结课（计划归档）且有本地结课报告 → 直接展示
+      var saved = storeGet('stu_camp_result');
+      if (saved && saved.report_text) {
+        camp.finalResult = saved;
+        renderCampFinal(saved);
+        return;
+      }
+      renderCampHome(j.hasDiagnostic, j.hasActiveDiagnostic);
+    }).catch(function () {
+      renderCampOffline();
+    });
+  }
+
+  function renderCampOffline() {
+    $('camp-hero-sub').textContent = '训练营需要后端服务（node server/server.js）';
+    $('btn-camp-start').style.display = 'block';
+    $('btn-camp-plan').style.display = 'none';
+    $('camp-lesson-card').style.display = 'none';
+  }
+
+  function renderCampHome(hasDiag, hasActiveDiag) {
+    $('camp-lesson-card').style.display = 'none';
+    var startBtn = $('btn-camp-start');
+    var planBtn = $('btn-camp-plan');
+    if (hasActiveDiag) {
+      $('camp-hero-sub').textContent = '上次的入学测评还没做完，小狐帮你留着进度呢';
+      startBtn.textContent = '继续入学测评 ▶';
+      startBtn.style.display = 'block';
+      planBtn.style.display = 'none';
+    } else if (hasDiag) {
+      $('camp-hero-sub').textContent = '入学测评完成啦！小狐老师已经找到你的薄弱点，接下来生成课表开始补课';
+      startBtn.style.display = 'none';
+      planBtn.style.display = 'inline-block';
+    } else {
+      $('camp-hero-sub').textContent = '先来一次入学小测，小狐老师帮你把薄弱的地方一个个补上';
+      startBtn.textContent = '开始入学测评 🚀';
+      startBtn.style.display = 'block';
+      planBtn.style.display = 'none';
+    }
+  }
+
+  function renderCampPlan(plan) {
+    $('btn-camp-start').style.display = 'none';
+    $('btn-camp-plan').style.display = 'none';
+    $('camp-hero-sub').textContent = '课表已经排好啦，一节一节来，学完自动解锁下一节 💪';
+    $('camp-lesson-card').style.display = 'block';
+    var box = $('camp-lessons');
+    box.innerHTML = '';
+    var notice = $('camp-notice');
+    var currentStarted = null;
+    plan.lessons.forEach(function (l) {
+      if (l.status === 'active') currentStarted = l;
+      var div = document.createElement('div');
+      div.className = 'camp-lesson ' + l.status;
+      var icon = l.lesson_type === 'concept' ? '🧠' : '✏️';
+      var statusText = l.status === 'done' ? '已完成 ✅' : (l.status === 'active' ? '进行中 ▶' : '未解锁 🔒');
+      var btnText = l.status === 'done' ? '已完成' : (l.status === 'active' ? '上课 →' : '🔒');
+      div.innerHTML =
+        '<div class="cl-icon">' + icon + '</div>' +
+        '<div class="cl-body">' +
+        '<div class="cl-title">第 ' + (l.index + 1) + ' 节 · ' + esc(l.knowledge) + '</div>' +
+        '<div class="cl-sub">' + statusText + (l.status === 'done' ? ' · 答对 ' + l.correct + ' 题' : '') + '</div>' +
+        '</div>' +
+        '<button class="cl-btn">' + btnText + '</button>';
+      if (l.status === 'active') {
+        div.querySelector('.cl-btn').addEventListener('click', function () { campStartLesson(l.index); });
+      }
+      box.appendChild(div);
+    });
+    var allDone = plan.lessons.every(function (l) { return l.status === 'done'; });
+    $('btn-camp-final').style.display = allDone ? 'block' : 'none';
+    if (allDone) {
+      notice.style.display = 'block';
+      notice.textContent = '🎉 全部课程完成！来一次结课验收，看看自己进步了多少';
+    } else {
+      notice.style.display = 'none';
+    }
+  }
+
+  function campGeneratePlan() {
+    campFetch('/api/camp/plan/generate', 'POST', { code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      if (j.needDiagnostic) {
+        campShowPanel('home');
+        renderCampHome(false, false);
+        return;
+      }
+      campShowPanel('home');
+      if (j.allStrong) {
+        $('camp-lesson-card').style.display = 'none';
+        $('camp-hero-sub').textContent = '这一期没有明显的薄弱点，基础很扎实！保持每天练习就行 🎉';
+        $('btn-camp-start').style.display = 'none';
+        $('btn-camp-plan').style.display = 'none';
+        return;
+      }
+      storeSet('stu_camp_result', null);
+      camp.plan = j.plan;
+      renderCampPlan(j.plan);
+    }).catch(function () {
+      alert('训练营需要后端服务（node server/server.js）');
+    });
+  }
+
+  // ---------------- 入学测评 ----------------
+
+  function campStartDiag() {
+    campFetch('/api/camp/diagnostic/start', 'POST', { code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差，稍后再试'); return; }
+      camp.diag = {
+        id: j.diagnosticId,
+        questions: j.questions || [],
+        cur: 0,
+        answered: j.answered || 0,
+        total: j.answered ? j.answered + (j.questions || []).length : (j.questions || []).length,
+        isFinal: false
+      };
+      campShowPanel('diagnostic');
+      campDiagRender();
+    }).catch(function () {
+      alert('训练营需要后端服务（node server/server.js）');
+    });
+  }
+
+  function campDiagRender() {
+    var d = camp.diag;
+    var q = d.questions[d.cur];
+    $('diag-progress-fill').style.width = (d.total ? Math.round(d.answered / d.total * 100) : 0) + '%';
+    $('diag-progress-text').textContent = d.isFinal ? ('结课验收 · 已答 ' + d.answered + ' / ' + d.total) : ('入学测评 · 已答 ' + d.answered + ' / ' + d.total);
+    $('diag-knowledge').textContent = q.knowledge;
+    $('diag-problem').textContent = q.problem;
+    $('diag-feedback').style.display = 'none';
+    $('btn-diag-next').style.display = 'none';
+    var opts = $('diag-options');
+    opts.innerHTML = '';
+    if (q.type === 'mcq') {
+      opts.style.display = 'block';
+      $('diag-input-box').style.display = 'none';
+      q.options.forEach(function (opt, i) {
+        var b = document.createElement('button');
+        b.className = 'mcq-opt';
+        b.innerHTML = '<span class="mcq-letter">' + MCQ_LETTERS[i] + '</span><span class="mcq-text">' + esc(opt) + '</span>';
+        b.addEventListener('click', function () {
+          opts.querySelectorAll('.mcq-opt').forEach(function (x) { x.classList.remove('picked'); });
+          b.classList.add('picked');
+          campDiagAnswer(i);
+        });
+        opts.appendChild(b);
+      });
+    } else {
+      opts.style.display = 'none';
+      $('diag-input-box').style.display = 'flex';
+      $('diag-input').value = '';
+      $('diag-input').focus();
+    }
+  }
+
+  function campDiagAnswer(value) {
+    var d = camp.diag;
+    var q = d.questions[d.cur];
+    if (camp.diagBusy) return;
+    camp.diagBusy = true;
+    campFetch('/api/camp/diagnostic/answer', 'POST', {
+      code: getCode(),
+      diagnosticId: d.id,
+      questionId: q.id,
+      value: value
+    }).then(function (j) {
+      camp.diagBusy = false;
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      d.answered = j.answered;
+      d.total = j.total;
+      if (j.extra) d.questions.push(j.extra);
+      var fb = $('diag-feedback');
+      fb.style.display = 'block';
+      fb.textContent = j.correct ? '✅ 答对啦！' : '❌ 正确答案：' + j.rightAnswer;
+      fb.style.color = j.correct ? '#0E8A6D' : '#D64545';
+      $('btn-diag-next').style.display = 'block';
+      $('btn-diag-next').textContent = d.answered >= d.total ? '完成测评 🎉' : '下一题 →';
+    }).catch(function () {
+      camp.diagBusy = false;
+      alert('网络开了小差，稍后再试');
+    });
+  }
+
+  function campDiagNext() {
+    var d = camp.diag;
+    if (d.answered >= d.total) {
+      campDiagFinish();
+      return;
+    }
+    d.cur++;
+    campDiagRender();
+  }
+
+  function campDiagFinish() {
+    var d = camp.diag;
+    if (camp.diagBusy) return; // 防重复提交
+    camp.diagBusy = true;
+    $('btn-diag-next').style.display = 'none';
+    if (d.isFinal) {
+      campFetch('/api/camp/plan/' + encodeURIComponent(getCode()) + '/final/done', 'POST', { code: getCode(), diagnosticId: d.id }).then(function (j) {
+        camp.diagBusy = false;
+        if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+        storeSet('stu_camp_result', j.result);
+        camp.finalResult = j.result;
+        campShowPanel('report');
+        renderCampFinal(j.result);
+      }).catch(function () {
+        camp.diagBusy = false;
+        alert('网络开了小差，稍后再试');
+      });
+      return;
+    }
+    campFetch('/api/camp/diagnostic/finish', 'POST', { code: getCode(), diagnosticId: d.id }).then(function (j) {
+      camp.diagBusy = false;
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      $('diag-question-card').style.display = 'none';
+      var card = $('diag-result-card');
+      card.style.display = 'block';
+      $('diag-result-title').textContent = '测评完成！';
+      var weakBox = $('diag-result-weak');
+      weakBox.innerHTML = '';
+      (j.weak || []).slice(0, 6).forEach(function (w) {
+        var c = document.createElement('span');
+        c.className = 'wk-chip';
+        c.textContent = w.knowledge;
+        weakBox.appendChild(c);
+      });
+      if (!(j.weak || []).length) weakBox.innerHTML = '<div style="color:#0E8A6D">没有明显的薄弱点，基础很扎实！</div>';
+      $('diag-report-text').textContent = j.report_text || '';
+    }).catch(function () {
+      camp.diagBusy = false;
+      alert('网络开了小差，稍后再试');
+    });
+  }
+
+  // ---------------- 上课：例题 → 巩固 → 小测 ----------------
+
+  function campStartLesson(i) {
+    campFetch('/api/camp/lesson/' + encodeURIComponent(getCode()) + '/' + i).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      camp.lesson = j.lesson;
+      camp.lessonIndex = i;
+      camp.queue = [{ kind: 'example', data: j.lesson.example }]
+        .concat(j.lesson.practices.map(function (q) { return { kind: 'practice', data: q }; }))
+        .concat(j.lesson.quiz.map(function (q) { return { kind: 'quiz', data: q }; }));
+      camp.queueIdx = 0;
+      camp.retryFlag = false;
+      campNextItem();
+    }).catch(function () {
+      alert('网络开了小差，稍后再试');
+    });
+  }
+
+  function campNextItem() {
+    if (!camp.queue) return;
+    if (camp.queueIdx >= camp.queue.length) {
+      campCompleteLesson();
+      return;
+    }
+    var item = camp.queue[camp.queueIdx];
+    if (item.kind === 'example') {
+      campApplyExample(item.data);
+      camp.queueIdx++; // 例题页翻完即进入巩固题
+    } else {
+      campApplyQuestion(item.data);
+    }
+  }
+
+  // 环节①+②：知识点卡片 + 例题书页讲解
+  function campApplyExample(ex) {
+    applyResult({
+      source: 'camp',
+      problem: ex.problem,
+      knowledge: camp.lesson.knowledge,
+      steps: ex.steps || [],
+      note: ''
+    }, { retry: false, task: 'camp' });
+    guide.isExample = true;
+    guide.rightNum = null;
+    renderKnowledgeCard(camp.lesson.knowledge);
+    $('knowledge-card').style.display = 'block';
+    $('retry-banner').style.display = 'block';
+    $('retry-banner').textContent = '🎯 训练营 · 第 ' + (camp.lessonIndex + 1) + ' 节：先听小狐老师讲例题';
+  }
+
+  // 环节③+④：巩固/小测题（复用书页与作答引擎）
+  function campApplyQuestion(q) {
+    applyResult({
+      source: 'camp',
+      problem: q.problem,
+      knowledge: camp.lesson.knowledge,
+      answer: q.answer,
+      displayAnswer: q.displayAnswer,
+      options: q.options || null,
+      answerIndex: q.answerIndex !== undefined ? q.answerIndex : -1,
+      steps: [{ title: '试一试', content: '例题的方法记住了吗？自己动笔试一试！' }],
+      note: ''
+    }, { retry: false, task: 'camp' });
+    guide.phase = 'solving';
+    $('retry-banner').style.display = 'block';
+    var label = camp.queueIdx >= 4 ? '🎯 训练营 · 结课小测' : '🎯 训练营 · 巩固练习';
+    $('retry-banner').textContent = label;
+  }
+
+  function campAfterAnswer(correct) {
+    var q = camp.queue && camp.queue[camp.queueIdx];
+    if (!q) return;
+    campFetch('/api/camp/lesson/' + encodeURIComponent(getCode()) + '/' + camp.lessonIndex + '/answer', 'POST', {
+      code: getCode(),
+      index: camp.lessonIndex,
+      questionId: q.data.id,
+      value: guide.lastValue
+    }).then(function () { }).catch(function () { });
+    camp.retryFlag = !correct;
+    if (correct) {
+      camp.queueIdx++;
+      if (camp.queueIdx >= camp.queue.length) {
+        $('btn-again').textContent = '完成本节课 🎉';
+      }
+    }
+  }
+
+  function campCompleteLesson() {
+    campFetch('/api/camp/lesson/' + encodeURIComponent(getCode()) + '/' + camp.lessonIndex + '/complete', 'POST', {
+      code: getCode(),
+      index: camp.lessonIndex
+    }).then(function (j) {
+      camp.queue = null;
+      camp.lesson = null;
+      if (j.ok && j.plan) camp.plan = j.plan;
+      refreshCamp();
+      showView('camp');
+    }).catch(function () {
+      camp.queue = null;
+      refreshCamp();
+      showView('camp');
+    });
+  }
+
+  // ---------------- 结课验收 ----------------
+
+  function campStartFinal() {
+    campFetch('/api/camp/plan/' + encodeURIComponent(getCode()) + '/final', 'POST', { code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      camp.diag = {
+        id: j.diagnosticId,
+        questions: j.questions || [],
+        cur: 0,
+        answered: j.answered || 0,
+        total: j.answered ? j.answered + (j.questions || []).length : (j.questions || []).length,
+        isFinal: true
+      };
+      campShowPanel('diagnostic');
+      campDiagRender();
+    });
+  }
+
+  function renderCampFinal(result) {
+    campShowPanel('report');
+    var box = $('final-compare');
+    box.innerHTML = '';
+    (result.after || []).forEach(function (a) {
+      var b = (result.before || []).find(function (x) { return x.knowledge === a.knowledge; });
+      var before = b ? b.score : a.score;
+      var up = a.score > before;
+      var row = document.createElement('div');
+      row.className = 'fc-row';
+      row.innerHTML =
+        '<div class="fc-name">' + esc(a.knowledge) + '</div>' +
+        '<div class="fc-track"><div class="fc-fill before" style="width:' + Math.max(4, before) + '%"></div></div>' +
+        '<div class="fc-track"><div class="fc-fill after" style="width:' + Math.max(4, a.score) + '%"></div></div>' +
+        '<div class="fc-tag ' + (up ? 'up' : '') + '">' + before + '→' + a.score + (up ? ' ↑' : '') + '</div>';
+      box.appendChild(row);
+    });
+    $('final-report-text').textContent = result.report_text || '';
+    $('final-parent-script').textContent = '💬 给爸爸妈妈的话：' + (result.parent_script || '');
+  }
+
   // ---------------- 事件绑定 ----------------
 
   document.querySelectorAll('.feature').forEach(function (el) {
@@ -1926,6 +2361,24 @@
   document.querySelectorAll('.nav-item').forEach(function (el) {
     el.addEventListener('click', function () { showView(el.dataset.nav); });
   });
+
+  // 训练营按钮
+  $('btn-camp-start').addEventListener('click', campStartDiag);
+  $('btn-camp-plan').addEventListener('click', campGeneratePlan);
+  $('btn-diag-submit').addEventListener('click', function () {
+    var v = $('diag-input').value.trim();
+    if (!v) { alert('先写上你的答案吧 ✍️'); return; }
+    campDiagAnswer(v);
+  });
+  $('diag-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btn-diag-submit').click(); });
+  $('btn-diag-next').addEventListener('click', campDiagNext);
+  $('btn-diag-to-plan').addEventListener('click', campGeneratePlan);
+  $('btn-camp-final').addEventListener('click', campStartFinal);
+  $('btn-camp-new').addEventListener('click', function () {
+    storeSet('stu_camp_result', null);
+    campGeneratePlan();
+  });
+  $('btn-camp-home2').addEventListener('click', function () { refreshCamp(); });
 
   $('btn-camera').addEventListener('click', function () { $('cam-file').click(); });
   $('btn-album').addEventListener('click', function () { $('alb-file').click(); });
@@ -1987,7 +2440,23 @@
   })();
   $('btn-self-ok').addEventListener('click', function () { finish(true, ''); });
   $('btn-self-no').addEventListener('click', function () { finish(false, ''); });
-  $('btn-again').addEventListener('click', newPractice);
+  $('btn-again').addEventListener('click', function () {
+    if (guide && guide.task === 'camp') {
+      if (guide.isExample) { campNextItem(); return; }
+      if (camp.retryFlag) {
+        camp.retryFlag = false;
+        guide.phase = 'solving';
+        guide.wrongTimes = 0;
+        $('guide-result').style.display = 'none';
+        $('guide-answer').style.display = 'none';
+        showAnswerArea();
+        return;
+      }
+      campNextItem();
+      return;
+    }
+    newPractice();
+  });
   $('btn-home').addEventListener('click', function () { showView('home'); });
   $('btn-lesson-variant').addEventListener('click', function () {
     if (guide && guide.item) variantPractice(guide.item.problem, guide.item.knowledge, guide.item.id);

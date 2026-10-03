@@ -122,6 +122,47 @@
     }).catch(function () {});
   }
 
+  // 训练营卡：入学诊断 / 课表进度 / 结课报告
+  function loadCamp(code) {
+    api('/api/camp/plan/' + encodeURIComponent(code)).then(function (res) {
+      if (!res.ok) return;
+      var box = $('campbox');
+      box.innerHTML = '';
+      if (!res.plan) {
+        if (res.hasDiagnostic) {
+          box.innerHTML = '<div class="empty">已完成入学测评，还没生成课表</div>';
+          $('camp-card').style.display = 'block';
+        }
+        return;
+      }
+      var plan = res.plan;
+      $('camp-card').style.display = 'block';
+      if (plan.result) {
+        // 已结课：报告 + 沟通脚本
+        var r = plan.result;
+        var lines = [];
+        (r.after || []).forEach(function (a) {
+          var b = (r.before || []).find(function (x) { return x.knowledge === a.knowledge; });
+          lines.push('<div class="camp-line">' + esc(a.knowledge) + '：' + (b ? b.score : a.score) + ' → ' + a.score + '</div>');
+        });
+        box.innerHTML =
+          '<div class="script-box">🏁 已结课</div>' +
+          '<div class="report-text">' + esc(r.report_text || '') + '</div>' +
+          '<div class="script-box">💬 沟通建议：' + esc(r.parent_script || '') + '</div>';
+        return;
+      }
+      // 进行中：课表进度
+      var html = '<div class="report-text">' + (plan.diagnosisReport ? esc(plan.diagnosisReport.report_text || '') : '入学诊断已完成') + '</div>';
+      plan.lessons.forEach(function (l) {
+        var st = l.status === 'done' ? '✅ 已完成' : (l.status === 'active' ? '▶ 进行中' : '🔒 未解锁');
+        html += '<div class="camp-line"><span class="camp-k">' + esc(l.knowledge) + '</span><span class="camp-s">' + st + '</span></div>';
+      });
+      var done = plan.lessons.filter(function (l) { return l.status === 'done'; }).length;
+      html += '<div class="empty">已学完 ' + done + ' / ' + plan.lessons.length + ' 节课</div>';
+      box.innerHTML = html;
+    }).catch(function () {});
+  }
+
   // 一键复制沟通脚本
   function copyScript() {
     var lines = [];
@@ -384,6 +425,7 @@
         localStorage.setItem(LS_CODE, code);
         render();
         loadMastery(code);
+        loadCamp(code);
         // 行为日志：家长查看报告/沟通脚本
         fetch(apiBase + '/api/event', {
           method: 'POST',

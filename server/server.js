@@ -36,6 +36,8 @@ const solver = require('../utils/solver');
 const curriculum = require('../utils/curriculum');
 const deformService = require('./services/deformService');
 const reportService = require('./services/reportService');
+const campReportService = require('./services/campReportService');
+const camp = require('./camp');
 const rateLimit = require('./rateLimit');
 
 const PORT = Number(process.env.PORT) || 8787;
@@ -733,6 +735,326 @@ const server = http.createServer(async (req, res) => {
       const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
       if (!userId) throw new Error('缺少用户 id');
       send(res, 200, { ok: true, userId: userId, mastery: db.getMastery(userId) });
+      return;
+    }
+
+    // ---------------- 训练营（查漏补缺） ----------------
+
+    // 入学诊断开始/断点续测：组卷下发（客户端题面不含答案）
+    if (req.method === 'POST' && req.url === '/api/camp/diagnostic/start') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      if (!isValidCode(code)) {
+        send(res, 400, { ok: false, error: '同步码格式不正确' });
+        return;
+      }
+      const active = db.getLatestActiveDiagnostic(code);
+      if (active) {
+        const d = camp.parseDetail(active.detail);
+        const remaining = d.questions.filter((q) => !d.answers[q.id]);
+        if (remaining.length) {
+          send(res, 200, {
+            ok: true,
+            diagnosticId: active.id,
+            resume: true,
+            answered: Object.keys(d.answers).length,
+            questions: remaining.map(camp.toClientQuestion)
+          });
+          return;
+        }
+      }
+      const id = db.createDiagnostic(code);
+      const questions = camp.buildPaper(camp.allKnowledge());
+      const detail = JSON.stringify({ questions: questions, answers: {} });
+      db.saveDiagnostic(id, code, 'active', null, detail);
+      send(res, 200, { ok: true, diagnosticId: id, resume: false, answered: 0, questions: questions.map(camp.toClientQuestion) });
+      return;
+    }
+
+    // 入学诊断逐题作答：判分 + ladder 追加确认题
+    if (req.method === 'POST' && req.url === '/api/camp/diagnostic/answer') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const d = db.getDiagnostic(body.diagnosticId, code);
+      if (!d || d.status !== 'active') {
+        send(res, 404, { ok: false, error: '诊断不存在或已完成' });
+        return;
+      }
+      const q = camp.findQuestion(d.detail, body.questionId);
+      if (!q) {
+        send(res, 400, { ok: false, error: '题目不存在' });
+        return;
+      }
+      const r = camp.answerDiagnostic(d.detail, body.questionId, body.value);
+      if (r.error) {
+        send(res, 400, { ok: false, error: r.error });
+        return;
+      }
+      db.saveDiagnostic(d.id, code, 'active', null, r.detail);
+      db.logEvent({ userId: code, eventType: 'diagnostic_attempt', questionId: body.questionId, knowledgePoint: q.knowledge });
+      send(res, 200, { ok: true, correct: r.correct, rightAnswer: r.rightAnswer, extra: r.extra, answered: r.answered, total: r.total });
+      return;
+    }
+
+    // 入学诊断完成：汇总薄弱点 + AI 诊断报告
+    if (req.method === 'POST' && req.url === '/api/camp/diagnostic/finish') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const d = db.getDiagnostic(body.diagnosticId, code);
+      if (!d) {
+        send(res, 404, { ok: false, error: '诊断不存在' });
+        return;
+      }
+      const s = camp.summarizeDiagnostic(d.detail);
+      const weak = s.perK.filter((x) => x.score < 60);
+      const child = store.children[code];
+      const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+      const report = await campReportService.generateDiagnosisReport(chatFn, { name: child ? child.name : '孩子', weak: weak, total: s.totalAnswered });
+      db.saveDiagnostic(d.id, code, 'done', s.score, d.detail, JSON.stringify({ report_text: report.report_text, parent_script: report.parent_script }));
+      db.logEvent({ userId: code, eventType: 'diagnostic_complete' });
+      send(res, 200, { ok: true, score: s.score, perK: s.perK, weak: weak, report_text: report.report_text, parent_script: report.parent_script });
+      return;
+    }
+
+    // 生成课表：诊断弱项 + 掌握度补充，自动排 top5 薄弱
+    if (req.method === 'POST' && req.url === '/api/camp/plan/generate') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      if (!isValidCode(code)) {
+        send(res, 400, { ok: false, error: '同步码格式不正确' });
+        return;
+      }
+      const existing = db.getActivePlan(code);
+      if (existing) {
+        send(res, 200, { ok: true, plan: camp.planView(existing, db.listLessons(existing.id)), exists: true });
+        return;
+      }
+      const diag = db.getLatestDiagnostic(code);
+      const diagPerK = diag && diag.status === 'done' ? camp.summarizeDiagnostic(diag.detail).perK : null;
+      const spec = camp.buildPlanSpec(diagPerK, db.getMastery(code));
+      if (spec.needDiagnostic) {
+        send(res, 200, { ok: true, needDiagnostic: true });
+        return;
+      }
+      if (spec.allStrong) {
+        send(res, 200, { ok: true, allStrong: true });
+        return;
+      }
+      const lessonsJson = JSON.stringify(spec.lessons.map((l) => ({ index: l.index, knowledge: l.knowledge, lesson_type: l.lesson_type })));
+      const planId = db.createPlan(code, lessonsJson, diag ? diag.id : null);
+      spec.lessons.forEach((l, i) => db.upsertLesson(planId, code, i, l.knowledge, l.lesson_type, i === 0 ? 'active' : 'locked'));
+      db.logEvent({ userId: code, eventType: 'plan_start' });
+      send(res, 200, { ok: true, plan: camp.planView(db.getActivePlan(code), db.listLessons(planId)) });
+      return;
+    }
+
+    // 拉取课表与进度（无课表时返回诊断状态供前端提示）
+    if (req.method === 'GET' && req.url.indexOf('/api/camp/plan/') === 0) {
+      const code = decodeURIComponent((req.url.split('?')[0].split('/').pop() || ''));
+      if (!isValidCode(code)) {
+        send(res, 404, { ok: false, error: '同步码格式不正确' });
+        return;
+      }
+      const plan = db.getActivePlan(code) || db.getLatestPlan(code);
+      if (!plan) {
+        const diag = db.getLatestDiagnostic(code);
+        const hasDiagnostic = !!(diag && diag.status === 'done');
+        const activeDiag = db.getLatestActiveDiagnostic(code);
+        send(res, 200, { ok: true, plan: null, hasDiagnostic: hasDiagnostic, hasActiveDiagnostic: !!activeDiag });
+        return;
+      }
+      const view = camp.planView(plan, db.listLessons(plan.id));
+      if (plan.diagnosis_id) {
+        const diag = db.getDiagnostic(plan.diagnosis_id, code);
+        if (diag && diag.report) {
+          try {
+            view.diagnosisReport = JSON.parse(diag.report);
+          } catch (e) {
+            view.diagnosisReport = null;
+          }
+        }
+      }
+      send(res, 200, { ok: true, plan: view });
+      return;
+    }
+
+    // 取一节课内容（首次生成并缓存；客户端题面不含答案）
+    if (req.method === 'GET' && req.url.indexOf('/api/camp/lesson/') === 0) {
+      const clean = req.url.split('?')[0];
+      const parts = clean.split('/'); // '', api, camp, lesson, code, index
+      const index = Number(parts[parts.length - 1]);
+      const code = decodeURIComponent(parts[parts.length - 2] || '');
+      if (!isValidCode(code) || !Number.isInteger(index)) {
+        send(res, 400, { ok: false, error: '参数不正确' });
+        return;
+      }
+      const plan = db.getActivePlan(code);
+      if (!plan) {
+        send(res, 404, { ok: false, error: '还没有课表，先完成入学测评吧' });
+        return;
+      }
+      const lesson = db.getLesson(plan.id, index);
+      if (!lesson) {
+        send(res, 404, { ok: false, error: '这节课不存在' });
+        return;
+      }
+      if (lesson.status === 'locked') {
+        send(res, 403, { ok: false, error: '先完成上一节课，再解锁这一节哦 🔒' });
+        return;
+      }
+      if (!lesson.content) {
+        const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+        const lc = await camp.buildLessonContent(lesson.knowledge, lesson.lesson_type, chatFn);
+        const startedAt = lesson.started_at || new Date().toISOString();
+        db.updateLesson(plan.id, index, { content: JSON.stringify(lc), status: 'active', started_at: startedAt });
+        db.logEvent({ userId: code, eventType: 'lesson_start', knowledgePoint: lesson.knowledge });
+        send(res, 200, { ok: true, lesson: camp.toClientLesson(lc) });
+        return;
+      }
+      send(res, 200, { ok: true, lesson: camp.toClientLesson(JSON.parse(lesson.content)) });
+      return;
+    }
+
+    // 课内作答：判分 + 进度累计（对错同时落入行为日志，自动计入掌握度）
+    if (req.method === 'POST' && req.url.indexOf('/api/camp/lesson/') === 0 && req.url.indexOf('/answer') > 0) {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const index = Number(body.index);
+      const plan = db.getActivePlan(code);
+      if (!plan) {
+        send(res, 404, { ok: false, error: '还没有课表' });
+        return;
+      }
+      const lesson = db.getLesson(plan.id, index);
+      if (!lesson || !lesson.content) {
+        send(res, 404, { ok: false, error: '课程内容不存在' });
+        return;
+      }
+      const lc = JSON.parse(lesson.content);
+      const q = camp.findLessonQuestion(lc, body.questionId);
+      if (!q) {
+        send(res, 400, { ok: false, error: '题目不存在' });
+        return;
+      }
+      const g = camp.gradeQuestion(q, body.value);
+      const correct = (lesson.correct || 0) + (g.correct ? 1 : 0);
+      const attempts = (lesson.attempts || 0) + 1;
+      db.updateLesson(plan.id, index, {
+        correct: correct,
+        attempts: attempts,
+        score: attempts ? Math.round((correct / attempts) * 100) : 0
+      });
+      db.logEvent({
+        userId: code,
+        eventType: g.correct ? 'answer_correct' : 'answer_wrong',
+        questionId: body.questionId,
+        knowledgePoint: lesson.knowledge
+      });
+      send(res, 200, { ok: true, correct: g.correct, rightAnswer: g.rightAnswer, lessonCorrect: correct, lessonAttempts: attempts });
+      return;
+    }
+
+    // 结课小测完成：本课 done、解锁下一节
+    if (req.method === 'POST' && req.url.indexOf('/api/camp/lesson/') === 0 && req.url.indexOf('/complete') > 0) {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const index = Number(body.index);
+      const plan = db.getActivePlan(code);
+      if (!plan) {
+        send(res, 404, { ok: false, error: '还没有课表' });
+        return;
+      }
+      const lesson = db.getLesson(plan.id, index);
+      if (!lesson) {
+        send(res, 404, { ok: false, error: '课程不存在' });
+        return;
+      }
+      const isDone = lesson.status === 'done';
+      db.updateLesson(plan.id, index, { status: 'done', finished_at: lesson.finished_at || new Date().toISOString() });
+      if (!isDone) db.logEvent({ userId: code, eventType: 'lesson_complete', knowledgePoint: lesson.knowledge });
+      // 解锁下一节
+      const lessons = db.listLessons(plan.id);
+      const next = lessons.find((l) => l.lesson_index === index + 1 && l.status === 'locked');
+      if (next) db.updateLesson(plan.id, next.lesson_index, { status: 'active' });
+      send(res, 200, { ok: true, plan: camp.planView(plan, db.listLessons(plan.id)) });
+      return;
+    }
+
+    // 结课验收开始：针对本期薄弱点复测（复用诊断卷机制，题目范围=课表知识点）
+    if (req.method === 'POST' && req.url.indexOf('/api/camp/plan/') === 0 && req.url.indexOf('/final') > 0 && req.url.indexOf('/done') < 0) {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const plan = db.getActivePlan(code);
+      if (!plan) {
+        send(res, 404, { ok: false, error: '还没有课表' });
+        return;
+      }
+      const lessons = db.listLessons(plan.id);
+      if (!lessons.length || lessons.some((l) => l.status !== 'done')) {
+        send(res, 400, { ok: false, error: '所有课程完成之后才能结课验收哦' });
+        return;
+      }
+      const active = db.getLatestActiveDiagnostic(code);
+      if (active) {
+        const d = camp.parseDetail(active.detail);
+        const remaining = d.questions.filter((q) => !d.answers[q.id]);
+        if (remaining.length) {
+          send(res, 200, { ok: true, diagnosticId: active.id, resume: true, answered: Object.keys(d.answers).length, questions: remaining.map(camp.toClientQuestion) });
+          return;
+        }
+      }
+      const id = db.createDiagnostic(code);
+      const questions = camp.buildPaper(lessons.map((l) => l.knowledge));
+      db.saveDiagnostic(id, code, 'active', null, JSON.stringify({ questions: questions, answers: {} }));
+      send(res, 200, { ok: true, diagnosticId: id, resume: false, answered: 0, questions: questions.map(camp.toClientQuestion) });
+      return;
+    }
+
+    // 结课验收完成：期初/结课对比 + AI 报告 + 计划归档
+    if (req.method === 'POST' && req.url.indexOf('/api/camp/plan/') === 0 && req.url.indexOf('/final/done') > 0) {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const code = String(body.code || '').trim();
+      const plan = db.getActivePlan(code);
+      if (!plan) {
+        send(res, 404, { ok: false, error: '还没有课表' });
+        return;
+      }
+      const d = db.getDiagnostic(body.diagnosticId, code);
+      if (!d) {
+        send(res, 404, { ok: false, error: '复测记录不存在' });
+        return;
+      }
+      const s = camp.summarizeDiagnostic(d.detail);
+      db.saveDiagnostic(d.id, code, 'done', s.score, d.detail);
+      const lessons = db.listLessons(plan.id);
+      const before = lessons.map((l) => ({ knowledge: l.knowledge, score: l.score || 0 }));
+      const after = s.perK.map((x) => ({ knowledge: x.knowledge, score: x.score }));
+      const improved = after.filter((a) => {
+        const b = before.find((x) => x.knowledge === a.knowledge);
+        return b ? a.score > b.score : false;
+      }).map((a) => a.knowledge);
+      const stillWeak = after.filter((a) => a.score < 60).map((a) => a.knowledge);
+      const child = store.children[code];
+      const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+      const report = await campReportService.generateFinalReport(chatFn, {
+        name: child ? child.name : '孩子',
+        before: before,
+        after: after,
+        improved: improved,
+        stillWeak: stillWeak
+      });
+      const result = {
+        score: s.score,
+        before: before,
+        after: after,
+        improved: improved,
+        stillWeak: stillWeak,
+        report_text: report.report_text,
+        parent_script: report.parent_script
+      };
+      db.savePlan(plan.id, { status: 'done', result: JSON.stringify(result) });
+      db.logEvent({ userId: code, eventType: 'plan_complete' });
+      send(res, 200, { ok: true, result: result });
       return;
     }
 

@@ -21,7 +21,14 @@ const EVENT_TYPES = [
   'after_wrong_retry',
   'deformation_attempt',
   'deformation_correct',
-  'parent_script_viewed'
+  'parent_script_viewed',
+  // 训练营（查漏补缺）
+  'diagnostic_attempt',
+  'diagnostic_complete',
+  'plan_start',
+  'lesson_start',
+  'lesson_complete',
+  'plan_complete'
 ];
 
 let warned = false;
@@ -69,6 +76,55 @@ function init() {
       '  created_at TEXT NOT NULL' +
       ')'
     );
+    // 训练营（查漏补缺）：入学诊断 / 课程计划 / 课时进度
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS diagnostics (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  user_id TEXT NOT NULL,' +
+      '  status TEXT NOT NULL DEFAULT \'active\',' + // active | done
+      '  score REAL,' +
+      '  detail TEXT,' +  // JSON：整卷题目（含答案）与逐题作答记录
+      '  report TEXT,' +  // JSON：诊断报告 {report_text, parent_script}
+      '  created_at TEXT NOT NULL' +
+      ')'
+    );
+    // 兼容旧库：补充 report 列
+    try {
+      db.exec('ALTER TABLE diagnostics ADD COLUMN report TEXT');
+    } catch (e) {
+      // 列已存在
+    }
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS plans (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  user_id TEXT NOT NULL,' +
+      '  status TEXT NOT NULL DEFAULT \'active\',' + // active | done
+      '  lessons TEXT NOT NULL,' + // JSON [{index,knowledge,lesson_type}]
+      '  diagnosis_id INTEGER,' +
+      '  result TEXT,' +           // 结课验收快照 JSON {before,after,report,...}
+      '  created_at TEXT NOT NULL' +
+      ')'
+    );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS lesson_progress (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  plan_id INTEGER NOT NULL,' +
+      '  user_id TEXT NOT NULL,' +
+      '  lesson_index INTEGER NOT NULL,' +
+      '  knowledge TEXT NOT NULL,' +
+      '  lesson_type TEXT NOT NULL,' + // concept | compute
+      '  status TEXT NOT NULL DEFAULT \'locked\',' + // locked | active | done
+      '  correct INTEGER NOT NULL DEFAULT 0,' +
+      '  attempts INTEGER NOT NULL DEFAULT 0,' +
+      '  score REAL NOT NULL DEFAULT 0,' +
+      '  content TEXT,' +   // 课内容缓存（例题+巩固题+小测题含答案）
+      '  started_at TEXT,' +
+      '  finished_at TEXT' +
+      ')'
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_diag_user ON diagnostics(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_plans_user ON plans(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_lp_plan ON lesson_progress(plan_id)');
     console.log('[db] 行为日志已就绪：server/math_tutor.db');
   } catch (e) {
     console.error('[db] 初始化失败：' + e.message);
@@ -247,6 +303,176 @@ function childCountByUser(userId) {
   return r ? r.c : 0;
 }
 
+// ---------------- 训练营：诊断 / 计划 / 课时 ----------------
+
+function createDiagnostic(userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare("INSERT INTO diagnostics (user_id, status, created_at) VALUES (?, 'active', ?)")
+      .run(userId, new Date().toISOString());
+    return Number(r.lastInsertRowid);
+  } catch (e) {
+    return null;
+  }
+}
+
+function getDiagnostic(id, userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare('SELECT * FROM diagnostics WHERE id = ? AND user_id = ?').get(id, userId);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 最近一次未完成的诊断（断点续测）
+function getLatestActiveDiagnostic(userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare("SELECT * FROM diagnostics WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 最近一次已完成的诊断（排课/家长报告用）
+function getLatestDiagnostic(userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare("SELECT * FROM diagnostics WHERE user_id = ? ORDER BY id DESC LIMIT 1").get(userId);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveDiagnostic(id, userId, status, score, detail, report) {
+  if (!db) return false;
+  try {
+    db.prepare('UPDATE diagnostics SET status = ?, score = ?, detail = ?, report = ? WHERE id = ? AND user_id = ?')
+      .run(
+        status,
+        score === undefined ? null : score,
+        detail === undefined ? null : detail,
+        report === undefined ? null : report,
+        id,
+        userId
+      );
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function createPlan(userId, lessonsJson, diagnosisId) {
+  if (!db) return null;
+  try {
+    // 同一孩子只保留一个进行中的计划：旧的置为 done
+    db.prepare("UPDATE plans SET status = 'done' WHERE user_id = ? AND status = 'active'").run(userId);
+    const r = db.prepare("INSERT INTO plans (user_id, status, lessons, diagnosis_id, created_at) VALUES (?, 'active', ?, ?, ?)")
+      .run(userId, lessonsJson, diagnosisId || null, new Date().toISOString());
+    return Number(r.lastInsertRowid);
+  } catch (e) {
+    return null;
+  }
+}
+
+function getActivePlan(userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare("SELECT * FROM plans WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 最近一个计划（含已结课归档的，家长端查看结课报告用）
+function getLatestPlan(userId) {
+  if (!db) return null;
+  try {
+    const r = db.prepare('SELECT * FROM plans WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(userId);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getPlanById(id) {
+  if (!db) return null;
+  try {
+    const r = db.prepare('SELECT * FROM plans WHERE id = ?').get(id);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function savePlan(id, fields) {
+  if (!db || !fields) return false;
+  try {
+    const keys = Object.keys(fields).filter(function (k) { return ['status', 'result'].indexOf(k) > -1; });
+    if (!keys.length) return false;
+    const sets = keys.map(function (k) { return k + ' = ?'; }).join(', ');
+    const vals = keys.map(function (k) { return fields[k]; }).concat([id]);
+    const stmt = db.prepare('UPDATE plans SET ' + sets + ' WHERE id = ?');
+    stmt.run(...vals);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function upsertLesson(planId, userId, index, knowledge, lessonType, status) {
+  if (!db) return false;
+  try {
+    db.prepare(
+      'INSERT INTO lesson_progress (plan_id, user_id, lesson_index, knowledge, lesson_type, status) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(planId, userId, index, knowledge, lessonType, status);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function getLesson(planId, index) {
+  if (!db) return null;
+  try {
+    const r = db.prepare('SELECT * FROM lesson_progress WHERE plan_id = ? AND lesson_index = ?').get(planId, index);
+    return r || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function listLessons(planId) {
+  if (!db) return [];
+  try {
+    return db.prepare('SELECT * FROM lesson_progress WHERE plan_id = ? ORDER BY lesson_index').all(planId) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function updateLesson(planId, index, fields) {
+  if (!db || !fields) return false;
+  try {
+    const keys = Object.keys(fields).filter(function (k) {
+      return ['status', 'correct', 'attempts', 'score', 'content', 'started_at', 'finished_at'].indexOf(k) > -1;
+    });
+    if (!keys.length) return false;
+    const sets = keys.map(function (k) { return k + ' = ?'; }).join(', ');
+    const vals = keys.map(function (k) { return fields[k]; }).concat([planId, index]);
+    const stmt = db.prepare('UPDATE lesson_progress SET ' + sets + ' WHERE plan_id = ? AND lesson_index = ?');
+    stmt.run(...vals);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // 由题目文本生成稳定的 question_id
 function questionIdOf(problem) {
   if (!problem) return null;
@@ -274,5 +500,19 @@ module.exports = {
   listChildren: listChildren,
   findChildByCode: findChildByCode,
   childCountByUser: childCountByUser,
+  createDiagnostic: createDiagnostic,
+  getDiagnostic: getDiagnostic,
+  getLatestActiveDiagnostic: getLatestActiveDiagnostic,
+  getLatestDiagnostic: getLatestDiagnostic,
+  saveDiagnostic: saveDiagnostic,
+  createPlan: createPlan,
+  getActivePlan: getActivePlan,
+  getLatestPlan: getLatestPlan,
+  getPlanById: getPlanById,
+  savePlan: savePlan,
+  upsertLesson: upsertLesson,
+  getLesson: getLesson,
+  listLessons: listLessons,
+  updateLesson: updateLesson,
   EVENT_TYPES: EVENT_TYPES
 };

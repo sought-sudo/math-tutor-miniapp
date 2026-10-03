@@ -187,6 +187,7 @@ textarea { resize: vertical; min-height: 72px; }
 .f-blue { background: #E3EEFF; }
 .f-green { background: #DFF5EE; }
 .f-pink { background: #FFE3EC; }
+.f-purple { background: #EDE7FF; }
 .f-title { font-size: 16px; font-weight: 800; margin-top: 10px; }
 .f-desc { font-size: 12px; color: #999; margin-top: 2px; }
 
@@ -819,3 +820,64 @@ textarea { resize: vertical; min-height: 72px; }
 .bt-icon { font-size: 30px; }
 .bt-title { font-weight: 800; color: #B26A00; font-size: 15px; margin-top: 2px; }
 .bt-text { font-size: 12px; color: #8a5a00; margin-top: 2px; }
+
+/* ---------------- 查漏补缺训练营 ---------------- */
+.camp-hero { text-align: center; padding: 24px 18px; background: linear-gradient(160deg, #FFF9EE, #F2ECFF); }
+.camp-hero-badge { font-size: 44px; animation: float 2.4s ease-in-out infinite; }
+.camp-hero-title { font-weight: 800; color: #7A4FD0; font-size: 20px; margin-top: 6px; }
+.camp-hero-sub { color: #8a7aae; font-size: 13px; margin: 8px 0 14px; line-height: 1.7; }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.camp-hero .btn + .btn { margin-left: 8px; }
+
+.camp-lesson {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid #EFE6D8; border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.camp-lesson .cl-icon { font-size: 22px; flex-shrink: 0; }
+.camp-lesson .cl-body { flex: 1; min-width: 0; }
+.camp-lesson .cl-title { font-weight: 800; color: #444; font-size: 14px; }
+.camp-lesson .cl-sub { font-size: 11px; color: #999; margin-top: 2px; }
+.camp-lesson.locked { opacity: 0.55; }
+.camp-lesson.active { border-color: #FFB400; box-shadow: 0 2px 10px rgba(255, 180, 0, 0.2); }
+.camp-lesson.done { background: #F4FBF8; border-color: #CBEBDD; }
+.camp-lesson .cl-btn {
+  flex-shrink: 0; border: none; cursor: pointer; font-weight: 700; font-size: 13px;
+  padding: 8px 12px; border-radius: 999px;
+  background: linear-gradient(90deg, #FFC53D, #FF9F1C); color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 159, 28, 0.3);
+}
+.camp-lesson.locked .cl-btn { background: #EDE4D4; color: #B8A98E; box-shadow: none; cursor: default; }
+.camp-lesson.done .cl-btn { background: #DFF5EE; color: #14A98C; box-shadow: none; cursor: default; }
+.camp-notice {
+  background: #E8F8F1; color: #0E8A6D; border-radius: 10px;
+  padding: 10px 12px; font-size: 13px; margin-bottom: 10px;
+}
+
+.diag-card .problem-text { font-size: 17px; margin: 8px 0 12px; }
+.diag-card #diag-input-box { display: flex; gap: 8px; margin-top: 4px; }
+.diag-card #diag-input-box input { flex: 1; }
+.diag-card .answer-feedback { margin-top: 10px; }
+.diag-weak { margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.diag-weak .wk-chip {
+  background: #FFF0F0; color: #D64545; border-radius: 999px;
+  padding: 6px 12px; font-size: 13px; font-weight: 700;
+}
+.report-text {
+  background: #FFF9EE; border-radius: 10px; padding: 12px 14px;
+  color: #7A5A00; font-size: 13px; line-height: 1.8; margin: 10px 0;
+}
+.final-compare { margin: 12px 0; }
+.fc-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fc-name { flex-shrink: 0; width: 88px; font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-track { flex: 1; background: #F2EDE2; border-radius: 999px; height: 10px; overflow: hidden; }
+.fc-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+.fc-fill.before { background: #FFD7A8; }
+.fc-fill.after { background: #35D0AA; }
+.fc-tag { flex-shrink: 0; width: 58px; font-size: 11px; color: #999; }
+.fc-tag.up { color: #14A98C; font-weight: 800; }
+.script-box {
+  background: #F2ECFF; border-radius: 10px; padding: 12px 14px;
+  color: #5A3FA0; font-size: 13px; line-height: 1.8; margin: 10px 0;
+}
+.btn-block { width: 100%; }

@@ -53,6 +53,9 @@
           <div class="f-icon f-green">📕</div><div class="f-title">错题本</div><div class="f-desc">错过的题，都在这里</div>
           <span class="red-dot" id="wrong-dot" style="display:none"></span>
         </div>
+        <div class="card feature" data-go="camp">
+          <div class="f-icon f-purple">🎯</div><div class="f-title">训练营</div><div class="f-desc">测一测，把薄弱点补起来</div>
+        </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
         </div>
@@ -292,6 +295,68 @@
       </div>
     </section>
 
+    <!-- 查漏补缺训练营 -->
+    <section id="view-camp" class="view" style="display:none">
+      <!-- 营首页：入学测入口 / 课表 -->
+      <div id="camp-home-panel">
+        <div class="card camp-hero">
+          <div class="camp-hero-badge">🎯</div>
+          <div class="camp-hero-title">查漏补缺训练营</div>
+          <div class="camp-hero-sub" id="camp-hero-sub">先来一次入学小测，小狐老师帮你把薄弱的地方一个个补上</div>
+          <button class="btn btn-primary" id="btn-camp-start">开始入学测评 🚀</button>
+          <button class="btn btn-ghost" id="btn-camp-plan" style="display:none">生成我的课表 📋</button>
+        </div>
+        <div class="card" id="camp-lesson-card" style="display:none">
+          <h2>📚 我的课表</h2>
+          <div class="camp-notice" id="camp-notice" style="display:none"></div>
+          <div id="camp-lessons"></div>
+          <button class="btn btn-primary btn-block" id="btn-camp-final" style="display:none">全部学完啦，结课验收 🏁</button>
+        </div>
+      </div>
+
+      <!-- 测评面板 -->
+      <div id="camp-diagnostic-panel" style="display:none">
+        <div class="progress">
+          <div class="progress-track"><div class="progress-fill" id="diag-progress-fill"></div></div>
+          <div class="progress-text" id="diag-progress-text"></div>
+        </div>
+        <div class="card diag-card" id="diag-question-card">
+          <div class="tag" id="diag-knowledge"></div>
+          <div class="problem-text" id="diag-problem"></div>
+          <div class="mcq-options" id="diag-options" style="display:none"></div>
+          <div id="diag-input-box" style="display:none">
+            <input id="diag-input" type="text" inputmode="decimal" placeholder="输入答案">
+            <button class="btn btn-primary" id="btn-diag-submit">提交</button>
+          </div>
+          <div class="answer-feedback" id="diag-feedback" style="display:none"></div>
+          <button class="btn btn-primary" id="btn-diag-next" style="display:none">下一题 →</button>
+        </div>
+        <div class="card" id="diag-result-card" style="display:none">
+          <div class="result-icon" id="diag-result-icon">🎉</div>
+          <div class="result-title" id="diag-result-title"></div>
+          <div class="diag-weak" id="diag-result-weak"></div>
+          <div class="report-text" id="diag-report-text"></div>
+          <div class="result-row">
+            <button class="btn btn-primary" id="btn-diag-to-plan">生成我的课表 📋</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结课报告面板 -->
+      <div id="camp-report-panel" style="display:none">
+        <div class="card">
+          <h2>🏁 结课验收报告</h2>
+          <div class="final-compare" id="final-compare"></div>
+          <div class="report-text" id="final-report-text"></div>
+          <div class="script-box" id="final-parent-script"></div>
+          <div class="result-row">
+            <button class="btn btn-primary" id="btn-camp-new">再开一期训练营 🚀</button>
+            <button class="btn btn-ghost" id="btn-camp-home2">回营首页</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 对话式 AI 辅导（引导式状态机） -->
     <section id="view-chat" class="view" style="display:none">
       <div class="chat-head">
@@ -332,6 +397,7 @@
     <!-- 底部导航（引导页隐藏） -->
     <nav class="nav" id="bottom-nav">
       <div class="nav-item on" data-nav="home"><div class="nav-icon">🏠</div><div class="nav-label">首页</div></div>
+      <div class="nav-item" data-nav="camp"><div class="nav-icon">🎯</div><div class="nav-label">训练营</div></div>
       <div class="nav-item" data-nav="camera"><div class="nav-icon">📷</div><div class="nav-label">拍照识题</div></div>
       <div class="nav-item" data-nav="wrong"><div class="nav-icon">📕</div><div class="nav-label">错题本</div></div>
       <div class="nav-item" data-nav="parent"><div class="nav-icon">📊</div><div class="nav-label">家长端</div></div>

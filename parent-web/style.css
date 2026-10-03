@@ -219,3 +219,11 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
   margin-bottom: 10px;
 }
 .script-sign { text-align: right; color: #b0a284; font-size: 12px; margin-top: 8px; }
+
+/* 训练营卡 */
+.camp-line { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #444; padding: 6px 0; border-bottom: 1px dashed #EFE6D8; }
+.camp-line:last-of-type { border-bottom: none; }
+.camp-k { font-weight: 700; }
+.camp-s { color: #999; font-size: 12px; }
+.report-text { background: #FFF9EE; border-radius: 10px; padding: 10px 12px; color: #7A5A00; font-size: 13px; line-height: 1.8; margin-bottom: 8px; }
+.script-box { background: #F2ECFF; border-radius: 10px; padding: 10px 12px; color: #5A3FA0; font-size: 13px; line-height: 1.8; margin-bottom: 8px; }

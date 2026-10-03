@@ -225,10 +225,11 @@ function genAreaUnit() {
   if (kind === 'ha') {
     const n = pick([2, 3, 5, 6, 8, 10, 12]);
     const right = n * 10000;
+    const options = shuffle([right].concat(numericOptions(right)));
     return mcq('公顷和平方千米',
       n + ' 公顷 = （ ）平方米',
-      shuffle([right].concat(numericOptions(right))),
-      0,
+      options,
+      options.indexOf(right),
       [
         { title: '① 想进率', content: '1 公顷 = 10000 平方米。' },
         { title: '② 计算', content: n + ' × 10000 = ' + right + '（平方米）。' },
@@ -237,10 +238,11 @@ function genAreaUnit() {
   }
   const n = pick([2, 3, 4, 5, 7, 9]);
   const right = n * 100;
+  const options = shuffle([right].concat(numericOptions(right)));
   return mcq('公顷和平方千米',
     n + ' 平方千米 = （ ）公顷',
-    shuffle([right].concat(numericOptions(right))),
-    0,
+    options,
+    options.indexOf(right),
     [
       { title: '① 想进率', content: '1 平方千米 = 100 公顷。' },
       { title: '② 计算', content: n + ' × 100 = ' + right + '（公顷）。' },
