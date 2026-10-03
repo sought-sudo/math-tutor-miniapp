@@ -44,6 +44,11 @@ const PORT = Number(process.env.PORT) || 8787;
 const LLM_BASE_URL = (process.env.LLM_BASE_URL || '').replace(/\/$/, '');
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
+// OCR（图像识别）独立配置：默认回落 LLM 配置；接智谱视觉时单独设 OCR_BASE_URL/OCR_API_KEY/OCR_MODEL=glm-4v-flash
+// 只有显式设置过 OCR_* 任一变量才视为"已接视觉模型"（防止主模型不支持视觉时虚报可用）
+const OCR_EXPLICIT = !!(process.env.OCR_BASE_URL || process.env.OCR_API_KEY || process.env.OCR_MODEL);
+const OCR_BASE_URL = (process.env.OCR_BASE_URL || LLM_BASE_URL).replace(/\/$/, '');
+const OCR_API_KEY = process.env.OCR_API_KEY || LLM_API_KEY;
 const OCR_MODEL = process.env.OCR_MODEL || LLM_MODEL;
 
 const DATA_FILE = path.join(__dirname, 'data.json');
@@ -298,19 +303,20 @@ const LANDING = [
 
 // ---------------- AI（可选） ----------------
 
-async function chat(messages, model) {
-  if (!LLM_BASE_URL || !LLM_API_KEY) {
-    throw new Error('后端未配置 LLM_BASE_URL / LLM_API_KEY');
+// 通用 OpenAI 兼容调用（支持纯文本与视觉 messages）；endpoint/key/model 由调用方决定
+async function chatWith(endpoint, key, model, messages) {
+  if (!endpoint || !key) {
+    throw new Error('后端未配置接口地址 / 密钥');
   }
   try {
-    const resp = await fetch(LLM_BASE_URL + '/chat/completions', {
+    const resp = await fetch(endpoint + '/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + LLM_API_KEY
+        Authorization: 'Bearer ' + key
       },
       body: JSON.stringify({
-        model: model || LLM_MODEL,
+        model: model,
         messages: messages,
         temperature: 0.3
       }),
@@ -328,6 +334,11 @@ async function chat(messages, model) {
     }
     throw e;
   }
+}
+
+// 讲解/对话走主 LLM；/ocr 走 chatWith(OCR_*)
+function chat(messages, model) {
+  return chatWith(LLM_BASE_URL, LLM_API_KEY, model || LLM_MODEL, messages);
 }
 
 function parseJson(text) {
@@ -371,7 +382,12 @@ const TUTOR_VARIANT_SYSTEM =
   '要求：1) problem 必须是与原题不同数字/情境的新题目，适合用来巩固；2) 步骤 4~6 步，content 用完整口语化句子（2~4 句），先讲"为什么"再演示"怎么做"，称呼孩子为"你"；3) 最后一步教孩子检查验算；4) 只返回 JSON。';
 
 const OCR_SYSTEM =
-  '你是 OCR 识别助手。识别图片中的数学题，只输出题目文字本身，不要任何解释。如果图中没有数学题，输出：未识别到题目。';
+  '你是小学数学题的 OCR 识别助手。识别图片中的数学题并输出"可直接计算"的题目文字，要求：' +
+  '1) 算式保留 × ÷ + - ( ) 等原样符号，不要改写成文字；' +
+  '2) 应用题输出完整题干，包括最后的问题（如"一共多少个？"）；' +
+  '3) 图中有多道题时逐行输出，每行一道，不要编号；' +
+  '4) 忽略页眉、页码、水印、姓名栏和答案解析；' +
+  '5) 只输出题目文字本身，不要任何解释或修饰；图中没有数学题时只输出：未识别到题目。';
 
 // ---------------- 引导式对话辅导（状态机） ----------------
 
@@ -1132,7 +1148,8 @@ const server = http.createServer(async (req, res) => {
     // 能力探测（学生端网页据此决定走 AI 还是本地引擎）
     if (req.method === 'GET' && req.url === '/api/status') {
       const llmReady = !!(LLM_BASE_URL && LLM_API_KEY);
-      send(res, 200, { ok: true, llm: llmReady, ocr: llmReady });
+      const ocrReady = !!(OCR_EXPLICIT && OCR_BASE_URL && OCR_API_KEY);
+      send(res, 200, { ok: true, llm: llmReady, ocr: ocrReady });
       return;
     }
 
@@ -1241,28 +1258,43 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 拍照识题
+    // 拍照识题（视觉 OCR；未配置或失败都返回 ok:false 由前端提示，不再 500）
     if (req.method === 'POST' && req.url === '/ocr') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!body.image) throw new Error('缺少参数 image(base64)');
       if (!llmRateLimit(res, 'ocr', body.code)) return;
-      const content = await chat(
-        [
-          { role: 'system', content: OCR_SYSTEM },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: '请识别这张图片里的数学题：' },
-              {
-                type: 'image_url',
-                image_url: { url: 'data:image/jpeg;base64,' + body.image }
-              }
-            ]
-          }
-        ],
-        OCR_MODEL
-      );
-      send(res, 200, { ok: true, text: content.trim() });
+      if (!OCR_EXPLICIT || !OCR_BASE_URL || !OCR_API_KEY) {
+        send(res, 200, { ok: false, error: '未配置视觉模型' });
+        return;
+      }
+      try {
+        const content = await chatWith(
+          OCR_BASE_URL,
+          OCR_API_KEY,
+          OCR_MODEL,
+          [
+            { role: 'system', content: OCR_SYSTEM },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: '请识别这张图片里的数学题：' },
+                {
+                  type: 'image_url',
+                  image_url: { url: 'data:image/jpeg;base64,' + body.image }
+                }
+              ]
+            }
+          ]
+        );
+        const text = String(content).trim();
+        if (!text || text === '未识别到题目') {
+          send(res, 200, { ok: false, error: '未识别到题目' });
+          return;
+        }
+        send(res, 200, { ok: true, text: text });
+      } catch (e) {
+        send(res, 200, { ok: false, error: String((e && e.message) || e) });
+      }
       return;
     }
 

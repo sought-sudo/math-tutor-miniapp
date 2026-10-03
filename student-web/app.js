@@ -140,14 +140,18 @@
   // ---------------- AI 能力（搜题/错题讲解走大模型，失败回退本地引擎） ----------------
 
   var aiReady = false;
+  var ocrReady = false;
 
   function refreshStatus() {
     var base = getApiBase();
     if (location.protocol === 'file:' && !base) return;
     fetch(base + '/api/status')
       .then(function (r) { return r.json(); })
-      .then(function (j) { aiReady = !!(j && j.ok && j.llm); })
-      .catch(function () { aiReady = false; });
+      .then(function (j) {
+        aiReady = !!(j && j.ok && j.llm);
+        ocrReady = !!(j && j.ok && j.ocr);
+      })
+      .catch(function () { aiReady = false; ocrReady = false; });
   }
 
   function fetchTutor(payload, path) {
@@ -859,13 +863,24 @@
     reader.readAsDataURL(file);
   }
 
-  // OCR 识别（有后端 AI 时自动识别；失败静默切手动输入）
+  // OCR 识别：未配置视觉模型时直接手动输入；成功填入并提示核对，失败显示原因 + 可重试
+  var lastOcrSrc = '';
+
+  function camOcrNote(msg) {
+    var note = $('recog-note');
+    if (!note) return;
+    note.textContent = msg;
+    note.style.display = 'block';
+  }
+
   function camRequestOcr(dataUrl) {
-    if (!syncOn()) {
-      setTimeout(function () {
-        $('camera-scan').style.display = 'none';
-        $('recog-note').style.display = 'block';
-      }, 700);
+    lastOcrSrc = dataUrl || '';
+    var retryBtn = $('btn-ocr-retry');
+    if (retryBtn) retryBtn.style.display = 'none';
+    // 未开启同步（file:// 无后端）或后端无视觉模型：直接手动输入，不发请求
+    if (!syncOn() || !ocrReady) {
+      $('camera-scan').style.display = 'none';
+      camOcrNote(syncOn() ? 'ℹ️ 后端未接视觉模型：请手动输入题目（可先用 ✂️ 裁剪看清题目）' : 'ℹ️ 未配置 OCR：请手动输入题目，或用下面的示例题体验。');
       return;
     }
     var base64 = String(dataUrl).slice(dataUrl.indexOf(',') + 1);
@@ -878,12 +893,16 @@
       $('camera-scan').style.display = 'none';
       if (j && j.ok && j.text) {
         $('recog-input').value = String(j.text).trim();
+        camOcrNote('✨ 识别完成，请检查一下对不对');
+        if (retryBtn) retryBtn.style.display = 'inline-block';
       } else {
-        $('recog-note').style.display = 'block';
+        camOcrNote('😕 ' + ((j && j.error) || '识别失败') + '：可以手动输入，或点"重新识别"再试一次');
+        if (retryBtn) retryBtn.style.display = 'inline-block';
       }
     }).catch(function () {
       $('camera-scan').style.display = 'none';
-      $('recog-note').style.display = 'block';
+      camOcrNote('😕 网络开了小差：可以手动输入，或点"重新识别"再试一次');
+      if (retryBtn) retryBtn.style.display = 'inline-block';
     });
   }
 
@@ -1007,7 +1026,7 @@
         $('camera-scan').style.display = 'none';
         setCamImage(h.img || h.thumb);
         $('recog-input').value = h.problem || '';
-        $('recog-note').style.display = 'block';
+        camOcrNote('ℹ️ 从历史恢复：可修改题目后开始辅导');
       });
       box.appendChild(div);
     });
@@ -2682,6 +2701,13 @@
   // 拍照编辑：裁剪 / 标注
   $('btn-crop').addEventListener('click', function () { camEditStart('crop'); });
   $('btn-annotate').addEventListener('click', function () { camEditStart('annotate'); });
+  $('btn-ocr-retry').addEventListener('click', function () {
+    if (lastOcrSrc) {
+      $('camera-scan').style.display = 'block';
+      $('recog-note').style.display = 'none';
+      camRequestOcr(lastOcrSrc);
+    }
+  });
   $('btn-edit-cancel').addEventListener('click', camEditCancel);
   $('btn-edit-done').addEventListener('click', camEditDone);
   $('btn-pen-red').addEventListener('click', function () {

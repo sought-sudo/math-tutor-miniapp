@@ -119,7 +119,10 @@
           <button class="w-chip" data-ch="应用题：">应用题：</button>
         </div>
         <textarea id="recog-input" rows="3" placeholder="输入或粘贴题目，例如：计算：125×8+25×4=?"></textarea>
-        <div class="note" id="recog-note" style="display:none">ℹ️ 未配置 OCR：请手动输入题目，或用下面的示例题体验。</div>
+        <div class="note-row">
+          <span class="note" id="recog-note" style="display:none"></span>
+          <button class="btn btn-ghost btn-sm" id="btn-ocr-retry" style="display:none">🔄 重新识别</button>
+        </div>
         <button class="btn btn-primary" id="btn-start-guide">开始辅导 🚀</button>
       </div>
       <div class="card" id="sample-card">

@@ -185,16 +185,20 @@ math-tutor-miniapp/
 
 - **教材同步目录**：`utils/curriculum.js` 提供人教版四年级上/下册 8 个单元的目录（单元 → 知识点映射，覆盖全部题型）；学生端首页「练习单元」选择器（localStorage 记忆，家长端显示孩子当前单元），选定后每日练习集中在该单元知识点（单元内仍按薄弱优先）
 - **错题本**：按知识点分组展示（网页 + 小程序）；网页端支持「🖨️ 打印错题本」（打印样式只输出题目/答案）
-- **拍照识题真 OCR**：默认手动输入。要启用视觉识别，换用支持视觉的模型（如阿里云百炼）：
+- **拍照识题真 OCR（图像识别）**：默认手动输入。接一个支持视觉的模型即可自动识别题目文字（推荐智谱 `glm-4v-flash`，免费）：
+
+  1. 注册 [智谱开放平台](https://open.bigmodel.cn)（手机号即可），创建 API Key
+  2. 在启动脚本（如 `start-server-ai.bat`）里加 3 行：
 
   ```bat
-  set LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-  set LLM_API_KEY=百炼平台的key
-  set LLM_MODEL=qwen-plus
-  set OCR_MODEL=qwen-vl-plus
+  set OCR_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+  set OCR_API_KEY=你的智谱key
+  set OCR_MODEL=glm-4v-flash
   ```
 
-  拍照页已带取景引导（四角框 + 横平竖直提示）。
+  3. 重启后端。之后拍照/裁剪完成后题目文字会自动填进输入框（也可点"🔄 重新识别"）
+
+  也可以用阿里百炼 `qwen-vl-plus`（`OCR_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`）。讲解 AI 与识图 AI 互相独立：不配 `OCR_*` 时回落主模型配置。配套的 **✂️ 裁剪 / ✏️ 标注** 编辑可以先把题目区域裁出来再识别，准确率更高。拍照页已带取景引导（四角框 + 横平竖直提示）。
 
 ## 错题变形服务（deformService）
 
@@ -252,7 +256,7 @@ setx LLM_MODEL "deepseek-chat"
 
 - 网页学生端会通过 `/api/status` 自动检测 AI 并切换（无需改代码）
 - 微信小程序端需在 `utils/config.js` 打开 `llm.enabled` 并填 `baseUrl`
-- DeepSeek 的 `deepseek-chat` 不支持图片识别：拍照识题的 OCR 会保持"手动输入"；需要 OCR 时另配视觉模型（如 `set OCR_MODEL=qwen-vl-plus`，并把 LLM_BASE_URL/LLM_API_KEY 换成对应服务商）
+- DeepSeek 的 `deepseek-chat` 不支持图片识别：默认 OCR 保持"手动输入"；接视觉模型只需单独设 `OCR_BASE_URL / OCR_API_KEY / OCR_MODEL`（见上"拍照识题真 OCR"），不影响讲解模型
 - 服务端 LLM 调用有 20 秒超时；失败自动回退本地引擎，不会卡死
 - **成本优化**：对话历史只回传最近 4 轮，系统提示默认只发当前状态定义（设 `LLM_FULL_SPEC=1` 可回全量十状态规范）
 - **限流**：`/tutor-chat` 30 次/分、`/tutor` 与 `/variant` 10 次/分、`/ocr` 5 次/分（按同步码计），超限返回 429
