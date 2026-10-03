@@ -82,6 +82,20 @@
           <i class="cg cg-tl"></i><i class="cg cg-tr"></i><i class="cg cg-bl"></i><i class="cg cg-br"></i>
           <span class="cam-emoji">📷</span>横平竖直拍正<br>题目完整放进框里
         </div>
+        <!-- 图片编辑层：裁剪 / 标注 -->
+        <div class="cam-edit" id="cam-edit" style="display:none">
+          <canvas id="cam-edit-canvas"></canvas>
+          <div class="cam-edit-tools" id="cam-edit-tools">
+            <button class="cet-btn pen red on" id="btn-pen-red" title="红笔">🔴</button>
+            <button class="cet-btn pen" id="btn-pen-yellow" title="黄笔">🟡</button>
+            <button class="cet-btn" id="btn-annotate-undo">↩ 撤销</button>
+            <button class="cet-btn" id="btn-annotate-clear">🗑</button>
+          </div>
+          <div class="cam-edit-actions">
+            <button class="cet-btn act-cancel" id="btn-edit-cancel">取消</button>
+            <button class="cet-btn act-ok" id="btn-edit-done">✓ 完成</button>
+          </div>
+        </div>
       </div>
       <div class="scanning" id="camera-scan" style="display:none">🔍 小助手正在认题…</div>
       <div class="blur-hint" id="blur-hint" style="display:none">💡 这张图可能看不清，重拍一张更准哦</div>
@@ -90,6 +104,8 @@
         <button class="btn btn-primary act" id="btn-camera">📷 拍照</button>
         <button class="btn btn-blue act" id="btn-album">🖼️ 从相册选择</button>
         <button class="btn btn-ghost act" id="btn-rotate" style="display:none">↻ 旋转</button>
+        <button class="btn btn-ghost act" id="btn-crop" style="display:none">✂️ 裁剪</button>
+        <button class="btn btn-ghost act" id="btn-annotate" style="display:none">✏️ 标注</button>
       </div>
       <div class="card" id="recog-card" style="display:none">
         <div class="label">识别的题目（可以手动修改）</div>

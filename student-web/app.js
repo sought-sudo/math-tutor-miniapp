@@ -808,24 +808,59 @@
 
   var camRotateDeg = 0;
 
-  function handleImage(file) {
-    if (!file) return;
-    var url = URL.createObjectURL(file);
+  // 把 dataURL 图下采样到最长边 maxSide，返回新 dataURL（原图小于 maxSide 则原样返回）
+  function camResize(dataUrl, maxSide, quality, cb) {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        if (scale >= 1) { cb(dataUrl); return; }
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        cb(c.toDataURL('image/jpeg', quality));
+      } catch (e) { cb(dataUrl); }
+    };
+    img.onerror = function () { cb(dataUrl); };
+    img.src = dataUrl;
+  }
+
+  // 设置当前图源（拍照/相册/历史/编辑后共用），后续 OCR/模糊检测/放大/历史全部基于它
+  function setCamImage(src) {
     var img = $('camera-img');
-    img.src = url;
+    img.src = src;
     img.style.display = 'block';
     img.style.transform = 'rotate(0deg)';
     camRotateDeg = 0;
     $('btn-rotate').style.display = 'flex';
+    $('btn-crop').style.display = 'flex';
+    $('btn-annotate').style.display = 'flex';
     $('blur-hint').style.display = 'none';
     $('camera-guide').style.display = 'none';
     $('recog-card').style.display = 'block';
-    $('recog-note').style.display = 'none';
-    $('recog-input').value = '';
-    $('camera-scan').style.display = 'block';
-    detectBlur(url);
+    detectBlur(src);
+    camRequestOcr(src);
+  }
 
-    var base = getApiBase();
+  function handleImage(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = String(reader.result);
+      // 大图先降采样（平板照片动辄 3000px+，统一到 1280 内方便编辑/OCR/存储）
+      camResize(dataUrl, 1280, 0.9, function (small) {
+        $('camera-scan').style.display = 'block';
+        $('recog-input').value = '';
+        $('recog-note').style.display = 'none';
+        setCamImage(small);
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // OCR 识别（有后端 AI 时自动识别；失败静默切手动输入）
+  function camRequestOcr(dataUrl) {
     if (!syncOn()) {
       setTimeout(function () {
         $('camera-scan').style.display = 'none';
@@ -833,27 +868,23 @@
       }, 700);
       return;
     }
-    var reader = new FileReader();
-    reader.onload = function () {
-      var dataUrl = String(reader.result);
-      var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-      fetch(base + '/ocr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 })
-      }).then(function (r) { return r.json(); }).then(function (j) {
-        $('camera-scan').style.display = 'none';
-        if (j && j.ok && j.text) {
-          $('recog-input').value = String(j.text).trim();
-        } else {
-          $('recog-note').style.display = 'block';
-        }
-      }).catch(function () {
-        $('camera-scan').style.display = 'none';
+    var base64 = String(dataUrl).slice(dataUrl.indexOf(',') + 1);
+    var base = getApiBase();
+    fetch(base + '/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64 })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      $('camera-scan').style.display = 'none';
+      if (j && j.ok && j.text) {
+        $('recog-input').value = String(j.text).trim();
+      } else {
         $('recog-note').style.display = 'block';
-      });
-    };
-    reader.readAsDataURL(file);
+      }
+    }).catch(function () {
+      $('camera-scan').style.display = 'none';
+      $('recog-note').style.display = 'block';
+    });
   }
 
   function refreshSamples() {
@@ -924,17 +955,17 @@
     }
   }
 
-  function makeThumb(url, cb) {
+  function makeThumb(url, maxSide, quality, cb) {
     try {
       var img = new Image();
       img.onload = function () {
         try {
           var c = document.createElement('canvas');
-          var scale = Math.min(1, 120 / img.width);
+          var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
           c.width = Math.max(1, Math.round(img.width * scale));
           c.height = Math.max(1, Math.round(img.height * scale));
           c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          cb(c.toDataURL('image/jpeg', 0.7));
+          cb(c.toDataURL('image/jpeg', quality));
         } catch (e) { cb(null); }
       };
       img.onerror = function () { cb(null); };
@@ -950,11 +981,13 @@
   function camPushHistory(problem) {
     var img = $('camera-img');
     if (!img || !img.src || img.style.display === 'none') return;
-    makeThumb(img.src, function (thumb) {
-      var list = camHistory();
-      list.unshift({ thumb: thumb || '', problem: problem || '', ts: Date.now() });
-      storeSetStr('stu_cam_history', JSON.stringify(list.slice(0, 5)));
-      renderCamHistory();
+    makeThumb(img.src, 640, 0.75, function (mid) {
+      makeThumb(img.src, 120, 0.7, function (thumb) {
+        var list = camHistory();
+        list.unshift({ img: mid || '', thumb: thumb || mid || '', problem: problem || '', ts: Date.now() });
+        storeSetStr('stu_cam_history', JSON.stringify(list.slice(0, 5)));
+        renderCamHistory();
+      });
     });
   }
 
@@ -971,17 +1004,10 @@
       div.innerHTML = (h.thumb ? '<img class="hist-thumb" src="' + h.thumb + '" alt="">' : '<div class="hist-thumb ph">📷</div>') +
         '<div class="hist-text">' + esc(h.problem || '（未输入题目）') + '</div>';
       div.addEventListener('click', function () {
-        var img = $('camera-img');
-        img.src = h.thumb || '';
-        img.style.display = 'block';
-        img.style.transform = 'rotate(0deg)';
-        camRotateDeg = 0;
-        $('btn-rotate').style.display = 'flex';
-        $('camera-guide').style.display = 'none';
-        $('blur-hint').style.display = 'none';
-        $('recog-card').style.display = 'block';
-        $('recog-note').style.display = 'block';
+        $('camera-scan').style.display = 'none';
+        setCamImage(h.img || h.thumb);
         $('recog-input').value = h.problem || '';
+        $('recog-note').style.display = 'block';
       });
       box.appendChild(div);
     });
@@ -992,6 +1018,262 @@
     if (!storeStr('stu_cam_guide', '')) {
       $('guide-overlay').style.display = 'block';
     }
+  }
+
+  // ---------------- 拍照编辑：裁剪 / 标注 ----------------
+
+  var camEdit = {
+    mode: '',          // crop | annotate
+    base: null,        // 底图 canvas（含旋转，原图分辨率）
+    view: null,        // 编辑画布 2d ctx
+    vw: 0, vh: 0,      // 画布尺寸
+    dx: 0, dy: 0, sc: 1, // 底图在画布内的 letterbox 位置与缩放
+    rect: null,        // 裁剪框 {x,y,w,h}（画布坐标）
+    handle: null,      // 正在拖动的角 'tl'|'tr'|'bl'|'br' 或 'move'
+    strokes: [],       // 标注笔迹 [{color, points:[{x,y}]}]
+    color: '#FF3B30',
+    drawing: null
+  };
+
+  function camEditStart(mode) {
+    var img = $('camera-img');
+    if (!img.src || img.style.display === 'none') return;
+    // 把当前图（含 CSS 旋转）烘进底图 canvas
+    var bake = new Image();
+    bake.onload = function () {
+      try {
+        var c = document.createElement('canvas');
+        var rot = ((camRotateDeg % 360) + 360) % 360;
+        var swap = rot === 90 || rot === 270;
+        c.width = swap ? bake.height : bake.width;
+        c.height = swap ? bake.width : bake.height;
+        var ctx = c.getContext('2d');
+        ctx.translate(c.width / 2, c.height / 2);
+        ctx.rotate(rot * Math.PI / 180);
+        ctx.drawImage(bake, -bake.width / 2, -bake.height / 2);
+        camEdit.base = c;
+        camEdit.mode = mode;
+        camEdit.strokes = [];
+        camEdit.drawing = null;
+        camEdit.handle = null;
+        // 画布铺满 camera-box
+        var box = $('camera-box');
+        var cv = $('cam-edit-canvas');
+        camEdit.vw = box.clientWidth;
+        camEdit.vh = box.clientHeight;
+        cv.width = camEdit.vw;
+        cv.height = camEdit.vh;
+        camEdit.view = cv.getContext('2d');
+        // letterbox 参数
+        var sc = Math.min(camEdit.vw / c.width, camEdit.vh / c.height);
+        camEdit.sc = sc;
+        camEdit.dx = (camEdit.vw - c.width * sc) / 2;
+        camEdit.dy = (camEdit.vh - c.height * sc) / 2;
+        if (mode === 'crop') {
+          var w = camEdit.vw * 0.8;
+          var h = camEdit.vh * 0.8;
+          camEdit.rect = { x: (camEdit.vw - w) / 2, y: (camEdit.vh - h) / 2, w: w, h: h };
+        }
+        // 工具条显隐：标注才显示画笔组
+        document.querySelectorAll('#cam-edit-tools .pen').forEach(function (b) {
+          b.style.display = mode === 'annotate' ? 'inline-block' : 'none';
+        });
+        $('cam-edit').style.display = 'block';
+        camEditRender();
+      } catch (e) {
+        // 编辑失败静默保留原图
+      }
+    };
+    bake.src = img.src;
+  }
+
+  function camEditRender() {
+    var e = camEdit;
+    if (!e.view || !e.base) return;
+    var ctx = e.view;
+    ctx.clearRect(0, 0, e.vw, e.vh);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, e.vw, e.vh);
+    var dw = e.base.width * e.sc;
+    var dh = e.base.height * e.sc;
+    ctx.drawImage(e.base, e.dx, e.dy, dw, dh);
+    if (e.mode === 'crop' && e.rect) {
+      var r = e.rect;
+      // 框外遮罩
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, 0, e.vw, r.y);
+      ctx.fillRect(0, r.y + r.h, e.vw, e.vh - r.y - r.h);
+      ctx.fillRect(0, r.y, r.x, r.h);
+      ctx.fillRect(r.x + r.w, r.y, e.vw - r.x - r.w, r.h);
+      // 边框与角手柄
+      ctx.strokeStyle = '#FFB400';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].forEach(function (p) {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#FF9F1C';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      });
+    }
+    if (e.mode === 'annotate' && e.strokes.length) {
+      e.strokes.forEach(function (s) {
+        if (s.points.length < 2) return;
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(s.points[0].x, s.points[0].y);
+        s.points.forEach(function (p) { ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+      });
+    }
+  }
+
+  function camEditPos(ev) {
+    var cv = $('cam-edit-canvas');
+    var b = cv.getBoundingClientRect();
+    return { x: ev.clientX - b.left, y: ev.clientY - b.top };
+  }
+
+  function camEditHit(p) {
+    var r = camEdit.rect;
+    var corners = { tl: [r.x, r.y], tr: [r.x + r.w, r.y], bl: [r.x, r.y + r.h], br: [r.x + r.w, r.y + r.h] };
+    var names = Object.keys(corners);
+    for (var i = 0; i < names.length; i++) {
+      var c = corners[names[i]];
+      if (Math.abs(p.x - c[0]) < 26 && Math.abs(p.y - c[1]) < 26) return names[i];
+    }
+    if (p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h) return 'move';
+    return null;
+  }
+
+  function camEditDown(ev) {
+    var e = camEdit;
+    if (!e.view) return;
+    ev.preventDefault();
+    var cv = $('cam-edit-canvas');
+    cv.setPointerCapture(ev.pointerId);
+    var p = camEditPos(ev);
+    if (e.mode === 'crop') {
+      e.handle = camEditHit(p);
+      e.startP = p;
+      e.startRect = e.rect ? { x: e.rect.x, y: e.rect.y, w: e.rect.w, h: e.rect.h } : null;
+    } else if (e.mode === 'annotate') {
+      e.drawing = { color: e.color, points: [p] };
+    }
+  }
+
+  function camEditMove(ev) {
+    var e = camEdit;
+    if (!e.view) return;
+    if (e.mode === 'crop' && e.handle) {
+      ev.preventDefault();
+      var p = camEditPos(ev);
+      var r0 = e.startRect;
+      var min = 40;
+      var r = e.rect;
+      if (e.handle === 'move') {
+        var nx = r0.x + (p.x - e.startP.x);
+        var ny = r0.y + (p.y - e.startP.y);
+        r.x = Math.max(0, Math.min(e.vw - r0.w, nx));
+        r.y = Math.max(0, Math.min(e.vh - r0.h, ny));
+      } else {
+        // 拖动的角 = 移动边，锚点 = 对角（左 Handle 锚右边，上 Handle 锚下边）
+        var anchorX = e.handle.indexOf('l') > -1 ? r0.x + r0.w : r0.x;
+        var anchorY = e.handle.indexOf('t') > -1 ? r0.y + r0.h : r0.y;
+        var x1 = Math.max(0, Math.min(e.vw, Math.min(anchorX, p.x)));
+        var x2 = Math.max(0, Math.min(e.vw, Math.max(anchorX, p.x)));
+        var y1 = Math.max(0, Math.min(e.vh, Math.min(anchorY, p.y)));
+        var y2 = Math.max(0, Math.min(e.vh, Math.max(anchorY, p.y)));
+        if (x2 - x1 >= min && y2 - y1 >= min) {
+          r.x = x1; r.y = y1; r.w = x2 - x1; r.h = y2 - y1;
+        }
+      }
+      camEditRender();
+    } else if (e.mode === 'annotate' && e.drawing) {
+      ev.preventDefault();
+      e.drawing.points.push(camEditPos(ev));
+      camEditRender();
+      // 实时画出当前笔迹
+      var s = e.drawing;
+      if (s.points.length > 1) {
+        var ctx = e.view;
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(s.points[s.points.length - 2].x, s.points[s.points.length - 2].y);
+        ctx.lineTo(s.points[s.points.length - 1].x, s.points[s.points.length - 1].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function camEditUp() {
+    var e = camEdit;
+    if (e.mode === 'annotate' && e.drawing) {
+      if (e.drawing.points.length > 1) e.strokes.push(e.drawing);
+      e.drawing = null;
+      camEditRender();
+    }
+    e.handle = null;
+  }
+
+  function camEditCancel() {
+    camEdit.mode = '';
+    camEdit.base = null;
+    camEdit.drawing = null;
+    $('cam-edit').style.display = 'none';
+  }
+
+  function camEditDone() {
+    var e = camEdit;
+    if (!e.base) { camEditCancel(); return; }
+    var out;
+    if (e.mode === 'crop' && e.rect) {
+      // 画布坐标 → 底图坐标
+      var x = Math.max(0, (e.rect.x - e.dx) / e.sc);
+      var y = Math.max(0, (e.rect.y - e.dy) / e.sc);
+      var w = Math.min(e.base.width - x, e.rect.w / e.sc);
+      var h = Math.min(e.base.height - y, e.rect.h / e.sc);
+      if (w < 10 || h < 10) { camEditCancel(); return; }
+      out = document.createElement('canvas');
+      out.width = Math.round(w);
+      out.height = Math.round(h);
+      out.getContext('2d').drawImage(e.base, x, y, w, h, 0, 0, out.width, out.height);
+    } else if (e.mode === 'annotate') {
+      out = document.createElement('canvas');
+      out.width = e.base.width;
+      out.height = e.base.height;
+      var ctx = out.getContext('2d');
+      ctx.drawImage(e.base, 0, 0);
+      // 笔迹按画布→底图坐标烧进去
+      e.strokes.forEach(function (s) {
+        if (s.points.length < 2) return;
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 4 / e.sc;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo((s.points[0].x - e.dx) / e.sc, (s.points[0].y - e.dy) / e.sc);
+        s.points.forEach(function (p) { ctx.lineTo((p.x - e.dx) / e.sc, (p.y - e.dy) / e.sc); });
+        ctx.stroke();
+      });
+    } else {
+      camEditCancel();
+      return;
+    }
+    var dataUrl = out.toDataURL('image/jpeg', 0.9);
+    camEditCancel();
+    $('camera-scan').style.display = 'block';
+    $('recog-input').value = '';
+    $('recog-note').style.display = 'none';
+    setCamImage(dataUrl);
   }
 
   // ---------------- 分步引导 ----------------
@@ -2396,6 +2678,37 @@
   $('zoom-overlay').addEventListener('click', function (e) {
     if (e.target === $('zoom-overlay')) $('zoom-overlay').style.display = 'none';
   });
+
+  // 拍照编辑：裁剪 / 标注
+  $('btn-crop').addEventListener('click', function () { camEditStart('crop'); });
+  $('btn-annotate').addEventListener('click', function () { camEditStart('annotate'); });
+  $('btn-edit-cancel').addEventListener('click', camEditCancel);
+  $('btn-edit-done').addEventListener('click', camEditDone);
+  $('btn-pen-red').addEventListener('click', function () {
+    camEdit.color = '#FF3B30';
+    $('btn-pen-red').classList.add('on');
+    $('btn-pen-yellow').classList.remove('on');
+  });
+  $('btn-pen-yellow').addEventListener('click', function () {
+    camEdit.color = '#FFD60A';
+    $('btn-pen-yellow').classList.add('on');
+    $('btn-pen-red').classList.remove('on');
+  });
+  $('btn-annotate-undo').addEventListener('click', function () {
+    camEdit.strokes.pop();
+    camEditRender();
+  });
+  $('btn-annotate-clear').addEventListener('click', function () {
+    camEdit.strokes = [];
+    camEditRender();
+  });
+  (function () {
+    var cv = $('cam-edit-canvas');
+    cv.addEventListener('pointerdown', camEditDown);
+    cv.addEventListener('pointermove', camEditMove);
+    cv.addEventListener('pointerup', camEditUp);
+    cv.addEventListener('pointercancel', camEditUp);
+  })();
   $('btn-guide-ok').addEventListener('click', function () {
     storeSetStr('stu_cam_guide', '1');
     $('guide-overlay').style.display = 'none';
