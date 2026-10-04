@@ -9,9 +9,23 @@ const mcq = require('../utils/mcq');
 const curriculum = require('../utils/curriculum');
 const lessonService = require('./services/lessonService');
 const campReportService = require('./services/campReportService');
+const enQuestionBank = require('./subjects/english/questionBank');
+const cnQuestionBank = require('./subjects/chinese/questionBank');
+const enKG = require('./subjects/english/knowledgeGraph');
+const cnKG = require('./subjects/chinese/knowledgeGraph');
 
-// 全部知识点：教材 25 单元 knowledge 数组去重（共 23 个，与 KNOWLEDGE_LIB 一致）
-function allKnowledge() {
+// 学科名（报告/课卡文案）
+const SUBJECT_NAMES = { math: '数学', english: '英语', chinese: '语文' };
+function normSubject(sub) {
+  const s = String(sub || 'math').trim();
+  return SUBJECT_NAMES[s] ? s : 'math';
+}
+
+// 全部知识点：math=教材目录并集；english/chinese=各自知识图谱
+function allKnowledge(subject) {
+  const sub = normSubject(subject);
+  if (sub === 'english') return enKG.listKnowledge().map((k) => k.code);
+  if (sub === 'chinese') return cnKG.listKnowledge().map((k) => k.code);
   const arr = [];
   (curriculum.CURRICULUM || []).forEach((u) => {
     (u.knowledge || []).forEach((k) => {
@@ -21,9 +35,45 @@ function allKnowledge() {
   return arr;
 }
 
-// 按知识点出一题（概念知识点 → 选择题；计算知识点 → 填空题，非数值答案包装成选择题）
-// 返回含答案的完整题目 { id?, knowledge, type, problem, options?, answerIndex?, answer?, displayAnswer }
-function makeQuestion(knowledge) {
+// 学科知识点显示名（课表/地图）
+function knowledgeName(subject, code) {
+  const sub = normSubject(subject);
+  if (sub === 'english') {
+    const k = enKG.getKnowledge(code);
+    return k ? k.name : code;
+  }
+  if (sub === 'chinese') {
+    const k = cnKG.getKnowledge(code);
+    return k ? k.name : code;
+  }
+  return code;
+}
+
+// 按知识点出一题（含答案；数学走原引擎，英语/语文走学科选择题库）
+function makeQuestion(knowledge, subject) {
+  const sub = normSubject(subject);
+  if (sub === 'english') {
+    const q = enQuestionBank.makeQuestion(knowledge);
+    return {
+      knowledge: q.knowledge,
+      type: 'mcq',
+      problem: q.problem,
+      options: q.options,
+      answerIndex: q.answerIndex,
+      displayAnswer: q.options[q.answerIndex]
+    };
+  }
+  if (sub === 'chinese') {
+    const q = cnQuestionBank.makeQuestion(knowledge);
+    return {
+      knowledge: q.knowledge,
+      type: 'mcq',
+      problem: q.problem,
+      options: q.options,
+      answerIndex: q.answerIndex,
+      displayAnswer: q.options[q.answerIndex]
+    };
+  }
   if (mcq.isConcept(knowledge)) {
     const q = mcq.generateMcqByKnowledge(knowledge);
     return {
@@ -57,18 +107,19 @@ function makeQuestion(knowledge) {
 }
 
 // 与已有题目去重地出一题（课程巩固/小测用），重试上限 8 次
-function makeDistinctQuestion(knowledge, existingProblems) {
+function makeDistinctQuestion(knowledge, existingProblems, subject) {
   for (let i = 0; i < 8; i++) {
-    const q = makeQuestion(knowledge);
+    const q = makeQuestion(knowledge, subject);
     if ((existingProblems || []).indexOf(q.problem) < 0) return q;
   }
   return makeQuestion(knowledge);
 }
 
 // 组卷：每知识点 1 题（诊断 ladder 首题）
-function buildPaper(knowledges) {
+function buildPaper(knowledges, subject) {
+  const sub = normSubject(subject);
   return (knowledges || []).map((k, i) => {
-    const q = makeQuestion(k);
+    const q = makeQuestion(k, sub);
     q.id = 'd' + (i + 1);
     return q;
   });
@@ -126,7 +177,7 @@ function answerDiagnostic(detail, questionId, value) {
     const totalCount = d.questions.filter((x) => x.knowledge === q.knowledge).length;
     if (totalCount < baseCount + 1 && !d.extraByKnowledge[q.knowledge]) {
       d.extraByKnowledge[q.knowledge] = true;
-      const eq = makeQuestion(q.knowledge);
+      const eq = makeQuestion(q.knowledge, d.subject || 'math');
       eq.id = 'e' + d.questions.length;
       d.questions.push(eq);
       extra = toClientQuestion(eq);
@@ -170,7 +221,8 @@ function summarizeDiagnostic(detail) {
 
 // 排课：诊断弱项优先（score<60），掌握度（attempts>=3 且 score<60）补充，不足再按最低分补齐
 // 返回 { needDiagnostic, allStrong, lessons:[{index,knowledge,lesson_type,baseScore}] }
-function buildPlanSpec(diagPerK, mastery) {
+function buildPlanSpec(diagPerK, mastery, subject) {
+  const sub = normSubject(subject);
   const seen = {};
   const candidates = [];
   (diagPerK || []).forEach((x) => {
@@ -206,7 +258,7 @@ function buildPlanSpec(diagPerK, mastery) {
   const lessons = candidates.slice(0, 5).map((c, i) => ({
     index: i,
     knowledge: c.knowledge,
-    lesson_type: mcq.isConcept(c.knowledge) ? 'concept' : 'compute',
+    lesson_type: sub === 'math' ? (mcq.isConcept(c.knowledge) ? 'concept' : 'compute') : 'concept',
     baseScore: c.score
   }));
   return { needDiagnostic: false, allStrong: !lessons.length, lessons: lessons };
@@ -214,37 +266,66 @@ function buildPlanSpec(diagPerK, mastery) {
 
 // 组装一节完整课（含答案，服务端留存；下发前用 toClientLesson 剥离答案）
 // 环节：知识点卡片 + 例题讲解（概念型 AI 生成例题，本地兜底）+ 巩固题 2 + 小测 2
-async function buildLessonContent(knowledge, lessonType, chatFn) {
-  const card = solver.getKnowledge(knowledge);
+async function buildLessonContent(knowledge, lessonType, chatFn, subject) {
+  const sub = normSubject(subject);
+  let card;
   let example;
-  if (lessonType === 'concept') {
-    example = await lessonService.generateConceptExample(chatFn, knowledge);
-  } else {
-    const p = solver.generateByKnowledge(knowledge);
+  if (sub === 'english') {
+    const kg = enKG.getKnowledge(knowledge) || { name: knowledge, desc: '英语小知识点' };
+    card = { desc: kg.desc, method: '先听音，再跟读，最后试着拼一拼', mistakes: '' };
     example = {
-      problem: p.problem,
-      steps: (p.steps || []).map((s) => ({ title: s.title, content: s.content, tip: s.tip, ask: s.ask }))
+      problem: '学一学：「' + kg.name + '」',
+      steps: [
+        { title: '① 看一看', content: '先看单词和图片，猜一猜它的意思。' },
+        { title: '② 听一听', content: '点喇叭听发音，跟着小声读两遍。' },
+        { title: '③ 猜一猜', content: '先自己猜中文意思，再看答案，印象更深。' },
+        { title: '④ 用一用', content: '和小狐说一个带这个单词的句子吧。' }
+      ]
     };
+  } else if (sub === 'chinese') {
+    const kg = cnKG.getKnowledge(knowledge) || { name: knowledge, desc: '语文小知识点' };
+    card = { desc: kg.desc, method: '先读一读，再看结构，试着组个词写一写', mistakes: '' };
+    example = {
+      problem: '学一学：「' + kg.name + '」',
+      steps: [
+        { title: '① 读一读', content: '看拼音把字音读准，大声读两遍。' },
+        { title: '② 看结构', content: '注意部首和笔画，观察这个字怎么搭起来的。' },
+        { title: '③ 组一组', content: '用这个字组一个词，说说意思。' },
+        { title: '④ 写一写', content: '在心里按笔顺写一遍，再下笔。' }
+      ]
+    };
+  } else {
+    card = solver.getKnowledge(knowledge);
+    if (lessonType === 'concept') {
+      example = await lessonService.generateConceptExample(chatFn, knowledge);
+    } else {
+      const p = solver.generateByKnowledge(knowledge);
+      example = {
+        problem: p.problem,
+        steps: (p.steps || []).map((s) => ({ title: s.title, content: s.content, tip: s.tip, ask: s.ask }))
+      };
+    }
   }
   const problems = [example.problem];
   const practices = [];
   const quiz = [];
   for (let i = 0; i < 2; i++) {
-    const q = makeDistinctQuestion(knowledge, problems);
+    const q = makeDistinctQuestion(knowledge, problems, sub);
     q.id = 'p' + (i + 1);
     problems.push(q.problem);
     practices.push(q);
   }
   for (let i = 0; i < 2; i++) {
-    const q = makeDistinctQuestion(knowledge, problems);
+    const q = makeDistinctQuestion(knowledge, problems, sub);
     q.id = 'z' + (i + 1);
     problems.push(q.problem);
     quiz.push(q);
   }
   return {
     knowledge: knowledge,
+    subject: sub,
     lessonType: lessonType,
-    card: { desc: card.desc, method: card.method, mistakes: card.mistakes || '' },
+    card: card,
     example: example,
     practices: practices,
     quiz: quiz
@@ -315,8 +396,22 @@ function buildFinalFacts(planLessons, finalPerK, mastery) {
   return { before: before, after: after, improved: improved, stillWeak: stillWeak, mastery: mastery || [] };
 }
 
+// 启动时注入学科题库素材（词库/生字）
+function initSubjects(database) {
+  try {
+    enQuestionBank.setVocab(database.listEnglishVocabulary());
+    cnQuestionBank.setChars(database.listChineseCharacters(3));
+  } catch (e) {
+    // 题库注入失败不阻塞启动（题库有内置兜底词）
+  }
+}
+
 module.exports = {
   allKnowledge: allKnowledge,
+  normSubject: normSubject,
+  knowledgeName: knowledgeName,
+  SUBJECT_NAMES: SUBJECT_NAMES,
+  initSubjects: initSubjects,
   makeQuestion: makeQuestion,
   buildPaper: buildPaper,
   gradeQuestion: gradeQuestion,
@@ -328,6 +423,7 @@ module.exports = {
   buildPlanSpec: buildPlanSpec,
   buildLessonContent: buildLessonContent,
   toClientLesson: toClientLesson,
+  toClientLessonQuestion: toClientLessonQuestion,
   findLessonQuestion: findLessonQuestion,
   planView: planView,
   buildFinalFacts: buildFinalFacts,

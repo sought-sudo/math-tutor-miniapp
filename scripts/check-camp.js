@@ -142,6 +142,48 @@ console.log('课内容组装');
     const q = mcq.generateMcqByKnowledge('公顷和平方千米');
     assert(String(q.options[q.answerIndex]) === String(q.displayAnswer), '公顷/平方千米选项与答案一致（' + q.displayAnswer + '）');
   }
+})().catch((e) => {
+  console.error('单测异常：', e);
+  process.exit(1);
+});
+
+// 10. 英语/语文学科训练营（questionBank 组卷/判分/课内容/排课）
+console.log('英语/语文训练营学科化');
+const enQB = require('../server/subjects/english/questionBank');
+const cnQB = require('../server/subjects/chinese/questionBank');
+enQB.setVocab([{ word: 'cat', meaning: '猫', category: 'animals' }, { word: 'dog', meaning: '狗', category: 'animals' }, { word: 'bird', meaning: '鸟', category: 'animals' }, { word: 'fish', meaning: '鱼', category: 'animals' }]);
+cnQB.setChars([{ char: '晨', pinyin: 'chén', radicals: '日', words: '早晨' }, { char: '球', pinyin: 'qiú', radicals: '王', words: '皮球' }, { char: '汉', pinyin: 'hàn', radicals: '氵', words: '汉字' }, { char: '读', pinyin: 'dú', radicals: '讠', words: '读书' }]);
+const enAll = camp.allKnowledge('english');
+const cnAll = camp.allKnowledge('chinese');
+assert(enAll.length >= 19, '英语知识点 ≥19（实际 ' + enAll.length + '）');
+assert(cnAll.length >= 17, '语文知识点 ≥17（实际 ' + cnAll.length + '）');
+let okQ = 0;
+enAll.forEach((k) => {
+  const q = camp.makeQuestion(k, 'english');
+  assert(q.type === 'mcq' && q.options && q.options.length >= 3 && q.answerIndex >= 0 && q.answerIndex < q.options.length, '英语题合法：' + k);
+  okQ++;
+});
+cnAll.forEach((k) => {
+  const q = camp.makeQuestion(k, 'chinese');
+  assert(q.type === 'mcq' && q.options && q.options.length >= 3 && q.answerIndex >= 0 && q.answerIndex < q.options.length, '语文题合法：' + k);
+  okQ++;
+});
+// 英语卷判分
+const enPaper = camp.buildPaper(enAll.slice(0, 5), 'english');
+assert(enPaper.length === 5 && enPaper[0].options[camp.gradeQuestion(enPaper[0], enPaper[0].answerIndex).correct === true ? 0 : 0] !== undefined, '英语卷判分可用');
+// 排课：英语/语文全 concept
+const specEn = camp.buildPlanSpec(null, [{ knowledge_point: 'vocab-animals', score: 40, attempts: 4 }], 'english');
+assert(specEn.lessons.length >= 1 && specEn.lessons[0].lesson_type === 'concept', '英语课型 concept');
+const specCn = camp.buildPlanSpec(null, [{ knowledge_point: 'char-dictation', score: 45, attempts: 4 }], 'chinese');
+assert(specCn.lessons.length >= 1 && specCn.lessons[0].lesson_type === 'concept', '语文课型 concept');
+// 课内容（无 AI 本地）
+(async () => {
+  const lcEn = await camp.buildLessonContent('vocab-animals', 'concept', null, 'english');
+  assert(lcEn.example && lcEn.example.steps.length === 4 && lcEn.practices.length === 2 && lcEn.quiz.length === 2, '英语课四环节');
+  assert(lcEn.card.desc && lcEn.card.desc.length > 0, '英语课知识点卡片');
+  const lcCn = await camp.buildLessonContent('char-reading', 'concept', null, 'chinese');
+  assert(lcCn.example && lcCn.example.steps.length === 4 && lcCn.practices.length === 2 && lcCn.quiz.length === 2, '语文课四环节');
+  assert(lcCn.card.desc && lcCn.card.desc.length > 0, '语文课知识点卡片');
 
   console.log(failed === 0 ? '\n✅ 训练营单测全部通过' : '\n❌ 训练营单测失败 ' + failed + ' 项');
   process.exit(failed === 0 ? 0 : 1);
@@ -149,3 +191,4 @@ console.log('课内容组装');
   console.error('单测异常：', e);
   process.exit(1);
 });
+

@@ -567,23 +567,25 @@ function saveDiagnostic(id, userId, status, score, detail, report) {
   }
 }
 
-function createPlan(userId, lessonsJson, diagnosisId) {
+function createPlan(userId, lessonsJson, diagnosisId, subjectId) {
   if (!db) return null;
   try {
-    // 同一孩子只保留一个进行中的计划：旧的置为 done
-    db.prepare("UPDATE plans SET status = 'done' WHERE user_id = ? AND status = 'active'").run(userId);
-    const r = db.prepare("INSERT INTO plans (user_id, status, lessons, diagnosis_id, created_at) VALUES (?, 'active', ?, ?, ?)")
-      .run(userId, lessonsJson, diagnosisId || null, new Date().toISOString());
+    // 同一孩子同一学科只保留一个进行中的计划：旧的置为 done
+    db.prepare("UPDATE plans SET status = 'done' WHERE user_id = ? AND subject_id = ? AND status = 'active'").run(userId, subjectId || 'math');
+    const r = db.prepare("INSERT INTO plans (user_id, status, lessons, diagnosis_id, subject_id, created_at) VALUES (?, 'active', ?, ?, ?, ?)")
+      .run(userId, lessonsJson, diagnosisId || null, subjectId || 'math', new Date().toISOString());
     return Number(r.lastInsertRowid);
   } catch (e) {
     return null;
   }
 }
 
-function getActivePlan(userId) {
+function getActivePlan(userId, subjectId) {
   if (!db) return null;
   try {
-    const r = db.prepare("SELECT * FROM plans WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId);
+    const r = subjectId
+      ? db.prepare("SELECT * FROM plans WHERE user_id = ? AND subject_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId, subjectId)
+      : db.prepare("SELECT * FROM plans WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId);
     return r || null;
   } catch (e) {
     return null;
@@ -626,12 +628,12 @@ function savePlan(id, fields) {
   }
 }
 
-function upsertLesson(planId, userId, index, knowledge, lessonType, status) {
+function upsertLesson(planId, userId, index, knowledge, lessonType, status, subjectId) {
   if (!db) return false;
   try {
     db.prepare(
-      'INSERT INTO lesson_progress (plan_id, user_id, lesson_index, knowledge, lesson_type, status) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(planId, userId, index, knowledge, lessonType, status);
+      'INSERT INTO lesson_progress (plan_id, user_id, lesson_index, knowledge, lesson_type, status, subject_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(planId, userId, index, knowledge, lessonType, status, subjectId || 'math');
     return true;
   } catch (e) {
     return false;

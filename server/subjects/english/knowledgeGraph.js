@@ -31,7 +31,10 @@ const KNOWLEDGE = [
   { code: 'dialogue-greeting', name: '打招呼对话', dimension: 'speak', desc: '见面问候的一问一答' },
   { code: 'dialogue-daily', name: '日常小对话', dimension: 'speak', desc: '询问物品/喜欢事物的简单对话' },
   // 阅读
-  { code: 'reading-simple', name: '简单小短文', dimension: 'read', desc: '3~5 句的小短文阅读理解' }
+  { code: 'reading-simple', name: '简单小短文', dimension: 'read', desc: '3~5 句的小短文阅读理解' },
+  // 跟读/拼写专项（与行为事件落库码对齐，训练营排课/知识地图用）
+  { code: 'english-repeat', name: '跟读发音', dimension: 'speak', desc: '听音模仿，大胆开口' },
+  { code: 'english-spell', name: '单词拼写', dimension: 'write', desc: '看义或听音，拼出单词' }
 ];
 
 function listKnowledge() {

@@ -3,14 +3,14 @@
 // 生成链路：DeepSeek → 解析校验 → 本地温言兜底。
 
 const DIAG_SYSTEM_PROMPT =
-  '你是小学辅导班的数学老师，负责给家长写"入学诊断报告"。根据孩子的摸底测评结果，' +
+  '你是小学辅导班老师，负责给家长写"入学诊断报告"（学科在用户消息里说明）。根据孩子的摸底测评结果，' +
   '写一段给家长看的报告和一段可以照着做的沟通建议。要求：1) 语言温暖、不焦虑，禁止出现"正确率 65%"这类冷数据；' +
   '2) 指出孩子最需要补的 1~3 个知识点（用家长听得懂的话，不要只堆知识点名词）；' +
   '3) 沟通建议具体可执行，不要笼统说"多鼓励"。只输出 JSON，不要解释：' +
   '{"report_text":"...","parent_script":"..."}';
 
 const FINAL_SYSTEM_PROMPT =
-  '你是小学辅导班的数学老师，负责给家长写"结课验收报告"。孩子完成了一期查漏补缺课程，' +
+  '你是小学辅导班老师，负责给家长写"结课验收报告"（学科在用户消息里说明）。孩子完成了一期查漏补缺课程，' +
   '根据期初与结课两次测评的对比，写一段给家长看的报告和一段可以照着做的沟通建议。' +
   '要求：1) 语言温暖、不焦虑，禁止出现"正确率 65%"这类冷数据；2) 先说进步（哪怕一点点），' +
   '再温和指出仍然需要巩固的地方；3) 沟通建议具体可执行。只输出 JSON，不要解释：' +
@@ -55,7 +55,7 @@ function diagFallback(facts) {
 async function generateDiagnosisReport(chatFn, facts) {
   if (chatFn) {
     try {
-      const userMsg = '孩子昵称：' + (facts.name || '孩子') +
+      const userMsg = '学科：' + (facts.subjectName || '数学') + '\n孩子昵称：' + (facts.name || '孩子') +
         '\n最需要巩固的知识点（按薄弱排序）：' + ((facts.weak || []).map((w) => w.knowledge + '（薄弱）').join('、') || '无明显薄弱') +
         '\n测评完成题量：' + (facts.total || 0);
       const text = await chatFn([
@@ -103,7 +103,7 @@ function finalFallback(facts) {
 async function generateFinalReport(chatFn, facts) {
   if (chatFn) {
     try {
-      const userMsg = '孩子昵称：' + (facts.name || '孩子') +
+      const userMsg = '学科：' + (facts.subjectName || '数学') + '\n孩子昵称：' + (facts.name || '孩子') +
         '\n期初薄弱知识点：' + ((facts.before || []).map((x) => x.knowledge).join('、') || '无') +
         '\n进步的知识点：' + ((facts.improved || []).join('、') || '暂无') +
         '\n仍需巩固的知识点：' + ((facts.stillWeak || []).join('、') || '无');

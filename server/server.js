@@ -276,7 +276,8 @@ function serveStatic(res, urlPath, dir, prefix) {  let rel = decodeURIComponent(
     }
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store' // 开发阶段：每次刷新拉最新静态文件
     });
     res.end(buf);
   });
@@ -771,6 +772,7 @@ const server = http.createServer(async (req, res) => {
         send(res, 400, { ok: false, error: '同步码格式不正确' });
         return;
       }
+      const subject = camp.normSubject(body.subject_code);
       const active = db.getLatestActiveDiagnostic(code);
       if (active) {
         const d = camp.parseDetail(active.detail);
@@ -787,8 +789,8 @@ const server = http.createServer(async (req, res) => {
         }
       }
       const id = db.createDiagnostic(code);
-      const questions = camp.buildPaper(camp.allKnowledge());
-      const detail = JSON.stringify({ questions: questions, answers: {} });
+      const questions = camp.buildPaper(camp.allKnowledge(subject), subject);
+      const detail = JSON.stringify({ questions: questions, answers: {}, subject: subject });
       db.saveDiagnostic(id, code, 'active', null, detail);
       send(res, 200, { ok: true, diagnosticId: id, resume: false, answered: 0, questions: questions.map(camp.toClientQuestion) });
       return;
@@ -832,7 +834,8 @@ const server = http.createServer(async (req, res) => {
       const weak = s.perK.filter((x) => x.score < 60);
       const child = store.children[code];
       const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
-      const report = await campReportService.generateDiagnosisReport(chatFn, { name: child ? child.name : '孩子', weak: weak, total: s.totalAnswered });
+      const diagSubject = camp.parseDetail(d.detail).subject || 'math';
+      const report = await campReportService.generateDiagnosisReport(chatFn, { subjectName: camp.SUBJECT_NAMES[diagSubject] || '数学', name: child ? child.name : '孩子', weak: weak, total: s.totalAnswered });
       db.saveDiagnostic(d.id, code, 'done', s.score, d.detail, JSON.stringify({ report_text: report.report_text, parent_script: report.parent_script }));
       db.logEvent({ userId: code, eventType: 'diagnostic_complete' });
       send(res, 200, { ok: true, score: s.score, perK: s.perK, weak: weak, report_text: report.report_text, parent_script: report.parent_script });
@@ -847,14 +850,15 @@ const server = http.createServer(async (req, res) => {
         send(res, 400, { ok: false, error: '同步码格式不正确' });
         return;
       }
-      const existing = db.getActivePlan(code);
+      const subject = camp.normSubject(body.subject_code);
+      const existing = db.getActivePlan(code, subject);
       if (existing) {
         send(res, 200, { ok: true, plan: camp.planView(existing, db.listLessons(existing.id)), exists: true });
         return;
       }
       const diag = db.getLatestDiagnostic(code);
       const diagPerK = diag && diag.status === 'done' ? camp.summarizeDiagnostic(diag.detail).perK : null;
-      const spec = camp.buildPlanSpec(diagPerK, db.getMastery(code));
+      const spec = camp.buildPlanSpec(diagPerK, db.getMastery(code, subject), subject);
       if (spec.needDiagnostic) {
         send(res, 200, { ok: true, needDiagnostic: true });
         return;
@@ -864,10 +868,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const lessonsJson = JSON.stringify(spec.lessons.map((l) => ({ index: l.index, knowledge: l.knowledge, lesson_type: l.lesson_type })));
-      const planId = db.createPlan(code, lessonsJson, diag ? diag.id : null);
-      spec.lessons.forEach((l, i) => db.upsertLesson(planId, code, i, l.knowledge, l.lesson_type, i === 0 ? 'active' : 'locked'));
+      const planId = db.createPlan(code, lessonsJson, diag ? diag.id : null, subject);
+      spec.lessons.forEach((l, i) => db.upsertLesson(planId, code, i, l.knowledge, l.lesson_type, i === 0 ? 'active' : 'locked', subject));
       db.logEvent({ userId: code, eventType: 'plan_start' });
-      send(res, 200, { ok: true, plan: camp.planView(db.getActivePlan(code), db.listLessons(planId)) });
+      send(res, 200, { ok: true, plan: camp.planView(db.getActivePlan(code, subject), db.listLessons(planId)) });
       return;
     }
 
@@ -878,7 +882,9 @@ const server = http.createServer(async (req, res) => {
         send(res, 404, { ok: false, error: '同步码格式不正确' });
         return;
       }
-      const plan = db.getActivePlan(code) || db.getLatestPlan(code);
+      let planSubject = '';
+      try { planSubject = new URL(req.url, 'http://x').searchParams.get('subject') || ''; } catch (e) {}
+      const plan = db.getActivePlan(code, planSubject || undefined) || db.getLatestPlan(code);
       if (!plan) {
         const diag = db.getLatestDiagnostic(code);
         const hasDiagnostic = !!(diag && diag.status === 'done');
@@ -927,7 +933,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (!lesson.content) {
         const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
-        const lc = await camp.buildLessonContent(lesson.knowledge, lesson.lesson_type, chatFn);
+        const lc = await camp.buildLessonContent(lesson.knowledge, lesson.lesson_type, chatFn, lesson.subject_id || 'math');
         const startedAt = lesson.started_at || new Date().toISOString();
         db.updateLesson(plan.id, index, { content: JSON.stringify(lc), status: 'active', started_at: startedAt });
         db.logEvent({ userId: code, eventType: 'lesson_start', knowledgePoint: lesson.knowledge });
@@ -943,7 +949,7 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse((await readBody(req)) || '{}');
       const code = String(body.code || '').trim();
       const index = Number(body.index);
-      const plan = db.getActivePlan(code);
+      const plan = db.getActivePlan(code, body.subject_code || undefined);
       if (!plan) {
         send(res, 404, { ok: false, error: '还没有课表' });
         return;
@@ -982,7 +988,7 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse((await readBody(req)) || '{}');
       const code = String(body.code || '').trim();
       const index = Number(body.index);
-      const plan = db.getActivePlan(code);
+      const plan = db.getActivePlan(code, body.subject_code || undefined);
       if (!plan) {
         send(res, 404, { ok: false, error: '还没有课表' });
         return;
@@ -1007,7 +1013,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url.indexOf('/api/camp/plan/') === 0 && req.url.indexOf('/final') > 0 && req.url.indexOf('/done') < 0) {
       const body = JSON.parse((await readBody(req)) || '{}');
       const code = String(body.code || '').trim();
-      const plan = db.getActivePlan(code);
+      const plan = db.getActivePlan(code, body.subject_code || undefined);
       if (!plan) {
         send(res, 404, { ok: false, error: '还没有课表' });
         return;
@@ -1027,8 +1033,9 @@ const server = http.createServer(async (req, res) => {
         }
       }
       const id = db.createDiagnostic(code);
-      const questions = camp.buildPaper(lessons.map((l) => l.knowledge));
-      db.saveDiagnostic(id, code, 'active', null, JSON.stringify({ questions: questions, answers: {} }));
+      const fSubject = plan.subject_id || 'math';
+      const questions = camp.buildPaper(lessons.map((l) => l.knowledge), fSubject);
+      db.saveDiagnostic(id, code, 'active', null, JSON.stringify({ questions: questions, answers: {}, subject: fSubject }));
       send(res, 200, { ok: true, diagnosticId: id, resume: false, answered: 0, questions: questions.map(camp.toClientQuestion) });
       return;
     }
@@ -1037,7 +1044,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url.indexOf('/api/camp/plan/') === 0 && req.url.indexOf('/final/done') > 0) {
       const body = JSON.parse((await readBody(req)) || '{}');
       const code = String(body.code || '').trim();
-      const plan = db.getActivePlan(code);
+      const plan = db.getActivePlan(code, body.subject_code || undefined);
       if (!plan) {
         send(res, 404, { ok: false, error: '还没有课表' });
         return;
@@ -1059,7 +1066,9 @@ const server = http.createServer(async (req, res) => {
       const stillWeak = after.filter((a) => a.score < 60).map((a) => a.knowledge);
       const child = store.children[code];
       const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
+      const finalSubject = plan.subject_id || 'math';
       const report = await campReportService.generateFinalReport(chatFn, {
+        subjectName: camp.SUBJECT_NAMES[finalSubject] || '数学',
         name: child ? child.name : '孩子',
         before: before,
         after: after,
@@ -1412,6 +1421,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 学科知识点列表（知识地图渲染用）：GET /api/subjects/:code/knowledge
+    if (req.method === 'GET' && req.url.indexOf('/api/subjects/') === 0 && req.url.indexOf('/knowledge') > 0) {
+      const code = decodeURIComponent((req.url.split('?')[0].split('/').slice(0, -1).pop() || ''));
+      const sub = camp.normSubject(code);
+      const kg = subjectService.getKnowledgeGraph(sub);
+      const items = kg && kg.listKnowledge ? kg.listKnowledge().map((k) => ({ code: k.code, name: k.name })) : [];
+      send(res, 200, { ok: true, subject: sub, items: items });
+      return;
+    }
+
+    // 学科定向练习（知识地图点击/课程外练一题）：POST {subject_code, knowledge}
+    if (req.method === 'POST' && req.url === '/api/subject-practice') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      const subject = camp.normSubject(body.subject_code);
+      if (!body.knowledge) throw new Error('缺少参数 knowledge');
+      const q = camp.makeQuestion(body.knowledge, subject);
+      send(res, 200, { ok: true, question: camp.toClientLessonQuestion(q) });
+      return;
+    }
+
     // 学科清单（多学科架构：math 可用，english/chinese 开发中）
     if (req.method === 'GET' && req.url === '/api/subjects') {
       send(res, 200, { ok: true, subjects: subjectService.listSubjects() });
@@ -1592,6 +1621,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   db.init();
+  camp.initSubjects(db);
   setInterval(() => rateLimit.sweep(), 5 * 60 * 1000).unref();
   console.log('数学辅导后端已启动：http://127.0.0.1:' + PORT);
   console.log('学生端网页：http://127.0.0.1:' + PORT + '/student');

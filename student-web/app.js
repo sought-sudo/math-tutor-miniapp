@@ -666,10 +666,8 @@
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
-    document.querySelectorAll('.nav-item').forEach(function (el) {
-      el.classList.toggle('on', el.dataset.nav === name);
-    });
     window.scrollTo(0, 0);
+    if (name !== 'guide' && name !== 'chat') renderBottomNav();
     if (name === 'home') renderHomeSubject();
     if (name === 'wrong') refreshWrong();
     if (name === 'parent') refreshParent();
@@ -1131,24 +1129,56 @@
     }).catch(function () { alert('网络开了小差'); });
   }
 
-  // ---------------- 知识地图 ----------------
+  // ---------------- 知识地图（三科通用） ----------------
 
   function refreshMap() {
-    refreshMastery(function () {
-      KMap.render($('kmap-box'), masteryCache, practiceKnowledge);
-    });
+    var sub = currentSubjectTab;
+    var name = sub === 'english' ? '英语' : sub === 'chinese' ? '语文' : '数学';
+    var titleEl = $('map-title');
+    if (titleEl) titleEl.textContent = '🗺️ 我的' + name + '知识地图';
+    fetch(getApiBase() + '/api/subjects/' + sub + '/knowledge').then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok || !j.items) return;
+      fetch(getApiBase() + '/api/mastery/' + encodeURIComponent(getCode()) + '?subject=' + sub).then(function (r2) { return r2.json(); }).then(function (m) {
+        KMap.render($('kmap-box'), j.items, m.mastery || [], practiceKnowledge);
+      }).catch(function () {});
+    }).catch(function () {});
   }
 
-  // 从地图点击知识点 → 定向练一道该知识点的题（概念题走选择题库）
+  // 从地图点击知识点 → 该学科定向练一题
   function practiceKnowledge(k) {
     if (!k) return;
-    beginPracticeSession();
-    var difficulty = pickDifficulty();
-    if (window.MCQ) {
-      applyResult(window.MCQ.generateMcqByKnowledge(k, difficulty), { retry: false, task: 'practice' });
-    } else {
-      applyResult(S.generateByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+    var sub = currentSubjectTab;
+    if (sub === 'math') {
+      beginPracticeSession();
+      var difficulty = pickDifficulty();
+      if (window.MCQ) {
+        applyResult(window.MCQ.generateMcqByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+      } else {
+        applyResult(S.generateByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+      }
+      return;
     }
+    // 英语/语文：服务端学科题库出题
+    beginPracticeSession();
+    fetch(getApiBase() + '/api/subject-practice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: getCode(), subject_code: sub, knowledge: k })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok || !j.question) { alert('题目生成失败，稍后再试'); return; }
+      var q = j.question;
+      applyResult({
+        source: 'subject-practice',
+        problem: q.problem,
+        knowledge: k,
+        answer: q.answer,
+        displayAnswer: q.displayAnswer,
+        options: q.options || null,
+        answerIndex: q.answerIndex !== undefined ? q.answerIndex : -1,
+        steps: [{ title: '试一试', content: '想一想，从选项里选出正确答案吧！' }],
+        note: ''
+      }, { retry: false, task: 'practice' });
+    }).catch(function () { alert('网络开了小差'); });
   }
 
   // ---------------- 每日学习计划（最多 2 科，15~25 分钟） ----------------
@@ -1201,6 +1231,79 @@
     }
     if (sub === 'english') renderEnHome();
     if (sub === 'chinese') renderCnHome();
+    renderBottomNav();
+  }
+
+  // 底部导航随学科切换：数学/英语/语文三套快捷项
+  function renderBottomNav() {
+    var nav = $('bottom-nav');
+    var sub = currentSubjectTab;
+    var items;
+    if (sub === 'english') {
+      items = [
+        { icon: '🏠', label: '首页', act: 'home' },
+        { icon: '🎧', label: '听音学词', act: 'en-listen' },
+        { icon: '✏️', label: '拼写挑战', act: 'en-spell' },
+        { icon: '💬', label: '场景对话', act: 'en-dialogue' },
+        { icon: '🎯', label: '训练营', act: 'camp' }
+      ];
+    } else if (sub === 'chinese') {
+      items = [
+        { icon: '🏠', label: '首页', act: 'home' },
+        { icon: '📝', label: '字词学习', act: 'cn-chars' },
+        { icon: '🎋', label: '古诗诵读', act: 'cn-poems' },
+        { icon: '📖', label: '阅读引导', act: 'cn-reading' },
+        { icon: '🎯', label: '训练营', act: 'camp' }
+      ];
+    } else {
+      items = [
+        { icon: '🏠', label: '首页', act: 'home' },
+        { icon: '📷', label: '拍照识题', act: 'camera' },
+        { icon: '📕', label: '错题本', act: 'wrong' },
+        { icon: '🎯', label: '训练营', act: 'camp' },
+        { icon: '📊', label: '家长端', act: 'parent' }
+      ];
+    }
+    nav.innerHTML = '';
+    items.forEach(function (it) {
+      var div = document.createElement('div');
+      div.className = 'nav-item' + (it.act === 'home' && currentView === 'home' ? ' on' : '');
+      div.innerHTML = '<div class="nav-icon">' + it.icon + '</div><div class="nav-label">' + it.label + '</div>';
+      div.addEventListener('click', function () { navAct(it.act); });
+      nav.appendChild(div);
+    });
+  }
+
+  function navAct(act) {
+    switch (act) {
+      case 'home':
+        showView('home');
+        break;
+      case 'en-listen':
+        showView('english'); enShowPanel('listen'); enLoadWords(en.category || 'animals');
+        break;
+      case 'en-spell':
+        showView('english'); enStartSpell();
+        break;
+      case 'en-dialogue':
+        showView('english'); enShowPanel('dialogue'); enLoadScenes();
+        break;
+      case 'cn-chars':
+        showView('chinese'); cnLoadChars();
+        break;
+      case 'cn-poems':
+        showView('chinese'); cnLoadPoems();
+        break;
+      case 'cn-reading':
+        showView('chinese'); cnOpenReading();
+        break;
+      case 'camp':
+        camp.subject = currentSubjectTab;
+        showView('camp');
+        break;
+      default:
+        showView(act);
+    }
   }
 
   function renderHomeSubject() {
@@ -2813,6 +2916,7 @@
   // ---------------- 查漏补缺训练营 ----------------
 
   var camp = {
+    subject: 'math',  // 当前训练营学科（math/english/chinese）
     plan: null,       // 课表（GET /api/camp/plan）
     diag: null,       // 测评会话 {id, questions, cur, answered, total, isFinal}
     lesson: null,     // 当前课内容
@@ -2825,10 +2929,17 @@
 
   function campFetch(path, method, body) {
     var base = getApiBase();
+    var b = body || {};
+    var m = method || 'GET';
+    if (m === 'GET') {
+      path += (path.indexOf('?') > -1 ? '&' : '?') + 'subject=' + encodeURIComponent(camp.subject || 'math');
+    } else {
+      b.subject_code = camp.subject || 'math';
+    }
     return fetch(base + path, {
-      method: method || 'GET',
+      method: m,
       headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined
+      body: m === 'GET' ? undefined : JSON.stringify(b)
     }).then(function (r) { return r.json(); });
   }
 
@@ -2847,7 +2958,7 @@
         camp.plan = j.plan;
         // 已结课：直接展示结课报告
         if (j.plan.status === 'done' && j.plan.result) {
-          storeSet('stu_camp_result', j.plan.result);
+          storeSet('stu_camp_result_' + getCode(), j.plan.result);
           camp.finalResult = j.plan.result;
           renderCampFinal(j.plan.result);
           return;
@@ -2856,7 +2967,7 @@
         return;
       }
       // 已结课（计划归档）且有本地结课报告 → 直接展示
-      var saved = storeGet('stu_camp_result');
+      var saved = storeGet('stu_camp_result_' + getCode());
       if (saved && saved.report_text) {
         camp.finalResult = saved;
         renderCampFinal(saved);
@@ -2876,6 +2987,9 @@
   }
 
   function renderCampHome(hasDiag, hasActiveDiag) {
+    var subName = camp.subject === 'english' ? '英语' : camp.subject === 'chinese' ? '语文' : '数学';
+    var heroTitle = document.querySelector('#view-camp .camp-hero-title');
+    if (heroTitle) heroTitle.textContent = subName + '查漏补缺训练营';
     $('camp-lesson-card').style.display = 'none';
     var startBtn = $('btn-camp-start');
     var planBtn = $('btn-camp-plan');
@@ -2950,7 +3064,7 @@
         $('btn-camp-plan').style.display = 'none';
         return;
       }
-      storeSet('stu_camp_result', null);
+      storeSet('stu_camp_result_' + getCode(), null);
       camp.plan = j.plan;
       renderCampPlan(j.plan);
     }).catch(function () {
@@ -3058,7 +3172,7 @@
       campFetch('/api/camp/plan/' + encodeURIComponent(getCode()) + '/final/done', 'POST', { code: getCode(), diagnosticId: d.id }).then(function (j) {
         camp.diagBusy = false;
         if (!j.ok) { alert(j.error || '网络开了小差'); return; }
-        storeSet('stu_camp_result', j.result);
+        storeSet('stu_camp_result_' + getCode(), j.result);
         camp.finalResult = j.result;
         campShowPanel('report');
         renderCampFinal(j.result);
@@ -3239,13 +3353,17 @@
   document.querySelectorAll('.feature').forEach(function (el) {
     el.addEventListener('click', function () {
       if (el.dataset.go === 'guide') newPractice();
+      else if (el.dataset.go === 'camp') { camp.subject = currentSubjectTab; showView('camp'); }
+      else if (el.dataset.go === 'map') { showView('map'); }
       else if (el.dataset.go === 'english') showHomeSubject('english');
       else if (el.dataset.go === 'chinese') showHomeSubject('chinese');
       else showView(el.dataset.go);
     });
   });
-  document.querySelectorAll('.nav-item').forEach(function (el) {
-    el.addEventListener('click', function () { showView(el.dataset.nav); });
+  // 底部导航由 renderBottomNav 动态渲染（事件在渲染时绑定）；这里保留委托以防残留静态节点
+  $('bottom-nav').addEventListener('click', function (e) {
+    var item = e.target.closest('.nav-item');
+    if (item && item.dataset && item.dataset.nav) showView(item.dataset.nav);
   });
 
   // 训练营按钮
@@ -3275,6 +3393,14 @@
     showView('english');
     enShowPanel('dialogue');
     enLoadScenes();
+  });
+  $('en-go-camp').addEventListener('click', function () {
+    camp.subject = 'english';
+    showView('camp');
+  });
+  $('en-go-map').addEventListener('click', function () {
+    showHomeSubject('english');
+    showView('map');
   });
   $('btn-en-say').addEventListener('click', function () { if (en.current) TTS.speakEn(en.current.word); });
   $('btn-en-see-meaning').addEventListener('click', function () {
@@ -3325,6 +3451,14 @@
     showView('chinese');
     cnShowPanel('writing');
   });
+  $('cn-go-camp').addEventListener('click', function () {
+    camp.subject = 'chinese';
+    showView('camp');
+  });
+  $('cn-go-map').addEventListener('click', function () {
+    showHomeSubject('chinese');
+    showView('map');
+  });
   $('btn-cn-char-say').addEventListener('click', function () {
     if (cn.current) TTS.speak(cn.current.char + '，' + cn.current.words.split('、')[0]);
   });
@@ -3351,7 +3485,7 @@
   $('btn-diag-to-plan').addEventListener('click', campGeneratePlan);
   $('btn-camp-final').addEventListener('click', campStartFinal);
   $('btn-camp-new').addEventListener('click', function () {
-    storeSet('stu_camp_result', null);
+    storeSet('stu_camp_result_' + getCode(), null);
     campGeneratePlan();
   });
   $('btn-camp-home2').addEventListener('click', function () { refreshCamp(); });

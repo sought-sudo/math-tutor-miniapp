@@ -1,20 +1,8 @@
-// student-web/js/kmap.js — 知识地图（纯 SVG，零依赖）
-// 23 个知识点 = 23 个圆形节点；颜色按掌握度：绿≥80 已掌握 / 黄 50-79 / 红 <50 / 灰虚线 待探索
-// 用法：KMap.render(容器, masteryCache, onPick)；onPick(knowledge) 由调用方接到定向练习
+// student-web/js/kmap.js — 知识地图（纯 SVG，零依赖，三科通用）
+// 节点 = 传入的知识点列表（[{code, name}]）；颜色按该学科掌握度：绿≥80 / 黄50-79 / 红<50 / 灰虚线待探索
+// 用法：KMap.render(容器, items, masteryCache, onPick)；onPick(item) 由调用方接定向练习
 (function () {
   'use strict';
-
-  function allKnowledge() {
-    var arr = [];
-    var cur = (typeof window !== 'undefined') && window.Curriculum;
-    if (!cur || !cur.CURRICULUM) return arr;
-    cur.CURRICULUM.forEach(function (u) {
-      (u.knowledge || []).forEach(function (k) {
-        if (arr.indexOf(k) < 0) arr.push(k);
-      });
-    });
-    return arr;
-  }
 
   // 颜色与语义
   function nodeStyle(score) {
@@ -27,12 +15,13 @@
   }
 
   // 渲染：容器内画 SVG 网格（每行 4 个节点）
-  function render(el, mastery, onPick) {
+  // items: [{code, name}]；mastery: [{knowledge_point, score}]
+  function render(el, items, mastery, onPick) {
     if (typeof el === 'string') el = document.getElementById(el);
     if (!el) return;
-    var knowledges = allKnowledge();
+    const knowledges = (items || []).slice();
     if (!knowledges.length) {
-      el.innerHTML = '<div class="empty">教材目录未加载，刷新后再试试</div>';
+      el.innerHTML = '<div class="empty">知识点列表为空，刷新后再试试</div>';
       return;
     }
     var m = {};
@@ -51,16 +40,15 @@
     knowledges.forEach(function (k, i) {
       var row = Math.floor(i / perRow);
       var col = i % perRow;
-      // 每行居中
       var inRow = Math.min(perRow, knowledges.length - row * perRow);
       var offsetX = (W - inRow * cellW) / 2;
       var cx = offsetX + col * cellW + cellW / 2;
       var cy = padTop + row * cellH + 44;
-      var st = nodeStyle(m[k]);
-      var scoreTxt = (m[k] === undefined || m[k] === null) ? '' : (m[k] + '分');
-      var name = k.length > 7 ? k.slice(0, 7) + '…' : k;
-      var gid = 'kg' + i;
-      svg += '<g class="kmap-node" data-k="' + k + '" style="cursor:pointer">';
+      var score = m[k.code];
+      var st = nodeStyle(score);
+      var scoreTxt = (score === undefined || score === null) ? '' : (score + '分');
+      var name = k.name.length > 7 ? k.name.slice(0, 7) + '…' : k.name;
+      svg += '<g class="kmap-node" data-k="' + k.code + '" style="cursor:pointer">';
       svg += '<circle cx="' + cx + '" cy="' + cy + '" r="26" fill="' + st.fill + '" stroke="' + st.stroke + '" stroke-width="3"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : '') + '/>';
       if (st.check && st.check !== '🌫') {
         svg += '<text x="' + cx + '" y="' + (cy + 8) + '" text-anchor="middle" font-size="24" font-weight="bold" fill="#fff" pointer-events="none">' + st.check + '</text>';
@@ -85,7 +73,6 @@
 
   window.KMap = {
     render: render,
-    allKnowledge: allKnowledge,
     nodeStyle: nodeStyle
   };
 })();

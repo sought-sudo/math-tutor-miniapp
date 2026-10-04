@@ -75,9 +75,6 @@
         <div class="card feature" data-go="map">
           <div class="f-icon f-teal">🗺️</div><div class="f-title">知识地图</div><div class="f-desc">点亮你学会的知识点</div>
         </div>
-        <div class="card feature" data-go="parent">
-          <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
-        </div>
       </div>
       <div class="card tip">
         <div class="tip-title">💡 今日小贴士</div>
@@ -114,6 +111,8 @@
           <div class="card feature" id="en-go-repeat"><div class="f-icon f-cyan">🎤</div><div class="f-title">跟读练习</div><div class="f-desc">Repeat after 小狐</div></div>
           <div class="card feature" id="en-go-spell"><div class="f-icon f-cyan">✏️</div><div class="f-title">拼写挑战</div><div class="f-desc">Spell the word</div></div>
           <div class="card feature" id="en-go-dialogue"><div class="f-icon f-cyan">💬</div><div class="f-title">场景对话</div><div class="f-desc">Let's talk!</div></div>
+          <div class="card feature" id="en-go-camp"><div class="f-icon f-cyan">🎯</div><div class="f-title">英语训练营</div><div class="f-desc">补一补薄弱点</div></div>
+          <div class="card feature" id="en-go-map"><div class="f-icon f-cyan">🗺️</div><div class="f-title">英语地图</div><div class="f-desc">点亮会的内容</div></div>
         </div>
         <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text" id="en-home-tip">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。Practice makes perfect!</div></div>
       </div>
@@ -141,6 +140,8 @@
           <div class="card feature" id="cn-go-poems"><div class="f-icon f-rose">🎋</div><div class="f-title">古诗诵读</div><div class="f-desc">大声读出来</div></div>
           <div class="card feature" id="cn-go-reading"><div class="f-icon f-rose">📖</div><div class="f-title">阅读引导</div><div class="f-desc">找找依据在哪句</div></div>
           <div class="card feature" id="cn-go-writing"><div class="f-icon f-rose">✍️</div><div class="f-title">写作小建议</div><div class="f-desc">只建议，不打分</div></div>
+          <div class="card feature" id="cn-go-camp"><div class="f-icon f-rose">🎯</div><div class="f-title">语文训练营</div><div class="f-desc">补一补薄弱点</div></div>
+          <div class="card feature" id="cn-go-map"><div class="f-icon f-rose">🗺️</div><div class="f-title">语文地图</div><div class="f-desc">点亮会的内容</div></div>
         </div>
         <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text" id="cn-home-tip">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
       </div>
@@ -612,7 +613,7 @@
     <!-- 知识地图 -->
     <section id="view-map" class="view" style="display:none">
       <div class="card map-card">
-        <h2>🗺️ 我的知识地图</h2>
+        <h2 id="map-title">🗺️ 我的数学知识地图</h2>
         <div class="map-legend">
           <span class="lg lg-green">✓ 已掌握</span>
           <span class="lg lg-yellow">学习中</span>
@@ -659,16 +660,16 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
-  <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
-  <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
+  <script src="curriculum.js?v=20261004b" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js?v=20261004b" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
-       两个分支都等引擎就绪后再加载 app.js，避免时序问题 -->
-  <script src="solver.js" onerror="window.__solverFailed = true"></script>
+       两个分支都等引擎就绪后再加载 app.js，避免时序问题；?v= 版本号防浏览器缓存旧脚本 -->
+  <script src="solver.js?v=20261004b" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
       function boot() {
         var s = document.createElement('script');
-        s.src = 'app.js';
+        s.src = 'app.js?v=20261004b';
         document.head.appendChild(s);
       }
       function fail() {
