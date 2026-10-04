@@ -38,6 +38,7 @@ const deformService = require('./services/deformService');
 const reportService = require('./services/reportService');
 const campReportService = require('./services/campReportService');
 const camp = require('./camp');
+const subjectService = require('./services/subjectService');
 const rateLimit = require('./rateLimit');
 
 const PORT = Number(process.env.PORT) || 8787;
@@ -367,40 +368,12 @@ function parseJson(text) {
   }
 }
 
-const TUTOR_SYSTEM =
-  '你是小学四年级数学辅导老师。请像在教室里上课一样分步讲解题目，只返回 JSON：' +
-  '{"answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
-  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
-  '讲解要求（重要）：1) 共 4~6 步，每步先讲"为什么这么做"，再演示"怎么做"，像老师讲课一样有引导、有停顿；' +
-  '2) content 用完整的口语化句子（2~4 句），称呼孩子为"你"，语气亲切鼓励，例如"先别急着算，我们来看看题里告诉了我们什么"；' +
-  '3) 不要只罗列算式，要解释每一步的道理，可用生活化的比喻；4) 最后一步教孩子如何检查验算；5) 只返回 JSON，不要输出其他内容。';
-
-const TUTOR_WRONG_SYSTEM =
-  '你是小学四年级数学辅导老师。学生这道题做错了，请先安慰和肯定他敢于尝试，再像上课一样讲解。只返回 JSON：' +
-  '{"answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
-  '"reason": "温和地指出学生可能错在哪里（结合他写的答案，如抄错数、运算顺序错、进位遗漏、单位没写等）", ' +
-  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
-  '讲解要求（重要）：1) reason 要具体、温和，先肯定"你已经很接近了"，再点出问题；' +
-  '2) 共 4~6 步，每步先讲"为什么"再演示"怎么做"，content 用完整的口语化句子（2~4 句），称呼孩子为"你"；' +
-  '3) 不要只罗列算式，要解释每一步的道理；4) 最后一步教孩子如何检查验算；5) 只返回 JSON。';
-
-const TUTOR_VARIANT_SYSTEM =
-  '你是小学四年级数学辅导老师。请根据原题生成一道同类型、同难度的变形题（换数字或换情境，知识点和解题方法不变），并分步讲解。只返回 JSON：' +
-  '{"problem": "变形后的完整题目文字", "answer": 数值, "displayAnswer": "带单位的完整答案", "knowledge": "知识点名称", ' +
-  '"steps": [{"title": "第1步", "content": "讲解内容", "tip": "一句小口诀或提醒，可空", "ask": "一个引导孩子思考的问题，可空"}]}。' +
-  '要求：1) problem 必须是与原题不同数字/情境的新题目，适合用来巩固；2) 步骤 4~6 步，content 用完整口语化句子（2~4 句），先讲"为什么"再演示"怎么做"，称呼孩子为"你"；3) 最后一步教孩子检查验算；4) 只返回 JSON。';
-
-const OCR_SYSTEM =
-  '你是小学数学题的 OCR 识别助手。识别图片中的数学题并输出"可直接计算"的题目文字，要求：' +
-  '1) 算式保留 × ÷ + - ( ) 等原样符号，不要改写成文字；' +
-  '2) 应用题输出完整题干，包括最后的问题（如"一共多少个？"）；' +
-  '3) 【读图入题】题目带有插图时（钟面、几何图形、线段图、条形统计图、量角器、数轴等），' +
-  '必须把图里的关键信息读出来，以"图中："开头附在题干后面（同一行），例如：' +
-  '"图中：钟面时针指向3，分针指向12"、"图中：长方形长标6厘米，宽标4厘米"、"图中：条形统计图，苹果8票，橘子5票"；' +
-  '没有数字的示意图也要描述形状与标注；' +
-  '4) 图中有多道题时逐行输出，每行一道（含各自的图中信息），不要编号；' +
-  '5) 忽略页眉、页码、水印、姓名栏和答案解析；' +
-  '6) 只输出题目文字本身，不要任何解释或修饰；图中没有数学题时只输出：未识别到题目。';
+// 数学学科提示词已迁至 server/subjects/math/prompts.js（多学科架构，subjectService 按 subject_code 分发）
+const MATH_PROMPTS = require('./subjects/math/prompts');
+const TUTOR_SYSTEM = MATH_PROMPTS.TUTOR_SYSTEM;
+const TUTOR_WRONG_SYSTEM = MATH_PROMPTS.TUTOR_WRONG_SYSTEM;
+const TUTOR_VARIANT_SYSTEM = MATH_PROMPTS.TUTOR_VARIANT_SYSTEM;
+const OCR_SYSTEM = MATH_PROMPTS.OCR_SYSTEM;
 
 // ---------------- 引导式对话辅导（状态机） ----------------
 
@@ -1181,9 +1154,133 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---------------- 英语学科（阶段 2 MVP，专用接口，不影响数学） ----------------
+
+    // 词库：GET /api/english/vocabulary?category=animals
+    if (req.method === 'GET' && req.url.indexOf('/api/english/vocabulary') === 0) {
+      let category = '';
+      try {
+        category = new URL(req.url, 'http://x').searchParams.get('category') || '';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      send(res, 200, { ok: true, category: category, words: db.listEnglishVocabulary(category) });
+      return;
+    }
+
+    // 跟读反馈：POST { word, text?, recording?(base64) }
+    // 发音评测：SPEECH_API_KEY + SPEECH_API_URL 都配置才调用外部服务（通用约定），否则占位鼓励；不用 DeepSeek
+    if (req.method === 'POST' && req.url === '/api/english/repeat') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.word) throw new Error('缺少参数 word');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      const enEval = subjectService.getEvaluator('english');
+      const enPrompts = subjectService.getPrompt('english');
+      // 文本跟读（语音识别结果或手输）：本地判分鼓励
+      if (body.text) {
+        const r = enEval.repeatTextCheck(body.word, body.text);
+        db.logEvent({
+          userId: body.code,
+          eventType: 'answer_correct',
+          knowledgePoint: 'english-repeat',
+          subjectId: 'english'
+        });
+        send(res, 200, { ok: true, mode: 'text', match: r.match, line: r.line, say: enPrompts.STATE_LINES.PRONOUNCE_CHECK });
+        return;
+      }
+      // 录音跟读
+      if (body.recording) {
+        if (process.env.SPEECH_API_KEY && process.env.SPEECH_API_URL) {
+          // 外部发音评测（通用约定：POST {audio_base64, word} → {score}）；厂商接入留阶段 3
+          try {
+            const resp = await fetch(process.env.SPEECH_API_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + process.env.SPEECH_API_KEY
+              },
+              body: JSON.stringify({ audio_base64: body.recording, word: body.word }),
+              signal: AbortSignal.timeout(10000)
+            });
+            const j = await resp.json().catch(() => ({}));
+            send(res, 200, { ok: true, mode: 'recording', evaluated: true, score: j.score, line: '已收到录音，继续加油 🎤' });
+          } catch (e) {
+            send(res, 200, { ok: true, mode: 'recording', evaluated: false, line: '已收到录音，继续加油 🎤' });
+          }
+          return;
+        }
+        // 占位模式：不做评分
+        db.logEvent({
+          userId: body.code,
+          eventType: 'after_wrong_retry',
+          knowledgePoint: 'english-repeat',
+          subjectId: 'english'
+        });
+        send(res, 200, { ok: true, mode: 'recording', evaluated: false, line: '已收到录音，继续加油 🎤' });
+        return;
+      }
+      send(res, 200, { ok: false, error: '缺少 text 或 recording' });
+      return;
+    }
+
+    // 拼写判题：POST { word, answer, code? }
+    if (req.method === 'POST' && req.url === '/api/english/spell') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.word || body.answer === undefined) throw new Error('缺少参数 word / answer');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      const enEval = subjectService.getEvaluator('english');
+      const r = enEval.spellCheck(body.word, body.answer);
+      db.logEvent({
+        userId: body.code,
+        eventType: r.correct ? 'answer_correct' : 'answer_wrong',
+        knowledgePoint: 'english-spell',
+        subjectId: 'english'
+      });
+      const rec = db.getEnglishWordByWord(body.word);
+      send(res, 200, {
+        ok: true,
+        correct: r.correct,
+        hint: r.hint,
+        level: r.level,
+        meaning: rec ? rec.meaning : '',
+        phonetic: rec ? rec.phonetic : ''
+      });
+      return;
+    }
+
+    // 场景对话：GET /api/english/dialogue?scene=greeting
+    if (req.method === 'GET' && req.url.indexOf('/api/english/dialogue') === 0) {
+      let scene = 'greeting';
+      try {
+        scene = new URL(req.url, 'http://x').searchParams.get('scene') || 'greeting';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      const enDialogues = require('./subjects/english/dialogues');
+      const s = enDialogues.getScene(scene);
+      if (!s) {
+        send(res, 200, { ok: false, error: '没有这个场景，可选：' + enDialogues.listScenes().map((x) => x.code).join(' / ') });
+        return;
+      }
+      send(res, 200, { ok: true, scene: scene, title: s.title, emoji: s.emoji, knowledge: s.knowledge, turns: s.turns });
+      return;
+    }
+
+    // 学科清单（多学科架构：math 可用，english/chinese 开发中）
+    if (req.method === 'GET' && req.url === '/api/subjects') {
+      send(res, 200, { ok: true, subjects: subjectService.listSubjects() });
+      return;
+    }
+
     // 引导式对话辅导（状态机）：sessionId 为空时创建新会话并返回开场白
+    // 学科分流：math 走数学状态机；english/chinese 提示使用各自专属入口（防止误入数学讲解）
     if (req.method === 'POST' && req.url === '/tutor-chat') {
       const body = JSON.parse((await readBody(req)) || '{}');
+      const subjectMsg = subjectService.subjectRouteMessage(body.subject_code);
+      if (subjectMsg) {
+        send(res, 200, { ok: false, error: subjectMsg });
+        return;
+      }
       if (!body.problem && !body.sessionId) throw new Error('缺少题目或会话 id');
       if (!llmRateLimit(res, 'chat', body.code)) return;
       const out = await tutorChatStep(body);
@@ -1194,6 +1291,11 @@ const server = http.createServer(async (req, res) => {
     // AI 分步讲解（mode: 'wrong' 时结合学生的错误答案先分析错因）
     if (req.method === 'POST' && req.url === '/tutor') {
       const body = JSON.parse((await readBody(req)) || '{}');
+      const subjectMsg = subjectService.subjectRouteMessage(body.subject_code);
+      if (subjectMsg) {
+        send(res, 200, { ok: false, error: subjectMsg });
+        return;
+      }
       if (!body.problem) throw new Error('缺少参数 problem');
       if (!llmRateLimit(res, 'tutor', body.code)) return;
       const wrongMode = body.mode === 'wrong';
@@ -1266,6 +1368,11 @@ const server = http.createServer(async (req, res) => {
     // 变形题生成（巩固练习用）
     if (req.method === 'POST' && req.url === '/variant') {
       const body = JSON.parse((await readBody(req)) || '{}');
+      const subjectMsg = subjectService.subjectRouteMessage(body.subject_code);
+      if (subjectMsg) {
+        send(res, 200, { ok: false, error: subjectMsg });
+        return;
+      }
       if (!body.problem) throw new Error('缺少参数 problem');
       if (!llmRateLimit(res, 'variant', body.code)) return;
       const userMsg =
@@ -1289,6 +1396,11 @@ const server = http.createServer(async (req, res) => {
     // 拍照识题（视觉 OCR；未配置或失败都返回 ok:false 由前端提示，不再 500）
     if (req.method === 'POST' && req.url === '/ocr') {
       const body = JSON.parse((await readBody(req)) || '{}');
+      const subjectMsg = subjectService.subjectRouteMessage(body.subject_code);
+      if (subjectMsg) {
+        send(res, 200, { ok: false, error: subjectMsg });
+        return;
+      }
       if (!body.image) throw new Error('缺少参数 image(base64)');
       if (!llmRateLimit(res, 'ocr', body.code)) return;
       if (!OCR_EXPLICIT || !OCR_BASE_URL || !OCR_API_KEY) {

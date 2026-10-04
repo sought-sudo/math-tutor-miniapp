@@ -58,6 +58,21 @@ function init() {
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_events_type ON learning_events(event_type)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_events_user ON learning_events(user_id)');
+    // 兼容旧库：补充学科列（阶段1 起全部事件归属学科，默认 math）
+    try {
+      db.exec("ALTER TABLE learning_events ADD COLUMN subject_id TEXT DEFAULT 'math'");
+    } catch (e) {
+      // 列已存在
+    }
+    // 学科表（多学科架构）
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS subjects (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  code TEXT NOT NULL UNIQUE,' +
+      '  name TEXT NOT NULL,' +
+      '  sort_order INTEGER NOT NULL DEFAULT 0' +
+      ')'
+    );
     // 账号表
     db.exec(
       'CREATE TABLE IF NOT EXISTS users (' +
@@ -125,6 +140,48 @@ function init() {
     db.exec('CREATE INDEX IF NOT EXISTS idx_diag_user ON diagnostics(user_id)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_plans_user ON plans(user_id)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_lp_plan ON lesson_progress(plan_id)');
+    // 兼容旧库：训练营两表补学科列
+    try {
+      db.exec("ALTER TABLE plans ADD COLUMN subject_id TEXT DEFAULT 'math'");
+    } catch (e) {}
+    try {
+      db.exec("ALTER TABLE lesson_progress ADD COLUMN subject_id TEXT DEFAULT 'math'");
+    } catch (e) {}
+    // 学科种子（已存在则跳过）
+    const seedSubjects = [
+      ['math', '数学', 1],
+      ['english', '英语', 2],
+      ['chinese', '语文', 3]
+    ];
+    seedSubjects.forEach((s) => {
+      try {
+        db.prepare('INSERT OR IGNORE INTO subjects (code, name, sort_order) VALUES (?, ?, ?)').run(s[0], s[1], s[2]);
+      } catch (e) {
+        // 种子失败不阻塞启动
+      }
+    });
+    // 英语词汇表（阶段 2）
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS english_vocabulary (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  word TEXT NOT NULL UNIQUE,' +
+      '  meaning TEXT NOT NULL,' +
+      '  phonetic TEXT,' +
+      '  category TEXT NOT NULL,' +
+      '  grade INTEGER NOT NULL DEFAULT 3,' +
+      '  audio_url TEXT' +
+      ')'
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_envocab_category ON english_vocabulary(category)');
+    try {
+      const seed = require('./subjects/english/vocabulary-seed');
+      const ins = db.prepare('INSERT OR IGNORE INTO english_vocabulary (word, meaning, phonetic, category, grade, audio_url) VALUES (?, ?, ?, ?, ?, ?)');
+      seed.forEach((w) => {
+        try { ins.run(w.word, w.meaning, w.phonetic, w.category, w.grade || 3, w.audio_url || ''); } catch (e) {}
+      });
+    } catch (e) {
+      // 词库种子加载失败不阻塞启动
+    }
     console.log('[db] 行为日志已就绪：server/math_tutor.db');
   } catch (e) {
     console.error('[db] 初始化失败：' + e.message);
@@ -139,7 +196,7 @@ function logEvent(ev) {
   if (!type) return;
   try {
     db.prepare(
-      'INSERT INTO learning_events (user_id, session_id, event_type, question_id, knowledge_point, error_type, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO learning_events (user_id, session_id, event_type, question_id, knowledge_point, error_type, duration_ms, created_at, subject_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       ev.userId || null,
       ev.sessionId || null,
@@ -148,7 +205,8 @@ function logEvent(ev) {
       ev.knowledgePoint || null,
       ev.errorType || null,
       ev.durationMs || 0,
-      new Date().toISOString()
+      new Date().toISOString(),
+      ev.subjectId || 'math'
     );
   } catch (e) {
     console.error('[db] 写日志失败：' + e.message);
@@ -163,15 +221,64 @@ function countBy(userId, eventType) {
   return row ? row.c : 0;
 }
 
-// 做错后继续尝试比例：after_wrong_retry / answer_wrong
-function getRetryRate(userId) {
-  const totalWrong = countBy(userId, 'answer_wrong');
-  const retryAfterWrong = countBy(userId, 'after_wrong_retry');
+// 做错后继续尝试比例：after_wrong_retry / answer_wrong（subjectId 可选按学科过滤）
+function getRetryRate(userId, subjectId) {
+  let totalWrong = countBy(userId, 'answer_wrong');
+  let retryAfterWrong = countBy(userId, 'after_wrong_retry');
+  if (subjectId && db) {
+    const w = db.prepare("SELECT COUNT(*) AS c FROM learning_events WHERE event_type = 'answer_wrong' AND user_id = ? AND subject_id = ?").get(userId, subjectId);
+    const r = db.prepare("SELECT COUNT(*) AS c FROM learning_events WHERE event_type = 'after_wrong_retry' AND user_id = ? AND subject_id = ?").get(userId, subjectId);
+    totalWrong = w ? w.c : 0;
+    retryAfterWrong = r ? r.c : 0;
+  }
   return {
     totalWrong: totalWrong,
     retryAfterWrong: retryAfterWrong,
     retryRate: totalWrong ? Math.round((retryAfterWrong / totalWrong) * 10000) / 10000 : 0
   };
+}
+
+// ---------------- 学科（subjects） ----------------
+
+function listSubjects() {
+  if (!db) return [];
+  try {
+    return db.prepare('SELECT id, code, name, sort_order FROM subjects ORDER BY sort_order').all() || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getSubjectByCode(code) {
+  if (!db) return null;
+  try {
+    return db.prepare('SELECT id, code, name, sort_order FROM subjects WHERE code = ?').get(code) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ---------------- 英语词汇（english_vocabulary） ----------------
+
+function listEnglishVocabulary(category) {
+  if (!db) return [];
+  try {
+    const rows = category
+      ? db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary WHERE category = ? ORDER BY id').all(category)
+      : db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary ORDER BY category, id').all();
+    return rows || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getEnglishWordByWord(word) {
+  if (!db) return null;
+  try {
+    return db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary WHERE word = ? COLLATE NOCASE').get(String(word || '').trim()) || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // 某用户当天（本地时区零点起）的行为事件，按时间升序
@@ -181,14 +288,19 @@ function getTodayEvents(userId) {
   return getEventsSince(userId, d.toISOString());
 }
 
-// 某用户自某个时间点以来的行为事件
-function getEventsSince(userId, sinceIso) {
+// 某用户自某个时间点以来的行为事件（subjectId 可选：按学科过滤，默认不过滤=全学科）
+function getEventsSince(userId, sinceIso, subjectId) {
   if (!db) return [];
   try {
-    const rows = db.prepare(
-      'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at ' +
-      'FROM learning_events WHERE user_id = ? AND created_at >= ? ORDER BY id'
-    ).all(userId, sinceIso);
+    let sql = 'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at ' +
+      'FROM learning_events WHERE user_id = ? AND created_at >= ?';
+    const args = [userId, sinceIso];
+    if (subjectId) {
+      sql += ' AND subject_id = ?';
+      args.push(subjectId);
+    }
+    sql += ' ORDER BY id';
+    const rows = db.prepare(sql).all(...args);
     return rows || [];
   } catch (e) {
     return [];
@@ -231,13 +343,17 @@ function computeMastery(events, nowMs) {
     .sort((a, b) => a.score - b.score);
 }
 
-// 某用户各知识点掌握度（薄弱在前）
-function getMastery(userId) {  if (!db) return [];
+// 某用户各知识点掌握度（薄弱在前）；subjectId 可选按学科过滤（默认全部，数学行为不变）
+function getMastery(userId, subjectId) {  if (!db) return [];
   try {
-    const rows = db.prepare(
-      "SELECT event_type, knowledge_point, created_at FROM learning_events " +
-      "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct')"
-    ).all(userId);
+    let sql = "SELECT event_type, knowledge_point, created_at FROM learning_events " +
+      "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct')";
+    const args = [userId];
+    if (subjectId) {
+      sql += ' AND subject_id = ?';
+      args.push(subjectId);
+    }
+    const rows = db.prepare(sql).all(...args);
     return computeMastery(rows || []);
   } catch (e) {
     return [];
@@ -246,18 +362,23 @@ function getMastery(userId) {  if (!db) return [];
 
 // 掌握度成长趋势：按天重放 computeMastery，得到每天"当时"的整体均分
 // 返回 [{date:'MM-DD', avg(0-100|null), count(当日有效知识点数)}]，长度 = days（旧数据不足的天 avg 为 null）
-function getMasteryTrend(userId, days) {
+function getMasteryTrend(userId, days, subjectId) {
   if (!db) return [];
   const n = Math.max(2, Math.min(60, days || 14));
   try {
     const pad = (x) => (x < 10 ? '0' : '') + x;
     const start = new Date(Date.now() - (n - 1) * 86400000);
     start.setHours(0, 0, 0, 0);
-    const rows = db.prepare(
-      "SELECT event_type, knowledge_point, created_at FROM learning_events " +
+    let sql = "SELECT event_type, knowledge_point, created_at FROM learning_events " +
       "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct') " +
-      "AND created_at >= ? ORDER BY created_at"
-    ).all(userId, start.toISOString()) || [];
+      "AND created_at >= ?";
+    const args = [userId, start.toISOString()];
+    if (subjectId) {
+      sql += ' AND subject_id = ?';
+      args.push(subjectId);
+    }
+    sql += ' ORDER BY created_at';
+    const rows = db.prepare(sql).all(...args) || [];
     const out = [];
     let idx = 0;
     for (let i = 0; i < n; i++) {
@@ -527,6 +648,10 @@ module.exports = {
   getMastery: getMastery,
   getMasteryTrend: getMasteryTrend,
   computeMastery: computeMastery,
+  listSubjects: listSubjects,
+  getSubjectByCode: getSubjectByCode,
+  listEnglishVocabulary: listEnglishVocabulary,
+  getEnglishWordByWord: getEnglishWordByWord,
   questionIdOf: questionIdOf,
   createUser: createUser,
   getUserByPhone: getUserByPhone,

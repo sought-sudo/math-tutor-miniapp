@@ -49,8 +49,30 @@
     return true;
   }
 
+  // 英文朗读（英语学科）：lang=en-US，语速放慢便于跟读
+  function speakEn(text, rate) {
+    if (!('speechSynthesis' in window)) return false;
+    var t = String(text || '').replace(/[👋🎧🎤🌱🎮💬✏️🔊▶️✅]/g, '').trim();
+    if (!t) return false;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(t);
+    u.lang = 'en-US';
+    u.rate = rate || 0.85;
+    // 优先选英文音色（系统装了英文语音时）
+    try {
+      var voices = window.speechSynthesis.getVoices() || [];
+      var en = voices.find(function (v) { return /^en(-|_)/i.test(v.lang); });
+      if (en) u.voice = en;
+    } catch (e) {
+      // 忽略
+    }
+    window.speechSynthesis.speak(u);
+    return true;
+  }
+
   window.TTS = {
     speak: speak,
+    speakEn: speakEn,
     isMuted: function () { return muted; },
     setMuted: function (m) {
       muted = !!m;

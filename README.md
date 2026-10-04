@@ -263,6 +263,23 @@ setx LLM_MODEL "deepseek-chat"
 - **成本优化**：对话历史只回传最近 4 轮，系统提示默认只发当前状态定义（设 `LLM_FULL_SPEC=1` 可回全量十状态规范）
 - **限流**：`/tutor-chat` 30 次/分、`/tutor` 与 `/variant` 10 次/分、`/ocr` 5 次/分（按同步码计），超限返回 429
 
+## 多学科架构（建设中）
+
+项目已升级为多学科架构（进度详见 [MULTI_SUBJECT_PROGRESS.md](MULTI_SUBJECT_PROGRESS.md)），**数学功能完全不受影响**：
+
+- **数学**：全部现有功能（每日练习/拍照识题/训练营/知识地图），四通用 AI 路由（/tutor 等）数学专属
+- **英语（阶段 2 MVP）**：学生端首页「🔤 英语」入口——听音学词（TTS 英文朗读 82 词×8 类）、跟读练习（录音，占位反馈）、拼写挑战（判分+渐进提示不给答案）、场景对话（5 场景）；七状态机 LISTEN→REPEAT→PRONOUNCE_CHECK→PRACTICE→DIALOGUE→SPELL→REVIEW；学习记录按学科落库
+- **语文**：规划中（阶段 3）
+
+**可选环境变量（英语发音评测）**：
+
+```
+set SPEECH_API_KEY=你的评测服务key
+set SPEECH_API_URL=https://评测服务地址/evaluate
+```
+
+两者都配置后，跟读录音会按通用约定 `POST {audio_base64, word} → {score}` 调用外部发音评测；**不配置则为占位模式**（录音只返回鼓励语，跟读/拼写流程完整可用）。不需要额外 LLM key。
+
 ## 关键设计
 
 - **双端分离**：学生端专注练习（小程序/网页），家长端专注监督（网页），互相不干扰；家长端不需要装任何东西，浏览器即可

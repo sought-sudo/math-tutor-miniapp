@@ -64,6 +64,9 @@
         <div class="card feature" data-go="map">
           <div class="f-icon f-teal">🗺️</div><div class="f-title">知识地图</div><div class="f-desc">点亮你学会的知识点</div>
         </div>
+        <div class="card feature" data-go="english">
+          <div class="f-icon f-cyan">🔤</div><div class="f-title">英语</div><div class="f-desc">Listen & say with 小狐</div>
+        </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
         </div>
@@ -399,6 +402,111 @@
         <button class="mic-btn" id="btn-mic" title="和小狐说话" style="display:none">🎤</button>
         <input id="chat-input" placeholder="和老师说说你的想法…">
         <button class="btn btn-primary btn-sm" id="chat-send">发送</button>
+      </div>
+    </section>
+
+    <!-- 英语学科（阶段 2 MVP） -->
+    <section id="view-english" class="view" style="display:none">
+      <!-- 英语首页 -->
+      <div id="en-home-panel">
+        <div class="card en-hero">
+          <div class="en-hero-mascot" id="en-mascot"></div>
+          <div>
+            <div class="en-hero-title">Hello! I'm 小狐! 🦊</div>
+            <div class="en-hero-sub" id="en-hero-sub">Let's learn English together!</div>
+          </div>
+        </div>
+        <div class="card task-card" id="en-task-card">
+          <div class="task-head">
+            <div class="task-mascot" id="en-task-mascot"></div>
+            <div class="task-info">
+              <div class="task-title">📋 今日英语任务</div>
+              <div class="task-text" id="en-task-text">听 3 个词 · 跟读 2 次 · 拼对 2 个</div>
+            </div>
+          </div>
+          <div class="task-track"><div class="task-fill" id="en-task-fill"></div></div>
+          <div class="task-progress" id="en-task-progress">已完成 0 / 3</div>
+        </div>
+        <div class="grid">
+          <div class="card feature" id="en-go-listen"><div class="f-icon f-cyan">🎧</div><div class="f-title">听音学词</div><div class="f-desc">Listen and learn</div></div>
+          <div class="card feature" id="en-go-repeat"><div class="f-icon f-cyan">🎤</div><div class="f-title">跟读练习</div><div class="f-desc">Repeat after 小狐</div></div>
+          <div class="card feature" id="en-go-spell"><div class="f-icon f-cyan">✏️</div><div class="f-title">拼写挑战</div><div class="f-desc">Spell the word</div></div>
+          <div class="card feature" id="en-go-dialogue"><div class="f-icon f-cyan">💬</div><div class="f-title">场景对话</div><div class="f-desc">Let's talk!</div></div>
+        </div>
+        <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。</div></div>
+      </div>
+
+      <!-- 听音学词（LISTEN） -->
+      <div id="en-listen-panel" style="display:none">
+        <div class="en-state-bar">🎧 听一听</div>
+        <div class="card">
+          <div class="math-chips" id="en-cat-chips"></div>
+          <div id="en-word-list"></div>
+        </div>
+        <div class="card en-current" id="en-listen-current" style="display:none">
+          <div class="en-word-big" id="en-listen-word"></div>
+          <div class="en-phonetic" id="en-listen-phonetic"></div>
+          <div class="result-row">
+            <button class="btn btn-primary" id="btn-en-say">🔊 再听一遍</button>
+            <button class="btn btn-ghost" id="btn-en-see-meaning">👀 看意思</button>
+          </div>
+          <div class="en-meaning" id="en-listen-meaning" style="display:none"></div>
+          <button class="btn btn-blue btn-block" id="btn-en-to-repeat">🎤 开始跟读</button>
+        </div>
+      </div>
+
+      <!-- 跟读练习（REPEAT → PRONOUNCE_CHECK） -->
+      <div id="en-repeat-panel" style="display:none">
+        <div class="en-state-bar">🎤 跟一跟</div>
+        <div class="card en-current">
+          <div class="en-word-big" id="en-repeat-word"></div>
+          <div class="en-phonetic" id="en-repeat-phonetic"></div>
+          <div class="en-meaning" id="en-repeat-meaning" style="display:none"></div>
+          <div class="result-row">
+            <button class="btn btn-primary" id="btn-en-repeat-say">🔊 听小狐读</button>
+            <button class="btn btn-ghost" id="btn-en-repeat-meaning">👀 看意思</button>
+          </div>
+          <button class="btn btn-primary btn-block" id="btn-en-record">🎤 按住说 / 点开始录音</button>
+          <button class="btn btn-ghost btn-block" id="btn-en-self-ok" style="display:none">✅ 我读好啦</button>
+          <div class="en-feedback" id="en-repeat-feedback" style="display:none"></div>
+          <div class="result-row">
+            <button class="btn btn-blue" id="btn-en-repeat-practice">🎮 玩一玩巩固</button>
+            <button class="btn btn-ghost" id="btn-en-repeat-back">换一个词</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 拼写挑战（SPELL） -->
+      <div id="en-spell-panel" style="display:none">
+        <div class="en-state-bar">✏️ 拼一拼</div>
+        <div class="card en-current">
+          <div class="en-spell-meaning" id="en-spell-meaning"></div>
+          <div class="en-phonetic" id="en-spell-phonetic"></div>
+          <div class="result-row"><button class="btn btn-ghost" id="btn-en-spell-say">🔊 听读音</button></div>
+          <input id="en-spell-input" type="text" placeholder="把单词拼出来" autocomplete="off">
+          <button class="btn btn-primary btn-block" id="btn-en-spell-submit">提交拼写</button>
+          <div class="en-feedback" id="en-spell-feedback" style="display:none"></div>
+          <div class="result-row">
+            <button class="btn btn-blue" id="btn-en-spell-next">下一个词 →</button>
+            <button class="btn btn-ghost" id="btn-en-spell-back">回英语首页</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 场景对话（DIALOGUE） -->
+      <div id="en-dialogue-panel" style="display:none">
+        <div class="en-state-bar">💬 聊一聊</div>
+        <div class="card">
+          <div class="math-chips" id="en-scene-chips"></div>
+        </div>
+        <div class="card en-current" id="en-dialogue-box" style="display:none">
+          <div id="en-dialogue-turns"></div>
+          <button class="btn btn-blue btn-block" id="btn-en-dialogue-done">完成对话 🎉</button>
+        </div>
+      </div>
+
+      <div class="result-row" style="margin-top:10px">
+        <button class="btn btn-ghost" id="btn-en-home">← 回英语首页</button>
       </div>
     </section>
 

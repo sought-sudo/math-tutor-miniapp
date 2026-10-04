@@ -662,7 +662,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map'].forEach(function (v) {
+    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
@@ -676,6 +676,272 @@
     if (name === 'camera') cameraOnShow();
     if (name === 'camp') refreshCamp();
     if (name === 'map') refreshMap();
+    if (name === 'english') refreshEnglish();
+  }
+
+  // ---------------- 英语学科（阶段 2 MVP） ----------------
+
+  var en = {
+    words: [],        // 词库（按当前类别）
+    category: '',
+    current: null,    // 当前学习的词 {word, meaning, phonetic}
+    spellTarget: null,
+    scene: '',
+    task: null        // 今日任务 {date, listen, repeat, spell}
+  };
+  var EN_CATS = [
+    ['animals', '动物'], ['colors', '颜色'], ['numbers', '数字'], ['fruits', '水果'],
+    ['body', '身体'], ['school', '学校'], ['food', '食物'], ['toys', '玩具']
+  ];
+  var EN_STATES = {
+    LISTEN: '🎧 听一听', REPEAT: '🎤 跟一跟', PRONOUNCE_CHECK: '🌱 慢慢来',
+    PRACTICE: '🎮 玩一玩', DIALOGUE: '💬 聊一聊', SPELL: '✏️ 拼一拼', REVIEW: '👋 收个尾'
+  };
+  var EN_PRAISE = ['Good job! ✨', 'Well done! 🌟', 'Super! 🚀', 'Excellent! 🎉'];
+  var EN_RETRY = ['再听一次，我们慢慢来 🌱', '很接近啦，再试一次 💪', '不着急，小狐陪你读 🦊'];
+
+  function enFetch(path, method, body) {
+    return fetch(getApiBase() + path, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json(); });
+  }
+
+  function enTaskGet() {
+    var t = storeGet('stu_en_task', null);
+    var today = dateStr();
+    if (!t || t.date !== today) {
+      t = { date: today, listen: 0, repeat: 0, spell: 0 };
+      storeSet('stu_en_task', t);
+    }
+    return t;
+  }
+
+  function enTaskBump(key) {
+    en.task = enTaskGet();
+    en.task[key] = (en.task[key] || 0) + 1;
+    storeSet('stu_en_task', en.task);
+    renderEnTask();
+  }
+
+  function renderEnTask() {
+    var t = enTaskGet();
+    var done = (t.listen >= 3 ? 1 : 0) + (t.repeat >= 2 ? 1 : 0) + (t.spell >= 2 ? 1 : 0);
+    $('en-task-progress').textContent = '已完成 ' + done + ' / 3';
+    $('en-task-fill').style.width = Math.round((done / 3) * 100) + '%';
+    $('en-task-text').textContent = '听 ' + Math.min(3, t.listen) + '/3 词 · 跟读 ' + Math.min(2, t.repeat) + '/2 次 · 拼对 ' + Math.min(2, t.spell) + '/2 个';
+    if (done >= 3 && window.Mascot) Mascot.render($('en-task-mascot'), 'cheer', 44, compGet().bond || 0);
+  }
+
+  function enShowPanel(name) {
+    $('en-home-panel').style.display = name === 'home' ? 'block' : 'none';
+    $('en-listen-panel').style.display = name === 'listen' ? 'block' : 'none';
+    $('en-repeat-panel').style.display = name === 'repeat' ? 'block' : 'none';
+    $('en-spell-panel').style.display = name === 'spell' ? 'block' : 'none';
+    $('en-dialogue-panel').style.display = name === 'dialogue' ? 'block' : 'none';
+    window.scrollTo(0, 0);
+  }
+
+  function refreshEnglish() {
+    enShowPanel('home');
+    if (window.Mascot) Mascot.render($('en-mascot'), 'greet', 60, compGet().bond || 0);
+    if (window.Mascot) Mascot.render($('en-task-mascot'), 'encourage', 44, compGet().bond || 0);
+    renderEnTask();
+  }
+
+  // ---- 听音学词 ----
+  function enLoadWords(category) {
+    en.category = category || en.category || 'animals';
+    enFetch('/api/english/vocabulary?category=' + encodeURIComponent(en.category)).then(function (j) {
+      if (!j.ok) return;
+      en.words = j.words || [];
+      renderEnCats();
+      renderEnWordList();
+    }).catch(function () {});
+  }
+
+  function renderEnCats() {
+    var box = $('en-cat-chips');
+    box.innerHTML = '';
+    EN_CATS.forEach(function (c) {
+      var b = document.createElement('button');
+      b.className = 'w-chip' + (c[0] === en.category ? ' on' : '');
+      b.textContent = c[1];
+      b.addEventListener('click', function () { enLoadWords(c[0]); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderEnWordList() {
+    var box = $('en-word-list');
+    box.innerHTML = '';
+    en.words.forEach(function (w) {
+      var div = document.createElement('div');
+      div.className = 'en-word-item';
+      div.innerHTML = '<span class="ew">' + esc(w.word) + '</span><span class="ep">' + esc(w.phonetic || '') + '</span>' +
+        '<button class="btn btn-ghost btn-sm">🔊</button>';
+      div.addEventListener('click', function () {
+        en.current = w;
+        if (window.TTS) TTS.speakEn(w.word);
+        enTaskBump('listen');
+        $('en-listen-current').style.display = 'block';
+        $('en-listen-word').textContent = w.word;
+        $('en-listen-phonetic').textContent = w.phonetic || '';
+        $('en-listen-meaning').style.display = 'none';
+      });
+      box.appendChild(div);
+    });
+  }
+
+  function enStartRepeat() {
+    if (!en.current && en.words.length) en.current = en.words[0];
+    if (!en.current) return;
+    enShowPanel('repeat');
+    $('en-repeat-word').textContent = en.current.word;
+    $('en-repeat-phonetic').textContent = en.current.phonetic || '';
+    $('en-repeat-meaning').style.display = 'none';
+    $('en-repeat-feedback').style.display = 'none';
+    $('btn-en-self-ok').style.display = 'none';
+    if (window.TTS) TTS.speakEn(en.current.word);
+    if (window.Mascot) Mascot.render($('en-mascot'), 'encourage', 60, compGet().bond || 0);
+  }
+
+  // 录音（MediaRecorder，≤5s）：权限/能力不可用时降级自评按钮
+  var enRecorder = null;
+
+  function enRecord() {
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      $('btn-en-self-ok').style.display = 'block';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var chunks = [];
+      enRecorder = new MediaRecorder(stream);
+      enRecorder.ondataavailable = function (e) { chunks.push(e.data); };
+      enRecorder.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(chunks, { type: 'audio/webm' });
+        var reader = new FileReader();
+        reader.onload = function () {
+          enFetch('/api/english/repeat', 'POST', {
+            word: en.current ? en.current.word : '',
+            recording: String(reader.result).slice(String(reader.result).indexOf(',') + 1),
+            code: getCode()
+          }).then(function (j) {
+            enRepeatFeedback(j.evaluated ? ('发音评测：' + (j.score || '—') + ' 分') : '已收到录音，继续加油 🎤', 'meh');
+          }).catch(function () {
+            enRepeatFeedback('网络开了小差，不过你已经读出来啦 💪', 'meh');
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+      enRecorder.start();
+      $('btn-en-record').textContent = '🔴 正在录音…再点一次结束';
+      enRecord.stopTimer = setTimeout(function () {
+        if (enRecorder && enRecorder.state === 'recording') enStopRecord();
+      }, 5000);
+    }).catch(function () {
+      // 麦克风不可用：文本自评降级
+      $('btn-en-self-ok').style.display = 'block';
+      enRepeatFeedback('麦克风没开，点"我读好啦"也算数哦', 'meh');
+    });
+  }
+
+  function enStopRecord() {
+    if (enRecord.stopTimer) clearTimeout(enRecord.stopTimer);
+    if (enRecorder && enRecorder.state === 'recording') enRecorder.stop();
+    $('btn-en-record').textContent = '🎤 按住说 / 点开始录音';
+  }
+
+  function enRepeatFeedback(msg, cls) {
+    var fb = $('en-repeat-feedback');
+    fb.textContent = msg;
+    fb.className = 'en-feedback ' + (cls || 'meh');
+    fb.style.display = 'block';
+    $('btn-en-self-ok').style.display = 'block';
+  }
+
+  // ---- 拼写挑战 ----
+  function enStartSpell() {
+    enShowPanel('spell');
+    enNextSpellWord();
+  }
+
+  function enNextSpellWord() {
+    var pool = en.words.length ? en.words : [];
+    if (!pool.length) {
+      // 首次直接进拼写没经过听词：拉一个类别
+      enLoadWords(en.category || 'animals');
+      setTimeout(enNextSpellWord, 600);
+      return;
+    }
+    var w = pool[Math.floor(Math.random() * pool.length)];
+    en.spellTarget = w;
+    $('en-spell-meaning').textContent = w.meaning;
+    $('en-spell-phonetic').textContent = w.phonetic || '';
+    $('en-spell-input').value = '';
+    $('en-spell-feedback').style.display = 'none';
+    $('en-spell-input').focus();
+  }
+
+  function enSubmitSpell() {
+    var answer = $('en-spell-input').value.trim();
+    if (!answer) return;
+    var target = en.spellTarget ? en.spellTarget.word : '';
+    enFetch('/api/english/spell', 'POST', { word: target, answer: answer, code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      var fb = $('en-spell-feedback');
+      fb.style.display = 'block';
+      if (j.correct) {
+        fb.className = 'en-feedback good';
+        fb.textContent = pick(EN_PRAISE) + ' ' + target + ' 拼对啦！';
+        if (window.TTS) TTS.playCorrect();
+        enTaskBump('spell');
+      } else {
+        fb.className = 'en-feedback meh';
+        fb.textContent = j.hint || '再想想哦';
+        if (window.TTS) TTS.speakEn(target);
+      }
+    }).catch(function () { alert('网络开了小差'); });
+  }
+
+  // ---- 场景对话 ----
+  function enLoadScenes() {
+    enFetch('/api/english/dialogue').then(function () {}).catch(function () {});
+    // 场景 chips 本地固定列表
+    var box = $('en-scene-chips');
+    box.innerHTML = '';
+    [['greeting', '打招呼'], ['animals', '动物园'], ['fruits', '水果店'], ['school', '在学校'], ['toys', '玩玩具']].forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'w-chip' + (s[0] === en.scene ? ' on' : '');
+      b.textContent = s[1];
+      b.addEventListener('click', function () { enOpenScene(s[0]); });
+      box.appendChild(b);
+    });
+  }
+
+  function enOpenScene(code) {
+    en.scene = code;
+    enFetch('/api/english/dialogue?scene=' + encodeURIComponent(code)).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      $('en-dialogue-box').style.display = 'block';
+      var box = $('en-dialogue-turns');
+      box.innerHTML = '';
+      (j.turns || []).forEach(function (t) {
+        var div = document.createElement('div');
+        div.className = 'en-turn ' + (t.who === 'fox' ? 'fox' : 'kid');
+        var inner = '<div class="en-bubble">' + esc(t.en) + (t.hint ? '<div class="en-hint">💡 ' + esc(t.hint) + '</div>' : '') +
+          (t.zh ? '<div class="en-zh">👀 ' + esc(t.zh) + '</div>' : '') + '</div>';
+        div.innerHTML = inner;
+        if (t.who === 'fox') {
+          div.addEventListener('click', function () { if (window.TTS) TTS.speakEn(t.en); });
+        }
+        box.appendChild(div);
+      });
+      // 小狐读第一句
+      if (j.turns && j.turns.length && window.TTS) TTS.speakEn(j.turns[0].en);
+    }).catch(function () { alert('网络开了小差'); });
   }
 
   // ---------------- 知识地图 ----------------
@@ -2719,6 +2985,52 @@
 
   // 训练营按钮
   $('btn-camp-start').addEventListener('click', campStartDiag);
+
+  // 英语学科按钮
+  $('en-go-listen').addEventListener('click', function () {
+    enShowPanel('listen');
+    enLoadWords(en.category || 'animals');
+  });
+  $('en-go-repeat').addEventListener('click', function () {
+    enShowPanel('listen');
+    enLoadWords(en.category || 'animals');
+  });
+  $('en-go-spell').addEventListener('click', enStartSpell);
+  $('en-go-dialogue').addEventListener('click', function () {
+    enShowPanel('dialogue');
+    enLoadScenes();
+  });
+  $('btn-en-say').addEventListener('click', function () { if (en.current) TTS.speakEn(en.current.word); });
+  $('btn-en-see-meaning').addEventListener('click', function () {
+    $('en-listen-meaning').textContent = en.current ? en.current.meaning : '';
+    $('en-listen-meaning').style.display = 'block';
+  });
+  $('btn-en-to-repeat').addEventListener('click', enStartRepeat);
+  $('btn-en-repeat-say').addEventListener('click', function () { if (en.current) TTS.speakEn(en.current.word); });
+  $('btn-en-repeat-meaning').addEventListener('click', function () {
+    $('en-repeat-meaning').textContent = en.current ? en.current.meaning : '';
+    $('en-repeat-meaning').style.display = 'block';
+  });
+  $('btn-en-record').addEventListener('click', function () {
+    if (enRecorder && enRecorder.state === 'recording') enStopRecord();
+    else enRecord();
+  });
+  $('btn-en-self-ok').addEventListener('click', function () {
+    enRepeatFeedback(pick(EN_PRAISE), 'good');
+    enTaskBump('repeat');
+  });
+  $('btn-en-repeat-practice').addEventListener('click', function () { enStartSpell(); });
+  $('btn-en-repeat-back').addEventListener('click', function () { enStartRepeat(); });
+  $('btn-en-spell-submit').addEventListener('click', enSubmitSpell);
+  $('en-spell-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') enSubmitSpell(); });
+  $('btn-en-spell-next').addEventListener('click', enNextSpellWord);
+  $('btn-en-spell-back').addEventListener('click', function () { refreshEnglish(); });
+  $('btn-en-dialogue-done').addEventListener('click', function () {
+    enTaskBump('repeat');
+    alert('对话完成！你真棒！🦊💬');
+    refreshEnglish();
+  });
+  $('btn-en-home').addEventListener('click', function () { refreshEnglish(); });
   $('btn-camp-plan').addEventListener('click', campGeneratePlan);
   $('btn-diag-submit').addEventListener('click', function () {
     var v = $('diag-input').value.trim();

@@ -1,0 +1,106 @@
+// server/subjects/english/vocabulary-seed.js — 三年级英语核心词汇种子（8 类，grade=3）
+// 字段：word / meaning / phonetic（简易音标）/ category / grade / audio_url（空=前端 TTS 朗读）
+
+'use strict';
+
+const SEED = [
+  // animals 动物
+  { word: 'cat', meaning: '猫', phonetic: '/kæt/', category: 'animals' },
+  { word: 'dog', meaning: '狗', phonetic: '/dɒɡ/', category: 'animals' },
+  { word: 'bird', meaning: '鸟', phonetic: '/bɜːd/', category: 'animals' },
+  { word: 'fish', meaning: '鱼', phonetic: '/fɪʃ/', category: 'animals' },
+  { word: 'duck', meaning: '鸭子', phonetic: '/dʌk/', category: 'animals' },
+  { word: 'pig', meaning: '猪', phonetic: '/pɪɡ/', category: 'animals' },
+  { word: 'rabbit', meaning: '兔子', phonetic: '/ˈræbɪt/', category: 'animals' },
+  { word: 'bear', meaning: '熊', phonetic: '/beə/', category: 'animals' },
+  { word: 'tiger', meaning: '老虎', phonetic: '/ˈtaɪɡə/', category: 'animals' },
+  { word: 'monkey', meaning: '猴子', phonetic: '/ˈmʌŋki/', category: 'animals' },
+  { word: 'elephant', meaning: '大象', phonetic: '/ˈelɪfənt/', category: 'animals' },
+  { word: 'panda', meaning: '熊猫', phonetic: '/ˈpændə/', category: 'animals' },
+  // colors 颜色
+  { word: 'red', meaning: '红色', phonetic: '/red/', category: 'colors' },
+  { word: 'yellow', meaning: '黄色', phonetic: '/ˈjeləʊ/', category: 'colors' },
+  { word: 'blue', meaning: '蓝色', phonetic: '/bluː/', category: 'colors' },
+  { word: 'green', meaning: '绿色', phonetic: '/ɡriːn/', category: 'colors' },
+  { word: 'black', meaning: '黑色', phonetic: '/blæk/', category: 'colors' },
+  { word: 'white', meaning: '白色', phonetic: '/waɪt/', category: 'colors' },
+  { word: 'pink', meaning: '粉色', phonetic: '/pɪŋk/', category: 'colors' },
+  { word: 'orange', meaning: '橙色', phonetic: '/ˈɒrɪndʒ/', category: 'colors' },
+  { word: 'brown', meaning: '棕色', phonetic: '/braʊn/', category: 'colors' },
+  { word: 'purple', meaning: '紫色', phonetic: '/ˈpɜːpl/', category: 'colors' },
+  // numbers 数字
+  { word: 'one', meaning: '一', phonetic: '/wʌn/', category: 'numbers' },
+  { word: 'two', meaning: '二', phonetic: '/tuː/', category: 'numbers' },
+  { word: 'three', meaning: '三', phonetic: '/θriː/', category: 'numbers' },
+  { word: 'four', meaning: '四', phonetic: '/fɔː/', category: 'numbers' },
+  { word: 'five', meaning: '五', phonetic: '/faɪv/', category: 'numbers' },
+  { word: 'six', meaning: '六', phonetic: '/sɪks/', category: 'numbers' },
+  { word: 'seven', meaning: '七', phonetic: '/ˈsevn/', category: 'numbers' },
+  { word: 'eight', meaning: '八', phonetic: '/eɪt/', category: 'numbers' },
+  { word: 'nine', meaning: '九', phonetic: '/naɪn/', category: 'numbers' },
+  { word: 'ten', meaning: '十', phonetic: '/ten/', category: 'numbers' },
+  { word: 'eleven', meaning: '十一', phonetic: '/ɪˈlevn/', category: 'numbers' },
+  { word: 'twelve', meaning: '十二', phonetic: '/twelv/', category: 'numbers' },
+  // fruits 水果
+  { word: 'apple', meaning: '苹果', phonetic: '/ˈæpl/', category: 'fruits' },
+  { word: 'banana', meaning: '香蕉', phonetic: '/bəˈnɑːnə/', category: 'fruits' },
+  { word: 'pear', meaning: '梨', phonetic: '/peə/', category: 'fruits' },
+  { word: 'grape', meaning: '葡萄', phonetic: '/ɡreɪp/', category: 'fruits' },
+  { word: 'peach', meaning: '桃子', phonetic: '/piːtʃ/', category: 'fruits' },
+  { word: 'mango', meaning: '芒果', phonetic: '/ˈmæŋɡəʊ/', category: 'fruits' },
+  { word: 'watermelon', meaning: '西瓜', phonetic: '/ˈwɔːtəmelən/', category: 'fruits' },
+  { word: 'lemon', meaning: '柠檬', phonetic: '/ˈlemən/', category: 'fruits' },
+  // body 身体
+  { word: 'head', meaning: '头', phonetic: '/hed/', category: 'body' },
+  { word: 'hand', meaning: '手', phonetic: '/hænd/', category: 'body' },
+  { word: 'eye', meaning: '眼睛', phonetic: '/aɪ/', category: 'body' },
+  { word: 'ear', meaning: '耳朵', phonetic: '/ɪə/', category: 'body' },
+  { word: 'nose', meaning: '鼻子', phonetic: '/nəʊz/', category: 'body' },
+  { word: 'mouth', meaning: '嘴巴', phonetic: '/maʊθ/', category: 'body' },
+  { word: 'arm', meaning: '手臂', phonetic: '/ɑːm/', category: 'body' },
+  { word: 'leg', meaning: '腿', phonetic: '/leɡ/', category: 'body' },
+  { word: 'foot', meaning: '脚', phonetic: '/fʊt/', category: 'body' },
+  { word: 'face', meaning: '脸', phonetic: '/feɪs/', category: 'body' },
+  // school 学校
+  { word: 'book', meaning: '书', phonetic: '/bʊk/', category: 'school' },
+  { word: 'pen', meaning: '钢笔', phonetic: '/pen/', category: 'school' },
+  { word: 'pencil', meaning: '铅笔', phonetic: '/ˈpensl/', category: 'school' },
+  { word: 'ruler', meaning: '尺子', phonetic: '/ˈruːlə/', category: 'school' },
+  { word: 'bag', meaning: '书包', phonetic: '/bæɡ/', category: 'school' },
+  { word: 'desk', meaning: '课桌', phonetic: '/desk/', category: 'school' },
+  { word: 'chair', meaning: '椅子', phonetic: '/tʃeə/', category: 'school' },
+  { word: 'school', meaning: '学校', phonetic: '/skuːl/', category: 'school' },
+  { word: 'teacher', meaning: '老师', phonetic: '/ˈtiːtʃə/', category: 'school' },
+  { word: 'student', meaning: '学生', phonetic: '/ˈstjuːdnt/', category: 'school' },
+  { word: 'classroom', meaning: '教室', phonetic: '/ˈklɑːsruːm/', category: 'school' },
+  { word: 'eraser', meaning: '橡皮', phonetic: '/ɪˈreɪzə/', category: 'school' },
+  // food 食物
+  { word: 'rice', meaning: '米饭', phonetic: '/raɪs/', category: 'food' },
+  { word: 'noodles', meaning: '面条', phonetic: '/ˈnuːdlz/', category: 'food' },
+  { word: 'egg', meaning: '鸡蛋', phonetic: '/eɡ/', category: 'food' },
+  { word: 'milk', meaning: '牛奶', phonetic: '/mɪlk/', category: 'food' },
+  { word: 'bread', meaning: '面包', phonetic: '/bred/', category: 'food' },
+  { word: 'cake', meaning: '蛋糕', phonetic: '/keɪk/', category: 'food' },
+  { word: 'water', meaning: '水', phonetic: '/ˈwɔːtə/', category: 'food' },
+  { word: 'juice', meaning: '果汁', phonetic: '/dʒuːs/', category: 'food' },
+  { word: 'chicken', meaning: '鸡肉', phonetic: '/ˈtʃɪkɪn/', category: 'food' },
+  { word: 'hamburger', meaning: '汉堡包', phonetic: '/ˈhæmbɜːɡə/', category: 'food' },
+  // toys 玩具
+  { word: 'ball', meaning: '球', phonetic: '/bɔːl/', category: 'toys' },
+  { word: 'kite', meaning: '风筝', phonetic: '/kaɪt/', category: 'toys' },
+  { word: 'doll', meaning: '玩偶', phonetic: '/dɒl/', category: 'toys' },
+  { word: 'toy', meaning: '玩具', phonetic: '/tɔɪ/', category: 'toys' },
+  { word: 'car', meaning: '小汽车', phonetic: '/kɑː/', category: 'toys' },
+  { word: 'bus', meaning: '公共汽车', phonetic: '/bʌs/', category: 'toys' },
+  { word: 'boat', meaning: '小船', phonetic: '/bəʊt/', category: 'toys' },
+  { word: 'puzzle', meaning: '拼图', phonetic: '/ˈpʌzl/', category: 'toys' }
+];
+
+module.exports = SEED.map((w) => ({
+  word: w.word,
+  meaning: w.meaning,
+  phonetic: w.phonetic,
+  category: w.category,
+  grade: 3,
+  audio_url: ''
+}));

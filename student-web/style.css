@@ -192,6 +192,7 @@ textarea { resize: vertical; min-height: 72px; }
 .f-pink { background: #FFE3EC; }
 .f-purple { background: #EDE7FF; }
 .f-teal { background: #D9F3F0; }
+.f-cyan { background: #DFF0FF; }
 .f-title { font-size: 16px; font-weight: 800; margin-top: 10px; }
 .f-desc { font-size: 12px; color: #999; margin-top: 2px; }
 
@@ -922,3 +923,39 @@ textarea { resize: vertical; min-height: 72px; }
 .lg-red { background: #FFECEC; color: #D64545; }
 .lg-gray { background: #F2EDE2; color: #8a7a5a; }
 .kmap-node:hover circle { filter: brightness(1.06); }
+
+/* ---------------- 英语学科 ---------------- */
+.en-hero { display: flex; align-items: center; gap: 14px; background: linear-gradient(160deg, #E3F2FF, #F2ECFF); }
+.en-hero-title { font-weight: 800; color: #2A6FB8; font-size: 18px; }
+.en-hero-sub { color: #6a8ab8; font-size: 13px; margin-top: 4px; }
+.en-hero-mascot { flex-shrink: 0; }
+.en-state-bar {
+  background: linear-gradient(90deg, #4FA8E8, #2A6FB8); color: #fff;
+  border-radius: 999px; padding: 8px 16px; font-weight: 800; font-size: 14px;
+  display: inline-block; margin-bottom: 10px;
+}
+.en-current { text-align: center; }
+.en-word-big { font-size: 30px; font-weight: 800; color: #2A6FB8; letter-spacing: 1px; }
+.en-phonetic { color: #8aa8c8; font-size: 15px; margin: 6px 0 10px; }
+.en-meaning { color: #555; font-size: 15px; margin: 8px 0; padding: 8px 12px; background: #F0F7FF; border-radius: 10px; }
+.en-spell-meaning { font-size: 20px; font-weight: 800; color: #444; margin-bottom: 4px; }
+.en-feedback { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-weight: 700; font-size: 14px; }
+.en-feedback.good { background: #DFF5EE; color: #0E8A6D; }
+.en-feedback.meh { background: #FFF4E0; color: #B26A00; }
+.en-word-item {
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px dashed #EFE6D8; padding: 10px 2px; cursor: pointer;
+}
+.en-word-item .ew { font-weight: 800; color: #2A6FB8; font-size: 16px; min-width: 90px; }
+.en-word-item .ep { color: #9ab; font-size: 12px; flex: 1; }
+.en-turn { display: flex; margin-bottom: 10px; }
+.en-turn.fox { justify-content: flex-start; }
+.en-turn.kid { justify-content: flex-end; }
+.en-bubble {
+  max-width: 80%; border-radius: 14px; padding: 10px 14px; font-size: 15px;
+}
+.en-turn.fox .en-bubble { background: #E3F2FF; color: #2A6FB8; border-bottom-left-radius: 4px; cursor: pointer; }
+.en-turn.kid .en-bubble { background: #FFF4E0; color: #8a5a00; border-bottom-right-radius: 4px; }
+.en-turn .en-zh { font-size: 11px; color: #999; margin-top: 4px; }
+.en-turn .en-hint { font-size: 11px; color: #14A98C; margin-top: 4px; }
+#en-spell-input { margin: 10px 0; }
