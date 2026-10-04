@@ -965,3 +965,11 @@ textarea { resize: vertical; min-height: 72px; }
 .cn-char-big { font-size: 52px; font-weight: 800; color: #C2452D; line-height: 1.2; }
 .poem-lines { font-size: 16px; color: #555; line-height: 2; text-align: center; margin: 8px 0; }
 .cn-writing-wrap textarea, #cn-writing-input, #cn-reading-input { margin: 8px 0; }
+
+/* 今日学习计划（跨学科编排） */
+.plan-box { margin-top: 10px; border-top: 1px dashed #F0DFC0; padding-top: 8px; }
+.plan-head { font-size: 12px; font-weight: 800; color: #8a5a00; margin-bottom: 6px; }
+.plan-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; padding: 3px 0; }
+.plan-item .pi-name { font-weight: 800; color: #FF8A00; min-width: 34px; }
+.plan-item .pi-task { flex: 1; }
+.plan-item .pi-done { color: #14A98C; font-weight: 800; }

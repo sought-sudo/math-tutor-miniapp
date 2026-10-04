@@ -1158,6 +1158,30 @@
     }
   }
 
+  // ---------------- 每日学习计划（最多 2 科，15~25 分钟） ----------------
+
+  function renderDailyPlan(mathToday) {
+    if (!window.DailyPlan) return;
+    var goal = dynamicGoal();
+    var enDone = enTaskGet();
+    var enCount = (enDone.listen >= 1 ? 1 : 0) + (enDone.repeat >= 1 ? 1 : 0) + (enDone.spell >= 1 ? 1 : 0);
+    var cnDone = cnTaskGet();
+    var cnCount = (cnDone.chars >= 1 ? 1 : 0) + (cnDone.dictation >= 1 ? 1 : 0) + (cnDone.poem >= 1 ? 1 : 0);
+    var plan = DailyPlan.buildDailyPlan(goal, enCount, cnCount, new Date().getDay());
+    $('plan-minutes').textContent = plan.estimatedMinutes;
+    var box = $('plan-items');
+    box.innerHTML = '';
+    plan.items.forEach(function (it) {
+      var div = document.createElement('div');
+      div.className = 'plan-item';
+      var doneRatio = it.total ? it.done / it.total : 0;
+      div.innerHTML = '<span class="pi-name">' + esc(it.name) + '</span>' +
+        '<span class="pi-task">' + esc(it.task) + '（约 ' + it.minutes + ' 分钟）</span>' +
+        '<span class="pi-done">' + (doneRatio >= 1 ? '✅' : Math.round(doneRatio * 100) + '%') + '</span>';
+      box.appendChild(div);
+    });
+  }
+
   // ---------------- 首页 ----------------
 
   function refreshHome() {
@@ -1183,6 +1207,7 @@
     $('home-sub').textContent = sub;
     $('hero-bond').textContent = bondIcon(c.bond || 0) + ' ' + bondLevel(c.bond || 0);
     renderEnergy(c.bond || 0);
+    renderDailyPlan(s.today);
     refreshTaskCard(s.today);
     if (window.Mascot) {
       Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64, c.bond || 0);

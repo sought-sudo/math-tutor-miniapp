@@ -728,7 +728,7 @@ const server = http.createServer(async (req, res) => {
       );
       const chatFn = LLM_BASE_URL && LLM_API_KEY ? (msgs) => chat(msgs, LLM_MODEL) : null;
       const r = await reportService.generateReport(chatFn, facts);
-      send(res, 200, { ok: true, userId: userId, period: period, translated_report: r.translated_report, communication_script: r.communication_script });
+      send(res, 200, { ok: true, userId: userId, period: period, translated_report: r.translated_report, communication_script: r.communication_script, bySubject: facts.bySubject || {} });
       return;
     }
 
@@ -1176,13 +1176,16 @@ const server = http.createServer(async (req, res) => {
       if (!llmRateLimit(res, 'chat', body.code)) return;
       const enEval = subjectService.getEvaluator('english');
       const enPrompts = subjectService.getPrompt('english');
+      // 掌握度知识点按词类（vocab-<category>，维度经 knowledgeGraph 可查），查不到词回退通用码
+      const wordRec = db.getEnglishWordByWord(body.word);
+      const enKp = wordRec ? 'vocab-' + wordRec.category : 'english-repeat';
       // 文本跟读（语音识别结果或手输）：本地判分鼓励
       if (body.text) {
         const r = enEval.repeatTextCheck(body.word, body.text);
         db.logEvent({
           userId: body.code,
           eventType: 'answer_correct',
-          knowledgePoint: 'english-repeat',
+          knowledgePoint: enKp,
           subjectId: 'english'
         });
         send(res, 200, { ok: true, mode: 'text', match: r.match, line: r.line, say: enPrompts.STATE_LINES.PRONOUNCE_CHECK });
@@ -1213,7 +1216,7 @@ const server = http.createServer(async (req, res) => {
         db.logEvent({
           userId: body.code,
           eventType: 'after_wrong_retry',
-          knowledgePoint: 'english-repeat',
+          knowledgePoint: enKp,
           subjectId: 'english'
         });
         send(res, 200, { ok: true, mode: 'recording', evaluated: false, line: '已收到录音，继续加油 🎤' });
@@ -1229,11 +1232,13 @@ const server = http.createServer(async (req, res) => {
       if (!body.word || body.answer === undefined) throw new Error('缺少参数 word / answer');
       if (!llmRateLimit(res, 'chat', body.code)) return;
       const enEval = subjectService.getEvaluator('english');
+      const wordRec2 = db.getEnglishWordByWord(body.word);
+      const enKp2 = wordRec2 ? 'vocab-' + wordRec2.category : 'english-spell';
       const r = enEval.spellCheck(body.word, body.answer);
       db.logEvent({
         userId: body.code,
         eventType: r.correct ? 'answer_correct' : 'answer_wrong',
-        knowledgePoint: 'english-spell',
+        knowledgePoint: enKp2,
         subjectId: 'english'
       });
       const rec = db.getEnglishWordByWord(body.word);

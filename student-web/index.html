@@ -46,6 +46,10 @@
         </div>
         <div class="task-track"><div class="task-fill" id="task-fill"></div></div>
         <div class="task-progress" id="task-progress">已完成 0 / 3</div>
+        <div class="plan-box" id="plan-box">
+          <div class="plan-head">🗓️ 今日学习计划 · 预计 <span id="plan-minutes">--</span> 分钟（最多 2 科）</div>
+          <div id="plan-items"></div>
+        </div>
       </div>
       <div class="grid">
         <div class="card feature" data-go="camera">
@@ -654,6 +658,7 @@
   <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
+  <script src="js/dailyPlan.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。

@@ -337,7 +337,7 @@ function getTodayEvents(userId) {
 function getEventsSince(userId, sinceIso, subjectId) {
   if (!db) return [];
   try {
-    let sql = 'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at ' +
+    let sql = 'SELECT event_type, session_id, question_id, knowledge_point, error_type, duration_ms, created_at, subject_id ' +
       'FROM learning_events WHERE user_id = ? AND created_at >= ?';
     const args = [userId, sinceIso];
     if (subjectId) {
