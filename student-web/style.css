@@ -998,3 +998,24 @@ textarea { resize: vertical; min-height: 72px; }
 .stab.on[data-subject=math] { background: linear-gradient(90deg, #FFC53D, #FF9F1C); }
 .stab.on[data-subject=english] { background: linear-gradient(90deg, #4FA8E8, #2A6FB8); }
 .stab.on[data-subject=chinese] { background: linear-gradient(90deg, #E8735A, #C2452D); }
+
+/* 三科主页统一家长端入口条 */
+.p-parent-entry {
+  margin: 10px 0; padding: 12px 14px; text-align: center;
+  background: #FFF4E8; border: 1px dashed #FFD9A0; border-radius: 12px;
+  color: #B26A00; font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.p-parent-entry:hover { background: #FFECD0; }
+
+/* 拍照批改结果 */
+.hw-item { border: 1px solid #EFE6D8; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.hw-item.hw-ok { background: #F2FBF7; border-color: #CBEBDD; }
+.hw-item.hw-no { background: #FFF6F6; border-color: #FFD9D9; }
+.hw-item.hw-unknown { background: #FAFAF7; }
+.hw-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.hw-badge { font-weight: 800; font-size: 13px; }
+.hw-ok .hw-badge { color: #0E8A6D; } .hw-no .hw-badge { color: #D64545; } .hw-unknown .hw-badge { color: #8a7a5a; }
+.hw-err { font-size: 11px; color: #B26A00; background: #FFF4E0; border-radius: 999px; padding: 2px 8px; }
+.hw-problem { font-size: 14px; color: #333; margin-bottom: 2px; }
+.hw-ans, .hw-right { font-size: 12px; color: #888; }
+.hw-right { color: #0E8A6D; font-weight: 700; }

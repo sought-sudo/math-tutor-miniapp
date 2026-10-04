@@ -72,7 +72,7 @@ const SEED = [
   { word: 'school', meaning: '学校', phonetic: '/skuːl/', category: 'school' },
   { word: 'teacher', meaning: '老师', phonetic: '/ˈtiːtʃə/', category: 'school' },
   { word: 'student', meaning: '学生', phonetic: '/ˈstjuːdnt/', category: 'school' },
-  { word: 'classroom', meaning: '教室', phonetic: '/ˈklɑːsruːm/', category: 'school' },
+  { word: 'classroom', meaning: '教室', phonetic: '/ˈklɑːsruːm/', category: 'school', unit: 'E4U1' },
   { word: 'eraser', meaning: '橡皮', phonetic: '/ɪˈreɪzə/', category: 'school' },
   // food 食物
   { word: 'rice', meaning: '米饭', phonetic: '/raɪs/', category: 'food' },

@@ -25,7 +25,7 @@ const words = db.listEnglishVocabulary();
 const animals = db.listEnglishVocabulary('animals');
 assert(words.length >= 60, '词库 ≥ 60 词（实际 ' + words.length + '）');
 assert(animals.length >= 8, 'animals 类 ≥ 8 词（实际 ' + animals.length + '）');
-assert(words.every((w) => w.word && w.meaning && w.category && w.grade === 3), '每词字段完整 grade=3');
+assert(words.every((w) => w.word && w.meaning && w.category && (w.grade === 3 || w.grade === 4)), '每词字段完整 grade=3/4');
 assert(db.getEnglishWordByWord('APPLE') !== null, '大小写不敏感查词（APPLE）');
 assert(db.getEnglishWordByWord('zzz') === null, '不存在的词返回 null');
 

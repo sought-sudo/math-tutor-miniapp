@@ -80,6 +80,7 @@
         <div class="tip-title">💡 今日小贴士</div>
         <div class="tip-text" id="home-tip"></div>
       </div>
+      <div class="p-parent-entry" id="parent-entry-math">📊 家长端 · 让爸妈看看我的进步 →</div>
 
       <div class="card unit-card">
         <div class="label">📖 练习单元（教材同步）</div>
@@ -106,6 +107,11 @@
           <div class="task-track"><div class="task-fill" id="en-task-fill"></div></div>
           <div class="task-progress" id="en-task-progress">已完成 0 / 3</div>
         </div>
+        <div class="card unit-card">
+          <div class="label">📖 教材单元（人教版 PEP 三起·四年级）</div>
+          <select id="en-unit-select"></select>
+          <div class="note">选一个单元，听音学词就集中学这个单元的单词。</div>
+        </div>
         <div class="grid">
           <div class="card feature" id="en-go-listen"><div class="f-icon f-cyan">🎧</div><div class="f-title">听音学词</div><div class="f-desc">Listen and learn</div></div>
           <div class="card feature" id="en-go-repeat"><div class="f-icon f-cyan">🎤</div><div class="f-title">跟读练习</div><div class="f-desc">Repeat after 小狐</div></div>
@@ -115,6 +121,7 @@
           <div class="card feature" id="en-go-map"><div class="f-icon f-cyan">🗺️</div><div class="f-title">英语地图</div><div class="f-desc">点亮会的内容</div></div>
         </div>
         <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text" id="en-home-tip">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。Practice makes perfect!</div></div>
+        <div class="p-parent-entry" id="parent-entry-english">📊 家长端 · 让爸妈看看我的进步 →</div>
       </div>
 
       <!-- 语文主页 -->
@@ -135,6 +142,11 @@
           <div class="task-track"><div class="task-fill" id="cn-task-fill"></div></div>
           <div class="task-progress" id="cn-task-progress">已完成 0 / 3</div>
         </div>
+        <div class="card unit-card">
+          <div class="label">📖 教材单元（统编版·四年级）</div>
+          <select id="cn-unit-select"></select>
+          <div class="note">选一个单元，看看它对应哪些字词、古诗和阅读知识点。</div>
+        </div>
         <div class="grid">
           <div class="card feature" id="cn-go-chars"><div class="f-icon f-rose">📝</div><div class="f-title">字词学习</div><div class="f-desc">认字 + 听写</div></div>
           <div class="card feature" id="cn-go-poems"><div class="f-icon f-rose">🎋</div><div class="f-title">古诗诵读</div><div class="f-desc">大声读出来</div></div>
@@ -144,6 +156,7 @@
           <div class="card feature" id="cn-go-map"><div class="f-icon f-rose">🗺️</div><div class="f-title">语文地图</div><div class="f-desc">点亮会的内容</div></div>
         </div>
         <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text" id="cn-home-tip">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
+        <div class="p-parent-entry" id="parent-entry-chinese">📊 家长端 · 让爸妈看看我的进步 →</div>
       </div>
     </section>
 
@@ -181,6 +194,15 @@
         <button class="btn btn-ghost act" id="btn-rotate" style="display:none">↻ 旋转</button>
         <button class="btn btn-ghost act" id="btn-crop" style="display:none">✂️ 裁剪</button>
         <button class="btn btn-ghost act" id="btn-annotate" style="display:none">✏️ 标注</button>
+        <button class="btn btn-green act" id="btn-homework-grade" style="display:none">📝 批改作业</button>
+      </div>
+      <div class="card" id="hw-grade-card" style="display:none">
+        <div class="label">📝 批改结果（AI 批改仅供参考，记得自己核对一遍）</div>
+        <div id="hw-grade-list"></div>
+        <div class="result-row">
+          <button class="btn btn-primary" id="btn-hw-to-wrong">📕 去错题本复习</button>
+          <button class="btn btn-blue" id="btn-hw-to-camp">🎯 去训练营补漏</button>
+        </div>
       </div>
       <div class="card" id="recog-card" style="display:none">
         <div class="label">识别的题目（可以手动修改）</div>

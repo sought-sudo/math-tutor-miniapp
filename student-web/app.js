@@ -938,6 +938,18 @@
 
   // ---- 听音学词 ----
   function enLoadWords(category) {
+    var unit = storeStr('stu_unit_en', '');
+    if (unit) {
+      en.category = '';
+      enFetch('/api/english/vocabulary?unit=' + encodeURIComponent(unit)).then(function (j) {
+        if (!j.ok) return;
+        en.words = j.words || [];
+        $('en-cat-chips').style.display = 'none';
+        renderEnWordList();
+      }).catch(function () {});
+      return;
+    }
+    $('en-cat-chips').style.display = 'flex';
     en.category = category || en.category || 'animals';
     enFetch('/api/english/vocabulary?category=' + encodeURIComponent(en.category)).then(function (j) {
       if (!j.ok) return;
@@ -1260,8 +1272,7 @@
         { icon: '🏠', label: '首页', act: 'home' },
         { icon: '📷', label: '拍照识题', act: 'camera' },
         { icon: '📕', label: '错题本', act: 'wrong' },
-        { icon: '🎯', label: '训练营', act: 'camp' },
-        { icon: '📊', label: '家长端', act: 'parent' }
+        { icon: '🎯', label: '训练营', act: 'camp' }
       ];
     }
     nav.innerHTML = '';
@@ -1314,6 +1325,7 @@
   function renderEnHome() {
     if (window.Mascot) Mascot.render($('en-task-mascot'), 'encourage', 44, compGet().bond || 0);
     renderEnTask();
+    initEnUnitSelect();
     var t = enTaskGet();
     $('en-home-listen').textContent = t.listen || 0;
     $('en-home-repeat').textContent = t.repeat || 0;
@@ -1323,11 +1335,54 @@
   function renderCnHome() {
     if (window.Mascot) Mascot.render($('cn-task-mascot'), 'encourage', 44, compGet().bond || 0);
     renderCnTask();
+    initCnUnitSelect();
     var t = cnTaskGet();
     $('cn-home-chars').textContent = t.chars || 0;
     $('cn-home-dictation').textContent = t.dictation || 0;
     $('cn-home-poem').textContent = t.poem || 0;
   }
+
+  // 英语/语文教材单元选择器（人教四上/四下，参考数学）
+  function buildUnitSelect(subject, selId, storeKey) {
+    var sel = $(selId);
+    if (!sel || sel.dataset.ready) return;
+    fetch(getApiBase() + '/api/subjects/' + subject + '/curriculum').then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok || !j.curriculum) return;
+      sel.dataset.ready = '1';
+      sel.innerHTML = '';
+      var all = document.createElement('option');
+      all.value = '';
+      all.textContent = '全部单元';
+      sel.appendChild(all);
+      var books = {};
+      j.curriculum.forEach(function (u) { (books[u.book] = books[u.book] || []).push(u); });
+      Object.keys(books).forEach(function (book) {
+        var g = document.createElement('optgroup');
+        g.label = book;
+        books[book].forEach(function (u) {
+          var o = document.createElement('option');
+          o.value = u.id;
+          o.textContent = u.unit + ' ' + u.title;
+          g.appendChild(o);
+        });
+        sel.appendChild(g);
+      });
+      sel.value = storeStr(storeKey, '');
+      sel.addEventListener('change', function () {
+        storeSetStr(storeKey, sel.value);
+        if (subject === 'english') {
+          en.category = '';
+          enLoadWords('');
+        } else {
+          cnLoadChars();
+        }
+        syncSend('unit', { unit: sel.value, subject: subject });
+      });
+    }).catch(function () {});
+  }
+
+  function initEnUnitSelect() { buildUnitSelect('english', 'en-unit-select', 'stu_unit_en'); }
+  function initCnUnitSelect() { buildUnitSelect('chinese', 'cn-unit-select', 'stu_unit_cn'); }
 
   // ---------------- 首页 ----------------
 
@@ -1526,6 +1581,7 @@
     $('btn-rotate').style.display = 'flex';
     $('btn-crop').style.display = 'flex';
     $('btn-annotate').style.display = 'flex';
+    $('btn-homework-grade').style.display = 'flex';
     $('blur-hint').style.display = 'none';
     $('camera-guide').style.display = 'none';
     $('recog-card').style.display = 'block';
@@ -3373,6 +3429,11 @@
   document.querySelectorAll('#subject-tabs .stab').forEach(function (b) {
     b.addEventListener('click', function () { showHomeSubject(b.dataset.subject); });
   });
+  // 三科主页统一家长端入口（小贴士下）
+  ['parent-entry-math', 'parent-entry-english', 'parent-entry-chinese'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', function () { showView('parent'); });
+  });
 
   // 英语学科按钮（入口卡在首页英语子页，点击进入 view-english 对应面板）
   $('en-go-listen').addEventListener('click', function () {
@@ -3506,6 +3567,53 @@
   $('zoom-overlay').addEventListener('click', function (e) {
     if (e.target === $('zoom-overlay')) $('zoom-overlay').style.display = 'none';
   });
+
+  // 拍照批改作业（数学）：判分 → 错题本 + 训练营联动
+  function homeworkGrade() {
+    var img = $('camera-img');
+    if (!img.src || img.style.display === 'none') return;
+    var dataUrl = String(img.src);
+    var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    $('camera-scan').textContent = '📝 小狐正在批改作业，请稍等…';
+    $('camera-scan').style.display = 'block';
+    $('hw-grade-card').style.display = 'none';
+    fetch(getApiBase() + '/api/math/homework-grade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, code: getCode() })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      $('camera-scan').style.display = 'none';
+      if (!j.ok) { alert(j.error || '批改失败，稍后再试'); return; }
+      var box = $('hw-grade-list');
+      box.innerHTML = '';
+      if (!j.problems || !j.problems.length) {
+        box.innerHTML = '<div class="empty">没有识别到作业题，请把题目拍清楚、摆正再试一次</div>';
+      } else {
+        j.problems.forEach(function (p) {
+          var div = document.createElement('div');
+          div.className = 'hw-item ' + (p.correct === true ? 'hw-ok' : p.correct === false ? 'hw-no' : 'hw-unknown');
+          var badge = p.correct === true ? '✓ 对' : p.correct === false ? '✗ 错' : '❓ 请自己核对';
+          var errTag = p.errorType ? { read_error: '读题不清', calc_error: '计算出错', method_unknown: '方法不熟' }[p.errorType] || '' : '';
+          div.innerHTML =
+            '<div class="hw-head"><span class="hw-badge">' + badge + '</span>' +
+            (errTag ? '<span class="hw-err">' + errTag + '</span>' : '') + '</div>' +
+            '<div class="hw-problem">' + esc(p.problem) + '</div>' +
+            (p.myAnswer ? '<div class="hw-ans">孩子写：' + esc(p.myAnswer) + '</div>' : '') +
+            (p.correct === false && p.rightAnswer ? '<div class="hw-right">正确答案：' + esc(p.rightAnswer) + '</div>' : '');
+          box.appendChild(div);
+        });
+      }
+      $('hw-grade-card').style.display = 'block';
+      if (j.wrongCount > 0) alert('批改完成！有 ' + j.wrongCount + ' 道错题已经放进错题本啦 📕');
+    }).catch(function () {
+      $('camera-scan').style.display = 'none';
+      alert('网络开了小差，稍后再试');
+    });
+  }
+
+  $('btn-homework-grade').addEventListener('click', homeworkGrade);
+  $('btn-hw-to-wrong').addEventListener('click', function () { showView('wrong'); });
+  $('btn-hw-to-camp').addEventListener('click', function () { camp.subject = 'math'; showView('camp'); });
 
   // 拍照编辑：裁剪 / 标注
   $('btn-crop').addEventListener('click', function () { camEditStart('crop'); });

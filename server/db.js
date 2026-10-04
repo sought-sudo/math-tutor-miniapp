@@ -174,10 +174,17 @@ function init() {
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_envocab_category ON english_vocabulary(category)');
     try {
+      db.exec("ALTER TABLE english_vocabulary ADD COLUMN unit TEXT DEFAULT ''");
+    } catch (e) {}
+    try {
+      db.exec('ALTER TABLE english_vocabulary ADD COLUMN grade INTEGER NOT NULL DEFAULT 3');
+    } catch (e) {}
+    try {
       const seed = require('./subjects/english/vocabulary-seed');
-      const ins = db.prepare('INSERT OR IGNORE INTO english_vocabulary (word, meaning, phonetic, category, grade, audio_url) VALUES (?, ?, ?, ?, ?, ?)');
-      seed.forEach((w) => {
-        try { ins.run(w.word, w.meaning, w.phonetic, w.category, w.grade || 3, w.audio_url || ''); } catch (e) {}
+      const seedG4 = require('./subjects/english/vocabulary-seed-g4');
+      const ins = db.prepare('INSERT OR IGNORE INTO english_vocabulary (word, meaning, phonetic, category, grade, audio_url, unit) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      seed.concat(seedG4).forEach((w) => {
+        try { ins.run(w.word, w.meaning, w.phonetic, w.category, w.grade || 3, w.audio_url || '', w.unit || ''); } catch (e) {}
       });
     } catch (e) {
       // 词库种子加载失败不阻塞启动
@@ -282,13 +289,16 @@ function getSubjectByCode(code) {
 
 // ---------------- 英语词汇（english_vocabulary） ----------------
 
-function listEnglishVocabulary(category) {
+function listEnglishVocabulary(category, unit, grade) {
   if (!db) return [];
   try {
-    const rows = category
-      ? db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary WHERE category = ? ORDER BY id').all(category)
-      : db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary ORDER BY category, id').all();
-    return rows || [];
+    let sql = 'SELECT word, meaning, phonetic, category, grade, audio_url, unit FROM english_vocabulary WHERE 1=1';
+    const args = [];
+    if (category) { sql += ' AND category = ?'; args.push(category); }
+    if (unit) { sql += ' AND unit = ?'; args.push(unit); }
+    if (grade) { sql += ' AND grade = ?'; args.push(Number(grade)); }
+    sql += ' ORDER BY unit, id';
+    return db.prepare(sql).all(...args) || [];
   } catch (e) {
     return [];
   }

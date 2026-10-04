@@ -1174,12 +1174,17 @@ const server = http.createServer(async (req, res) => {
     // 词库：GET /api/english/vocabulary?category=animals
     if (req.method === 'GET' && req.url.indexOf('/api/english/vocabulary') === 0) {
       let category = '';
+      let unit = '';
+      let grade = '';
       try {
-        category = new URL(req.url, 'http://x').searchParams.get('category') || '';
+        const sp = new URL(req.url, 'http://x').searchParams;
+        category = sp.get('category') || '';
+        unit = sp.get('unit') || '';
+        grade = sp.get('grade') || '';
       } catch (e) {
         // 忽略参数解析失败
       }
-      send(res, 200, { ok: true, category: category, words: db.listEnglishVocabulary(category) });
+      send(res, 200, { ok: true, category: category, unit: unit, grade: grade, words: db.listEnglishVocabulary(category, unit, grade) });
       return;
     }
 
@@ -1421,6 +1426,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 学科教材目录：GET /api/subjects/:code/curriculum
+    if (req.method === 'GET' && req.url.indexOf('/api/subjects/') === 0 && req.url.indexOf('/curriculum') > 0) {
+      const code = decodeURIComponent((req.url.split('?')[0].split('/').slice(0, -1).pop() || ''));
+      const sub = camp.normSubject(code);
+      let cur;
+      if (sub === 'english') cur = require('./subjects/english/curriculum');
+      else if (sub === 'chinese') cur = require('./subjects/chinese/curriculum');
+      else cur = curriculum;
+      send(res, 200, { ok: true, subject: sub, curriculum: cur.CURRICULUM || [] });
+      return;
+    }
+
     // 学科知识点列表（知识地图渲染用）：GET /api/subjects/:code/knowledge
     if (req.method === 'GET' && req.url.indexOf('/api/subjects/') === 0 && req.url.indexOf('/knowledge') > 0) {
       const code = decodeURIComponent((req.url.split('?')[0].split('/').slice(0, -1).pop() || ''));
@@ -1565,6 +1582,78 @@ const server = http.createServer(async (req, res) => {
         throw new Error('解析变形题失败：' + String(content).slice(0, 200));
       }
       send(res, 200, Object.assign({ ok: true }, j));
+      return;
+    }
+
+    // 拍照批改作业（数学）：视觉模型逐题判分，错题自动入错题本 + 落行为事件（联动掌握度/训练营）
+    if (req.method === 'POST' && req.url === '/api/math/homework-grade') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.image) throw new Error('缺少参数 image(base64)');
+      if (!llmRateLimit(res, 'ocr', body.code)) return;
+      const grader = require('./subjects/math/homeworkGrader');
+      if (!OCR_EXPLICIT || !OCR_BASE_URL || !OCR_API_KEY) {
+        send(res, 200, { ok: false, error: '未配置视觉模型' });
+        return;
+      }
+      let problems = [];
+      try {
+        const content = await chatWith(
+          OCR_BASE_URL, OCR_API_KEY, OCR_MODEL,
+          [
+            { role: 'system', content: grader.HOMEWORK_GRADE_SYSTEM },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: '请批改这张作业图片里的每道题：' },
+                { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + body.image } }
+              ]
+            }
+          ]
+        );
+        problems = grader.gradeByEngine(grader.gradeParse(content)); // 判分由本地引擎权威完成
+      } catch (e) {
+        send(res, 200, { ok: false, error: '批改失败：' + String((e && e.message) || e) });
+        return;
+      }
+      // 联动：错题入错题本 + answer_wrong 行为事件（掌握度下降 → 训练营排课纳入）
+      let wrongCount = 0;
+      const code = String(body.code || '').trim();
+      if (code) {
+        if (!store.children[code]) store.children[code] = { name: '小朋友', records: [], wrongs: {} };
+        const child = store.children[code];
+        child.wrongs = child.wrongs || {};
+        problems.forEach((p) => {
+          if (p.correct !== false) return;
+          const key = p.problem;
+          const exist = child.wrongs[key];
+          const item = exist || {
+            problem: p.problem,
+            myAnswer: p.myAnswer || '（作业本上的答案）',
+            rightAnswer: p.rightAnswer || '',
+            knowledge: p.knowledge || '综合',
+            times: 0,
+            status: 'active',
+            lastAt: new Date().toISOString()
+          };
+          item.times = (item.times || 0) + 1;
+          item.lastAt = new Date().toISOString();
+          item.status = 'active';
+          if (p.errorType) item.errorType = p.errorType;
+          if (p.myAnswer) item.myAnswer = p.myAnswer;
+          if (p.rightAnswer) item.rightAnswer = p.rightAnswer;
+          child.wrongs[key] = item;
+          wrongCount++;
+          db.logEvent({
+            userId: code,
+            eventType: 'answer_wrong',
+            knowledgePoint: p.knowledge || '综合',
+            errorType: p.errorType,
+            subjectId: 'math'
+          });
+        });
+        saveData();
+      }
+      send(res, 200, { ok: true, problems: problems, wrongCount: wrongCount, addedToWrongbook: wrongCount > 0 });
       return;
     }
 

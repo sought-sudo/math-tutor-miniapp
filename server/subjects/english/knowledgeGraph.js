@@ -17,6 +17,10 @@ const KNOWLEDGE = [
   { code: 'vocab-school', name: '学习用品', dimension: 'read', desc: '学校常见物品的认读' },
   { code: 'vocab-food', name: '食物单词', dimension: 'speak', desc: '常见食物的听说读' },
   { code: 'vocab-toys', name: '玩具单词', dimension: 'speak', desc: '常见玩具的听说读' },
+  { code: 'vocab-home', name: '家居单词', dimension: 'speak', desc: '房间与家居物品的听说读（四年级）' },
+  { code: 'vocab-family', name: '家人单词', dimension: 'speak', desc: '家庭成员与称谓的听说读（四年级）' },
+  { code: 'vocab-weather', name: '天气单词', dimension: 'listen', desc: '天气表达的听说读（四年级）' },
+  { code: 'vocab-clothes', name: '衣物单词', dimension: 'speak', desc: '衣物鞋帽的听说读（四年级）' },
   // 句型
   { code: 'sentence-greeting', name: '打招呼句型', dimension: 'speak', desc: 'Hello! / Hi! / Good morning! 等' },
   { code: 'sentence-introduce', name: '自我介绍', dimension: 'speak', desc: 'I am... / My name is... / I am ... years old' },
