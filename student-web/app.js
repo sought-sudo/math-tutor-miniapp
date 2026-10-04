@@ -670,7 +670,7 @@
       el.classList.toggle('on', el.dataset.nav === name);
     });
     window.scrollTo(0, 0);
-    if (name === 'home') refreshHome();
+    if (name === 'home') renderHomeSubject();
     if (name === 'wrong') refreshWrong();
     if (name === 'parent') refreshParent();
     if (name === 'camera') cameraOnShow();
@@ -725,7 +725,6 @@
   }
 
   function cnShowPanel(name) {
-    $('cn-home-panel').style.display = name === 'home' ? 'block' : 'none';
     $('cn-chars-panel').style.display = name === 'chars' ? 'block' : 'none';
     $('cn-poems-panel').style.display = name === 'poems' ? 'block' : 'none';
     $('cn-reading-panel').style.display = name === 'reading' ? 'block' : 'none';
@@ -734,10 +733,8 @@
   }
 
   function refreshChinese() {
-    cnShowPanel('home');
-    if (window.Mascot) Mascot.render($('cn-mascot'), 'greet', 60, compGet().bond || 0);
-    if (window.Mascot) Mascot.render($('cn-task-mascot'), 'encourage', 44, compGet().bond || 0);
-    renderCnTask();
+    cnShowPanel('chars');
+    cnLoadChars();
   }
 
   // ---- 字词学习 + 听写 ----
@@ -929,7 +926,6 @@
   }
 
   function enShowPanel(name) {
-    $('en-home-panel').style.display = name === 'home' ? 'block' : 'none';
     $('en-listen-panel').style.display = name === 'listen' ? 'block' : 'none';
     $('en-repeat-panel').style.display = name === 'repeat' ? 'block' : 'none';
     $('en-spell-panel').style.display = name === 'spell' ? 'block' : 'none';
@@ -938,10 +934,8 @@
   }
 
   function refreshEnglish() {
-    enShowPanel('home');
-    if (window.Mascot) Mascot.render($('en-mascot'), 'greet', 60, compGet().bond || 0);
-    if (window.Mascot) Mascot.render($('en-task-mascot'), 'encourage', 44, compGet().bond || 0);
-    renderEnTask();
+    enShowPanel('listen');
+    enLoadWords(en.category || 'animals');
   }
 
   // ---- 听音学词 ----
@@ -998,7 +992,6 @@
     $('en-repeat-feedback').style.display = 'none';
     $('btn-en-self-ok').style.display = 'none';
     if (window.TTS) TTS.speakEn(en.current.word);
-    if (window.Mascot) Mascot.render($('en-mascot'), 'encourage', 60, compGet().bond || 0);
   }
 
   // 录音（MediaRecorder，≤5s）：权限/能力不可用时降级自评按钮
@@ -1180,6 +1173,57 @@
         '<span class="pi-done">' + (doneRatio >= 1 ? '✅' : Math.round(doneRatio * 100) + '%') + '</span>';
       box.appendChild(div);
     });
+  }
+
+  // ---------------- 首页学科切换（数学/英语/语文三科平级主页） ----------------
+
+  var currentSubjectTab = 'math';
+
+  function showHomeSubject(sub) {
+    if (['math', 'english', 'chinese'].indexOf(sub) < 0) sub = 'math';
+    currentSubjectTab = sub;
+    storeSetStr('stu_subject_tab', sub);
+    document.querySelectorAll('#subject-tabs .stab').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.subject === sub);
+    });
+    ['math', 'english', 'chinese'].forEach(function (s) {
+      var el = $('home-subject-' + s);
+      if (el) el.style.display = s === sub ? 'block' : 'none';
+    });
+    // hero 副标题随学科微调
+    var subEl = $('home-sub');
+    if (sub === 'english') {
+      subEl.textContent = 'Let\'s learn English! 一起开口说英语';
+    } else if (sub === 'chinese') {
+      subEl.textContent = '读一读，写一写，今天也元气满满';
+    } else {
+      refreshHome(); // 数学子页走原问候逻辑
+    }
+    if (sub === 'english') renderEnHome();
+    if (sub === 'chinese') renderCnHome();
+  }
+
+  function renderHomeSubject() {
+    var saved = storeStr('stu_subject_tab', 'math');
+    showHomeSubject(['math', 'english', 'chinese'].indexOf(saved) > -1 ? saved : 'math');
+  }
+
+  function renderEnHome() {
+    if (window.Mascot) Mascot.render($('en-task-mascot'), 'encourage', 44, compGet().bond || 0);
+    renderEnTask();
+    var t = enTaskGet();
+    $('en-home-listen').textContent = t.listen || 0;
+    $('en-home-repeat').textContent = t.repeat || 0;
+    $('en-home-spell').textContent = t.spell || 0;
+  }
+
+  function renderCnHome() {
+    if (window.Mascot) Mascot.render($('cn-task-mascot'), 'encourage', 44, compGet().bond || 0);
+    renderCnTask();
+    var t = cnTaskGet();
+    $('cn-home-chars').textContent = t.chars || 0;
+    $('cn-home-dictation').textContent = t.dictation || 0;
+    $('cn-home-poem').textContent = t.poem || 0;
   }
 
   // ---------------- 首页 ----------------
@@ -3195,6 +3239,8 @@
   document.querySelectorAll('.feature').forEach(function (el) {
     el.addEventListener('click', function () {
       if (el.dataset.go === 'guide') newPractice();
+      else if (el.dataset.go === 'english') showHomeSubject('english');
+      else if (el.dataset.go === 'chinese') showHomeSubject('chinese');
       else showView(el.dataset.go);
     });
   });
@@ -3205,17 +3251,28 @@
   // 训练营按钮
   $('btn-camp-start').addEventListener('click', campStartDiag);
 
-  // 英语学科按钮
+  // 首页学科切换条
+  document.querySelectorAll('#subject-tabs .stab').forEach(function (b) {
+    b.addEventListener('click', function () { showHomeSubject(b.dataset.subject); });
+  });
+
+  // 英语学科按钮（入口卡在首页英语子页，点击进入 view-english 对应面板）
   $('en-go-listen').addEventListener('click', function () {
+    showView('english');
     enShowPanel('listen');
     enLoadWords(en.category || 'animals');
   });
   $('en-go-repeat').addEventListener('click', function () {
+    showView('english');
     enShowPanel('listen');
     enLoadWords(en.category || 'animals');
   });
-  $('en-go-spell').addEventListener('click', enStartSpell);
+  $('en-go-spell').addEventListener('click', function () {
+    showView('english');
+    enStartSpell();
+  });
   $('en-go-dialogue').addEventListener('click', function () {
+    showView('english');
     enShowPanel('dialogue');
     enLoadScenes();
   });
@@ -3249,13 +3306,25 @@
     alert('对话完成！你真棒！🦊💬');
     refreshEnglish();
   });
-  $('btn-en-home').addEventListener('click', function () { refreshEnglish(); });
+  $('btn-en-home').addEventListener('click', function () { showView('home'); showHomeSubject('english'); });
 
-  // 语文学科按钮
-  $('cn-go-chars').addEventListener('click', cnLoadChars);
-  $('cn-go-poems').addEventListener('click', cnLoadPoems);
-  $('cn-go-reading').addEventListener('click', cnOpenReading);
-  $('cn-go-writing').addEventListener('click', function () { cnShowPanel('writing'); });
+  // 语文学科按钮（入口卡在首页语文子页，点击进入 view-chinese 对应面板）
+  $('cn-go-chars').addEventListener('click', function () {
+    showView('chinese');
+    cnLoadChars();
+  });
+  $('cn-go-poems').addEventListener('click', function () {
+    showView('chinese');
+    cnLoadPoems();
+  });
+  $('cn-go-reading').addEventListener('click', function () {
+    showView('chinese');
+    cnOpenReading();
+  });
+  $('cn-go-writing').addEventListener('click', function () {
+    showView('chinese');
+    cnShowPanel('writing');
+  });
   $('btn-cn-char-say').addEventListener('click', function () {
     if (cn.current) TTS.speak(cn.current.char + '，' + cn.current.words.split('、')[0]);
   });
@@ -3270,7 +3339,7 @@
   $('cn-dict-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') cnSubmitDictation(); });
   $('btn-cn-reading-submit').addEventListener('click', cnSubmitReading);
   $('btn-cn-writing-submit').addEventListener('click', cnSubmitWriting);
-  $('btn-cn-home').addEventListener('click', function () { refreshChinese(); });
+  $('btn-cn-home').addEventListener('click', function () { showView('home'); showHomeSubject('chinese'); });
   $('btn-camp-plan').addEventListener('click', campGeneratePlan);
   $('btn-diag-submit').addEventListener('click', function () {
     var v = $('diag-input').value.trim();

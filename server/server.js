@@ -747,11 +747,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 掌握度：各知识点分数（薄弱在前）
+    // 掌握度：各知识点分数（薄弱在前）；?subject= 可按学科过滤
     if (req.method === 'GET' && req.url.indexOf('/api/mastery/') === 0) {
-      const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);
+      const userId = decodeURIComponent((req.url.split('?')[0].split('/').pop() || ''));
       if (!userId) throw new Error('缺少用户 id');
-      send(res, 200, { ok: true, userId: userId, mastery: db.getMastery(userId) });
+      let subject = '';
+      try {
+        subject = new URL(req.url, 'http://x').searchParams.get('subject') || '';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      send(res, 200, { ok: true, userId: userId, subject: subject || 'all', mastery: db.getMastery(userId, subject || undefined) });
       return;
     }
 

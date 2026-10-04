@@ -227,3 +227,6 @@ h2 { font-size: 17px; margin: 0 0 14px; color: #444; }
 .camp-s { color: #999; font-size: 12px; }
 .report-text { background: #FFF9EE; border-radius: 10px; padding: 10px 12px; color: #7A5A00; font-size: 13px; line-height: 1.8; margin-bottom: 8px; }
 .script-box { background: #F2ECFF; border-radius: 10px; padding: 10px 12px; color: #5A3FA0; font-size: 13px; line-height: 1.8; margin-bottom: 8px; }
+
+/* 分科掌握度分组标题 */
+.subj-head { font-weight: 800; color: #B26A00; font-size: 13px; margin: 10px 0 4px; padding-left: 2px; }

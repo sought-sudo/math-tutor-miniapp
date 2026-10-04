@@ -30,6 +30,13 @@
         </div>
         <div class="hero-icon" id="hero-mascot"></div>
       </div>
+      <div class="subject-tabs" id="subject-tabs">
+        <button class="stab on" data-subject="math" id="stab-math">🔢 数学</button>
+        <button class="stab" data-subject="english" id="stab-english">🔤 英语</button>
+        <button class="stab" data-subject="chinese" id="stab-chinese">📖 语文</button>
+      </div>
+
+      <div class="home-subject theme-math" id="home-subject-math">
       <div class="stats-row">
         <div class="card stat"><div class="num" id="home-today">0</div><div class="lbl">🏅 今日闯关</div></div>
         <div class="card stat"><div class="num" id="home-acc">--</div><div class="lbl">🎯 正确率</div></div>
@@ -68,12 +75,6 @@
         <div class="card feature" data-go="map">
           <div class="f-icon f-teal">🗺️</div><div class="f-title">知识地图</div><div class="f-desc">点亮你学会的知识点</div>
         </div>
-        <div class="card feature" data-go="english">
-          <div class="f-icon f-cyan">🔤</div><div class="f-title">英语</div><div class="f-desc">Listen & say with 小狐</div>
-        </div>
-        <div class="card feature" data-go="chinese">
-          <div class="f-icon f-rose">📖</div><div class="f-title">语文</div><div class="f-desc">读一读，写一写</div>
-        </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
         </div>
@@ -87,6 +88,61 @@
         <div class="label">📖 练习单元（教材同步）</div>
         <select id="unit-select"></select>
         <div class="note">选一个单元，练习就会集中在这个单元的知识点；选"全部"则按你的薄弱点智能出题。</div>
+      </div>
+      </div>
+
+      <!-- 英语主页 -->
+      <div class="home-subject theme-english" id="home-subject-english" style="display:none">
+        <div class="stats-row">
+          <div class="card stat"><div class="num" id="en-home-listen">0</div><div class="lbl">🎧 今日学词</div></div>
+          <div class="card stat"><div class="num" id="en-home-repeat">0</div><div class="lbl">🎤 跟读次数</div></div>
+          <div class="card stat"><div class="num" id="en-home-spell">0</div><div class="lbl">✏️ 拼对个数</div></div>
+        </div>
+        <div class="card task-card" id="en-task-card">
+          <div class="task-head">
+            <div class="task-mascot" id="en-task-mascot"></div>
+            <div class="task-info">
+              <div class="task-title">📋 今日英语任务</div>
+              <div class="task-text" id="en-task-text">听 3 个词 · 跟读 2 次 · 拼对 2 个</div>
+            </div>
+          </div>
+          <div class="task-track"><div class="task-fill" id="en-task-fill"></div></div>
+          <div class="task-progress" id="en-task-progress">已完成 0 / 3</div>
+        </div>
+        <div class="grid">
+          <div class="card feature" id="en-go-listen"><div class="f-icon f-cyan">🎧</div><div class="f-title">听音学词</div><div class="f-desc">Listen and learn</div></div>
+          <div class="card feature" id="en-go-repeat"><div class="f-icon f-cyan">🎤</div><div class="f-title">跟读练习</div><div class="f-desc">Repeat after 小狐</div></div>
+          <div class="card feature" id="en-go-spell"><div class="f-icon f-cyan">✏️</div><div class="f-title">拼写挑战</div><div class="f-desc">Spell the word</div></div>
+          <div class="card feature" id="en-go-dialogue"><div class="f-icon f-cyan">💬</div><div class="f-title">场景对话</div><div class="f-desc">Let's talk!</div></div>
+        </div>
+        <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text" id="en-home-tip">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。Practice makes perfect!</div></div>
+      </div>
+
+      <!-- 语文主页 -->
+      <div class="home-subject theme-chinese" id="home-subject-chinese" style="display:none">
+        <div class="stats-row">
+          <div class="card stat"><div class="num" id="cn-home-chars">0</div><div class="lbl">📝 今日认字</div></div>
+          <div class="card stat"><div class="num" id="cn-home-dictation">0</div><div class="lbl">✏️ 听写个数</div></div>
+          <div class="card stat"><div class="num" id="cn-home-poem">0</div><div class="lbl">🎋 诵读篇数</div></div>
+        </div>
+        <div class="card task-card" id="cn-task-card">
+          <div class="task-head">
+            <div class="task-mascot" id="cn-task-mascot"></div>
+            <div class="task-info">
+              <div class="task-title">📋 今日语文任务</div>
+              <div class="task-text" id="cn-task-text">认 3 个字 · 听写 2 个 · 读 1 首</div>
+            </div>
+          </div>
+          <div class="task-track"><div class="task-fill" id="cn-task-fill"></div></div>
+          <div class="task-progress" id="cn-task-progress">已完成 0 / 3</div>
+        </div>
+        <div class="grid">
+          <div class="card feature" id="cn-go-chars"><div class="f-icon f-rose">📝</div><div class="f-title">字词学习</div><div class="f-desc">认字 + 听写</div></div>
+          <div class="card feature" id="cn-go-poems"><div class="f-icon f-rose">🎋</div><div class="f-title">古诗诵读</div><div class="f-desc">大声读出来</div></div>
+          <div class="card feature" id="cn-go-reading"><div class="f-icon f-rose">📖</div><div class="f-title">阅读引导</div><div class="f-desc">找找依据在哪句</div></div>
+          <div class="card feature" id="cn-go-writing"><div class="f-icon f-rose">✍️</div><div class="f-title">写作小建议</div><div class="f-desc">只建议，不打分</div></div>
+        </div>
+        <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text" id="cn-home-tip">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
       </div>
     </section>
 
@@ -415,34 +471,6 @@
     <!-- 英语学科（阶段 2 MVP） -->
     <section id="view-english" class="view" style="display:none">
       <!-- 英语首页 -->
-      <div id="en-home-panel">
-        <div class="card en-hero">
-          <div class="en-hero-mascot" id="en-mascot"></div>
-          <div>
-            <div class="en-hero-title">Hello! I'm 小狐! 🦊</div>
-            <div class="en-hero-sub" id="en-hero-sub">Let's learn English together!</div>
-          </div>
-        </div>
-        <div class="card task-card" id="en-task-card">
-          <div class="task-head">
-            <div class="task-mascot" id="en-task-mascot"></div>
-            <div class="task-info">
-              <div class="task-title">📋 今日英语任务</div>
-              <div class="task-text" id="en-task-text">听 3 个词 · 跟读 2 次 · 拼对 2 个</div>
-            </div>
-          </div>
-          <div class="task-track"><div class="task-fill" id="en-task-fill"></div></div>
-          <div class="task-progress" id="en-task-progress">已完成 0 / 3</div>
-        </div>
-        <div class="grid">
-          <div class="card feature" id="en-go-listen"><div class="f-icon f-cyan">🎧</div><div class="f-title">听音学词</div><div class="f-desc">Listen and learn</div></div>
-          <div class="card feature" id="en-go-repeat"><div class="f-icon f-cyan">🎤</div><div class="f-title">跟读练习</div><div class="f-desc">Repeat after 小狐</div></div>
-          <div class="card feature" id="en-go-spell"><div class="f-icon f-cyan">✏️</div><div class="f-title">拼写挑战</div><div class="f-desc">Spell the word</div></div>
-          <div class="card feature" id="en-go-dialogue"><div class="f-icon f-cyan">💬</div><div class="f-title">场景对话</div><div class="f-desc">Let's talk!</div></div>
-        </div>
-        <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。</div></div>
-      </div>
-
       <!-- 听音学词（LISTEN） -->
       <div id="en-listen-panel" style="display:none">
         <div class="en-state-bar">🎧 听一听</div>
@@ -520,34 +548,6 @@
     <!-- 语文学科（阶段 3 MVP） -->
     <section id="view-chinese" class="view" style="display:none">
       <!-- 语文首页 -->
-      <div id="cn-home-panel">
-        <div class="card en-hero">
-          <div class="en-hero-mascot" id="cn-mascot"></div>
-          <div>
-            <div class="en-hero-title">你好，我是小狐！🦊</div>
-            <div class="en-hero-sub" id="cn-hero-sub">一起读课文、写生字吧！</div>
-          </div>
-        </div>
-        <div class="card task-card" id="cn-task-card">
-          <div class="task-head">
-            <div class="task-mascot" id="cn-task-mascot"></div>
-            <div class="task-info">
-              <div class="task-title">📋 今日语文任务</div>
-              <div class="task-text" id="cn-task-text">认 3 个字 · 听写 2 个 · 读 1 首</div>
-            </div>
-          </div>
-          <div class="task-track"><div class="task-fill" id="cn-task-fill"></div></div>
-          <div class="task-progress" id="cn-task-progress">已完成 0 / 3</div>
-        </div>
-        <div class="grid">
-          <div class="card feature" id="cn-go-chars"><div class="f-icon f-rose">📝</div><div class="f-title">字词学习</div><div class="f-desc">认字 + 听写</div></div>
-          <div class="card feature" id="cn-go-poems"><div class="f-icon f-rose">🎋</div><div class="f-title">古诗诵读</div><div class="f-desc">大声读出来</div></div>
-          <div class="card feature" id="cn-go-reading"><div class="f-icon f-rose">📖</div><div class="f-title">阅读引导</div><div class="f-desc">找找依据在哪句</div></div>
-          <div class="card feature" id="cn-go-writing"><div class="f-icon f-rose">✍️</div><div class="f-title">写作小建议</div><div class="f-desc">只建议，不打分</div></div>
-        </div>
-        <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
-      </div>
-
       <!-- 字词学习（READ_ALOUD → WORD_PRACTICE） -->
       <div id="cn-chars-panel" style="display:none">
         <div class="en-state-bar">📝 字词学一学</div>

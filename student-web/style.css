@@ -973,3 +973,28 @@ textarea { resize: vertical; min-height: 72px; }
 .plan-item .pi-name { font-weight: 800; color: #FF8A00; min-width: 34px; }
 .plan-item .pi-task { flex: 1; }
 .plan-item .pi-done { color: #14A98C; font-weight: 800; }
+
+/* ---------------- 首页学科切换（三科平级主页） ---------------- */
+.subject-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.stab {
+  flex: 1; border: 2px solid #F0E4CC; background: #fff; color: #8a7a5a;
+  border-radius: 999px; padding: 10px 0; font-size: 14px; font-weight: 800; cursor: pointer;
+  transition: all 0.15s ease;
+}
+.stab.on { color: #fff; border-color: transparent; }
+.home-subject { border-radius: 16px; padding: 2px; }
+/* 英语子页：蓝色调 */
+.home-subject.theme-english .task-card { background: linear-gradient(160deg, #EAF4FF, #F5FAFF); }
+.home-subject.theme-english .task-title, .home-subject.theme-english .plan-head { color: #2A6FB8; }
+.home-subject.theme-english .task-fill { background: linear-gradient(90deg, #4FA8E8, #2A6FB8); }
+.home-subject.theme-english .tip { background: #EAF4FF; }
+.home-subject.theme-english .stab-colored { background: #2A6FB8; }
+/* 语文子页：朱砂红调 */
+.home-subject.theme-chinese .task-card { background: linear-gradient(160deg, #FFF1EC, #FFF8F5); }
+.home-subject.theme-chinese .task-title, .home-subject.theme-chinese .plan-head { color: #C2452D; }
+.home-subject.theme-chinese .task-fill { background: linear-gradient(90deg, #E8735A, #C2452D); }
+.home-subject.theme-chinese .tip { background: #FFF1EC; }
+/* 切换条选中态跟随学科色 */
+.stab.on[data-subject=math] { background: linear-gradient(90deg, #FFC53D, #FF9F1C); }
+.stab.on[data-subject=english] { background: linear-gradient(90deg, #4FA8E8, #2A6FB8); }
+.stab.on[data-subject=chinese] { background: linear-gradient(90deg, #E8735A, #C2452D); }

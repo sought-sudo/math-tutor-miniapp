@@ -99,27 +99,60 @@
     '长方形面积': '"长乘宽"算出来的是哪一块地方？单位写对了吗？'
   };
 
-  // 掌握度条形卡
-  function loadMastery(code) {
-    api('/api/mastery/' + encodeURIComponent(code)).then(function (res) {
-      if (!res.ok || !res.mastery) return;
-      var box = $('masterybox');
-      box.innerHTML = '';
-      if (!res.mastery.length) {
-        box.innerHTML = '<div class="empty">还没有足够数据，练几题后这里会出现掌握度</div>';
-        return;
-      }
-      res.mastery.forEach(function (m) {
-        var cls = m.score >= 80 ? 'good' : (m.score >= 50 ? 'mid' : 'weak');
-        var row = document.createElement('div');
-        row.className = 'krow';
-        row.innerHTML =
-          '<div class="kname">' + esc(m.knowledge_point) + '</div>' +
-          '<div class="ktrack"><div class="kfill ' + cls + '" style="width:' + Math.max(4, m.score) + '%"></div></div>' +
-          '<div class="kcount">' + m.score + '分</div>';
-        box.appendChild(row);
+  // 分科学习概览 + 掌握度按学科分组
+  function loadBySubject(code) {
+    // 1) 概览行（/api/report 的 bySubject）
+    api('/api/report/' + encodeURIComponent(code)).then(function (res) {
+      if (!res.ok) return;
+      var box = $('subjectbox');
+      var subs = res.bySubject || {};
+      var names = { math: '数学', english: '英语', chinese: '语文' };
+      var html = '';
+      ['math', 'english', 'chinese'].forEach(function (sub) {
+        var m = subs[sub];
+        if (!m || (!m.attempts && !m.correct && !m.wrong)) return;
+        html += '<div class="krow"><div class="kname">' + names[sub] + '</div>' +
+          '<div class="ktrack"><div class="kfill good" style="width:100%"></div></div>' +
+          '<div class="kcount">' + (m.correct + m.wrong) + ' 题 · ' + m.minutes + ' 分</div></div>';
       });
+      if (html) {
+        box.innerHTML = html + '<div class="empty">掌握度分科明细见下方卡片</div>';
+        $('camp-subject-note') && 0;
+      } else {
+        box.innerHTML = '<div class="empty">三科都还没有练习记录</div>';
+      }
     }).catch(function () {});
+
+    // 2) 掌握度条形卡按学科分三段
+    var masteryBox = $('masterybox');
+    masteryBox.innerHTML = '';
+    var names = { math: '🔢 数学', english: '🔤 英语', chinese: '📖 语文' };
+    var any = false;
+    ['math', 'english', 'chinese'].forEach(function (sub) {
+      api('/api/mastery/' + encodeURIComponent(code) + '?subject=' + sub).then(function (res) {
+        if (!res.ok || !res.mastery || !res.mastery.length) return;
+        any = true;
+        var head = document.createElement('div');
+        head.className = 'subj-head';
+        head.textContent = names[sub] + '（' + res.mastery.length + ' 项）';
+        masteryBox.appendChild(head);
+        res.mastery.forEach(function (m) {
+          var cls = m.score >= 80 ? 'good' : (m.score >= 50 ? 'mid' : 'weak');
+          var row = document.createElement('div');
+          row.className = 'krow';
+          row.innerHTML =
+            '<div class="kname">' + esc(m.knowledge_point) + '</div>' +
+            '<div class="ktrack"><div class="kfill ' + cls + '" style="width:' + Math.max(4, m.score) + '%"></div></div>' +
+            '<div class="kcount">' + m.score + '分</div>';
+          masteryBox.appendChild(row);
+        });
+      }).catch(function () {});
+    });
+    setTimeout(function () {
+      if (!any && !masteryBox.children.length) {
+        masteryBox.innerHTML = '<div class="empty">还没有足够数据，练几题后这里会出现掌握度</div>';
+      }
+    }, 1500);
   }
 
   // 掌握度成长曲线（近 14 天 SVG 折线）
@@ -476,8 +509,7 @@
         };
         localStorage.setItem(LS_CODE, code);
         render();
-        loadMastery(code);
-        loadTrend(code);
+        loadBySubject(code);
         loadCamp(code);
         // 行为日志：家长查看报告/沟通脚本
         fetch(apiBase + '/api/event', {

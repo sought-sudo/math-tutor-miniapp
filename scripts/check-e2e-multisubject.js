@@ -174,11 +174,12 @@ async function get(path) {
       if (!ok) okAll = false;
     });
     const idx = fs.readFileSync('student-web/index.html', 'utf8');
-    const hasEnGreet = idx.indexOf("Hello! I'm 小狐!") > -1;
-    const hasCnGreet = idx.indexOf('一起读课文、写生字吧') > -1;
-    console.log('  英语首页小狐英文问候：' + hasEnGreet + '；语文首页小狐中文问候：' + hasCnGreet);
-    if (okAll && hasEnGreet && hasCnGreet) stepOk(6, '三科小狐话术/形象适配 ✅');
-    else stepFail(6, '小狐话术不适配', '检查 student-web/index.html 与 subjects/*/prompts.js');
+    const appjs = fs.readFileSync('student-web/app.js', 'utf8');
+    const hasEnHome = idx.indexOf('今日英语任务') > -1 && idx.indexOf('Practice makes perfect') > -1 && appjs.indexOf("Let\\'s learn English! 一起开口说英语") > -1;
+    const hasCnHome = idx.indexOf('今日语文任务') > -1 && idx.indexOf('读课文时先出声读一遍') > -1 && appjs.indexOf('读一读，写一写，今天也元气满满') > -1;
+    console.log('  英语主页（任务卡+双语贴士+英文问候）：' + hasEnHome + '；语文主页（任务卡+贴士+中文勉励）：' + hasCnHome);
+    if (okAll && hasEnHome && hasCnHome) stepOk(6, '三科小狐话术/形象适配 ✅');
+    else stepFail(6, '小狐话术不适配', '检查 student-web/index.html 首页三科子区与 subjects/*/prompts.js');
   } catch (e) {
     stepFail(6, '虚拟伙伴检查异常', e.message);
   }
