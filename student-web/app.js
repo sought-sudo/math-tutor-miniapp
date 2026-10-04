@@ -1195,16 +1195,19 @@
 
   // ---------------- 每日学习计划（最多 2 科，15~25 分钟） ----------------
 
-  function renderDailyPlan(mathToday) {
+  function renderDailyPlan(mathToday, prefix) {
     if (!window.DailyPlan) return;
+    var pre = prefix || '';
     var goal = dynamicGoal();
     var enDone = enTaskGet();
     var enCount = (enDone.listen >= 1 ? 1 : 0) + (enDone.repeat >= 1 ? 1 : 0) + (enDone.spell >= 1 ? 1 : 0);
     var cnDone = cnTaskGet();
     var cnCount = (cnDone.chars >= 1 ? 1 : 0) + (cnDone.dictation >= 1 ? 1 : 0) + (cnDone.poem >= 1 ? 1 : 0);
     var plan = DailyPlan.buildDailyPlan(goal, enCount, cnCount, new Date().getDay());
-    $('plan-minutes').textContent = plan.estimatedMinutes;
-    var box = $('plan-items');
+    var minEl = $(pre + 'plan-minutes');
+    var box = $(pre + 'plan-items');
+    if (!minEl || !box) return;
+    minEl.textContent = plan.estimatedMinutes;
     box.innerHTML = '';
     plan.items.forEach(function (it) {
       var div = document.createElement('div');
@@ -1329,6 +1332,7 @@
   function renderEnHome() {
     if (window.Mascot) Mascot.render($('en-task-mascot'), 'encourage', 44, compGet().bond || 0);
     renderEnTask();
+    renderDailyPlan(0, 'en-');
     initEnUnitSelect();
     var t = enTaskGet();
     $('en-home-listen').textContent = t.listen || 0;
@@ -1339,6 +1343,7 @@
   function renderCnHome() {
     if (window.Mascot) Mascot.render($('cn-task-mascot'), 'encourage', 44, compGet().bond || 0);
     renderCnTask();
+    renderDailyPlan(0, 'cn-');
     initCnUnitSelect();
     var t = cnTaskGet();
     $('cn-home-chars').textContent = t.chars || 0;

@@ -109,11 +109,10 @@
           </div>
           <div class="task-track"><div class="task-fill" id="en-task-fill"></div></div>
           <div class="task-progress" id="en-task-progress">已完成 0 / 3</div>
-        </div>
-        <div class="card unit-card">
-          <div class="label">📖 教材单元（人教版 PEP 三起·四年级）</div>
-          <select id="en-unit-select"></select>
-          <div class="note">选一个单元，听音学词就集中学这个单元的单词。</div>
+          <div class="plan-box" id="en-plan-box">
+            <div class="plan-head">🗓️ 今日学习计划 · 预计 <span id="en-plan-minutes">--</span> 分钟（最多 2 科）</div>
+            <div id="en-plan-items"></div>
+          </div>
         </div>
         <div class="grid">
           <div class="card feature" id="en-go-listen"><div class="f-icon f-cyan">🎧</div><div class="f-title">听音学词</div><div class="f-desc">Listen and learn</div></div>
@@ -125,6 +124,11 @@
         </div>
         <div class="card tip"><div class="tip-title">💡 英语小贴士</div><div class="tip-text" id="en-home-tip">先听几遍再开口，读错也没关系，小狐会陪你慢慢来。Practice makes perfect!</div></div>
         <div class="p-parent-entry" id="parent-entry-english">📊 家长端 · 让爸妈看看我的进步 →</div>
+        <div class="card unit-card">
+          <div class="label">📖 教材单元（人教版 PEP 三起·四年级）</div>
+          <select id="en-unit-select"></select>
+          <div class="note">选一个单元，听音学词就集中学这个单元的单词。</div>
+        </div>
       </div>
 
       <!-- 语文主页 -->
@@ -144,11 +148,10 @@
           </div>
           <div class="task-track"><div class="task-fill" id="cn-task-fill"></div></div>
           <div class="task-progress" id="cn-task-progress">已完成 0 / 3</div>
-        </div>
-        <div class="card unit-card">
-          <div class="label">📖 教材单元（统编版·四年级）</div>
-          <select id="cn-unit-select"></select>
-          <div class="note">选一个单元，看看它对应哪些字词、古诗和阅读知识点。</div>
+          <div class="plan-box" id="cn-plan-box">
+            <div class="plan-head">🗓️ 今日学习计划 · 预计 <span id="cn-plan-minutes">--</span> 分钟（最多 2 科）</div>
+            <div id="cn-plan-items"></div>
+          </div>
         </div>
         <div class="grid">
           <div class="card feature" id="cn-go-chars"><div class="f-icon f-rose">📝</div><div class="f-title">字词学习</div><div class="f-desc">认字 + 听写</div></div>
@@ -160,6 +163,11 @@
         </div>
         <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text" id="cn-home-tip">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
         <div class="p-parent-entry" id="parent-entry-chinese">📊 家长端 · 让爸妈看看我的进步 →</div>
+        <div class="card unit-card">
+          <div class="label">📖 教材单元（统编版·四年级）</div>
+          <select id="cn-unit-select"></select>
+          <div class="note">选一个单元，看看它对应哪些字词、古诗和阅读知识点。</div>
+        </div>
       </div>
     </section>
 
@@ -720,16 +728,16 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
-  <script src="curriculum.js?v=20261004d" onerror="window.__curriculumFailed = true"></script>
-  <script src="mcq.js?v=20261004d" onerror="window.__mcqFailed = true"></script>
+  <script src="curriculum.js?v=20261004e" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js?v=20261004e" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题；?v= 版本号防浏览器缓存旧脚本 -->
-  <script src="solver.js?v=20261004d" onerror="window.__solverFailed = true"></script>
+  <script src="solver.js?v=20261004e" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
       function boot() {
         var s = document.createElement('script');
-        s.src = 'app.js?v=20261004d';
+        s.src = 'app.js?v=20261004e';
         document.head.appendChild(s);
       }
       function fail() {
