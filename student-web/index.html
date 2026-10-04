@@ -160,6 +160,50 @@
       </div>
     </section>
 
+    <!-- 批改作业（独立入口） -->
+    <section id="view-homework" class="view" style="display:none">
+      <input type="file" id="hw-file" accept="image/*" capture="environment" style="display:none">
+      <input type="file" id="hw-alb-file" accept="image/*" style="display:none">
+      <div class="camera-box" id="hw-box">
+        <img id="hw-img" alt="" style="display:none">
+        <div class="camera-guide" id="hw-guide">
+          <i class="cg cg-tl"></i><i class="cg cg-tr"></i><i class="cg cg-bl"></i><i class="cg cg-br"></i>
+          <span class="cam-emoji">📝</span>把作业放平拍清楚<br>一页多题也可以
+        </div>
+        <div class="cam-edit" id="hw-edit" style="display:none">
+          <canvas id="hw-edit-canvas"></canvas>
+          <div class="cam-edit-tools" id="hw-edit-tools">
+            <button class="cet-btn pen red on" id="hw-pen-red" title="红笔">🔴</button>
+            <button class="cet-btn pen" id="hw-pen-yellow" title="黄笔">🟡</button>
+            <button class="cet-btn" id="hw-annotate-undo">↩ 撤销</button>
+            <button class="cet-btn" id="hw-annotate-clear">🗑</button>
+          </div>
+          <div class="cam-edit-actions">
+            <button class="cet-btn act-cancel" id="hw-edit-cancel">取消</button>
+            <button class="cet-btn act-ok" id="hw-edit-done">✓ 完成</button>
+          </div>
+        </div>
+      </div>
+      <div class="scanning" id="hw-scan" style="display:none">📝 小狐正在批改作业，请稍等…</div>
+      <div class="tip-line">💡 批改结果仅供参考，记得自己核对一遍</div>
+      <div class="actions">
+        <button class="btn btn-primary act" id="hw-btn-camera">📷 拍照</button>
+        <button class="btn btn-blue act" id="hw-btn-album">🖼️ 从相册选择</button>
+        <button class="btn btn-ghost act" id="hw-btn-rotate" style="display:none">↻ 旋转</button>
+        <button class="btn btn-ghost act" id="hw-btn-crop" style="display:none">✂️ 裁剪</button>
+        <button class="btn btn-ghost act" id="hw-btn-annotate" style="display:none">✏️ 标注</button>
+        <button class="btn btn-green act" id="hw-btn-grade" style="display:none">📝 开始批改</button>
+      </div>
+      <div class="card" id="hw-grade-card" style="display:none">
+        <div class="label">📝 批改结果（AI 读题 + 本地引擎判分，仅供参考）</div>
+        <div id="hw-grade-list"></div>
+        <div class="result-row">
+          <button class="btn btn-primary" id="hw-to-wrong">📕 去错题本复习</button>
+          <button class="btn btn-blue" id="hw-to-camp">🎯 去训练营补漏</button>
+        </div>
+      </div>
+    </section>
+
     <!-- 拍照识题 -->
     <section id="view-camera" class="view" style="display:none">
       <input type="file" id="cam-file" accept="image/*" capture="environment" style="display:none">
@@ -194,15 +238,6 @@
         <button class="btn btn-ghost act" id="btn-rotate" style="display:none">↻ 旋转</button>
         <button class="btn btn-ghost act" id="btn-crop" style="display:none">✂️ 裁剪</button>
         <button class="btn btn-ghost act" id="btn-annotate" style="display:none">✏️ 标注</button>
-        <button class="btn btn-green act" id="btn-homework-grade" style="display:none">📝 批改作业</button>
-      </div>
-      <div class="card" id="hw-grade-card" style="display:none">
-        <div class="label">📝 批改结果（AI 批改仅供参考，记得自己核对一遍）</div>
-        <div id="hw-grade-list"></div>
-        <div class="result-row">
-          <button class="btn btn-primary" id="btn-hw-to-wrong">📕 去错题本复习</button>
-          <button class="btn btn-blue" id="btn-hw-to-camp">🎯 去训练营补漏</button>
-        </div>
       </div>
       <div class="card" id="recog-card" style="display:none">
         <div class="label">识别的题目（可以手动修改）</div>
@@ -682,16 +717,16 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
-  <script src="curriculum.js?v=20261004b" onerror="window.__curriculumFailed = true"></script>
-  <script src="mcq.js?v=20261004b" onerror="window.__mcqFailed = true"></script>
+  <script src="curriculum.js?v=20261004c" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js?v=20261004c" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题；?v= 版本号防浏览器缓存旧脚本 -->
-  <script src="solver.js?v=20261004b" onerror="window.__solverFailed = true"></script>
+  <script src="solver.js?v=20261004c" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
       function boot() {
         var s = document.createElement('script');
-        s.src = 'app.js?v=20261004b';
+        s.src = 'app.js?v=20261004c';
         document.head.appendChild(s);
       }
       function fail() {

@@ -662,7 +662,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english', 'chinese'].forEach(function (v) {
+    ['home', 'camera', 'homework', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english', 'chinese'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
@@ -1271,6 +1271,7 @@
       items = [
         { icon: '🏠', label: '首页', act: 'home' },
         { icon: '📷', label: '拍照识题', act: 'camera' },
+        { icon: '📝', label: '批改作业', act: 'homework' },
         { icon: '📕', label: '错题本', act: 'wrong' },
         { icon: '🎯', label: '训练营', act: 'camp' }
       ];
@@ -1311,6 +1312,9 @@
       case 'camp':
         camp.subject = currentSubjectTab;
         showView('camp');
+        break;
+      case 'homework':
+        showView('homework');
         break;
       default:
         showView(act);
@@ -1581,7 +1585,6 @@
     $('btn-rotate').style.display = 'flex';
     $('btn-crop').style.display = 'flex';
     $('btn-annotate').style.display = 'flex';
-    $('btn-homework-grade').style.display = 'flex';
     $('blur-hint').style.display = 'none';
     $('camera-guide').style.display = 'none';
     $('recog-card').style.display = 'block';
@@ -1793,18 +1796,24 @@
     handle: null,      // 正在拖动的角 'tl'|'tr'|'bl'|'br' 或 'move'
     strokes: [],       // 标注笔迹 [{color, points:[{x,y}]}]
     color: '#FF3B30',
-    drawing: null
+    drawing: null,
+    ids: { box: 'camera-box', canvas: 'cam-edit-canvas', layer: 'cam-edit', img: 'camera-img', tools: 'cam-edit-tools' },
+    onApply: null,     // 编辑完成后回调（默认 setCamImage）
+    rotDeg: function () { return camRotateDeg; }
   };
 
-  function camEditStart(mode) {
-    var img = $('camera-img');
-    if (!img.src || img.style.display === 'none') return;
+  function camEditStart(mode, ids, onApply, rotDeg) {
+    if (ids) camEdit.ids = ids;
+    if (onApply) camEdit.onApply = onApply;
+    if (typeof rotDeg === 'function') camEdit.rotDeg = rotDeg;
+    var img = $(camEdit.ids.img);
+    if (!img || !img.src || img.style.display === 'none') return;
     // 把当前图（含 CSS 旋转）烘进底图 canvas
     var bake = new Image();
     bake.onload = function () {
       try {
         var c = document.createElement('canvas');
-        var rot = ((camRotateDeg % 360) + 360) % 360;
+        var rot = ((camEdit.rotDeg() % 360) + 360) % 360;
         var swap = rot === 90 || rot === 270;
         c.width = swap ? bake.height : bake.width;
         c.height = swap ? bake.width : bake.height;
@@ -1817,9 +1826,9 @@
         camEdit.strokes = [];
         camEdit.drawing = null;
         camEdit.handle = null;
-        // 画布铺满 camera-box
-        var box = $('camera-box');
-        var cv = $('cam-edit-canvas');
+        // 画布铺满图片框
+        var box = $(camEdit.ids.box);
+        var cv = $(camEdit.ids.canvas);
         camEdit.vw = box.clientWidth;
         camEdit.vh = box.clientHeight;
         cv.width = camEdit.vw;
@@ -1836,10 +1845,10 @@
           camEdit.rect = { x: (camEdit.vw - w) / 2, y: (camEdit.vh - h) / 2, w: w, h: h };
         }
         // 工具条显隐：标注才显示画笔组
-        document.querySelectorAll('#cam-edit-tools .pen').forEach(function (b) {
+        document.querySelectorAll('#' + camEdit.ids.tools + ' .pen').forEach(function (b) {
           b.style.display = mode === 'annotate' ? 'inline-block' : 'none';
         });
-        $('cam-edit').style.display = 'block';
+        $(camEdit.ids.layer).style.display = 'block';
         camEditRender();
       } catch (e) {
         // 编辑失败静默保留原图
@@ -1896,7 +1905,7 @@
   }
 
   function camEditPos(ev) {
-    var cv = $('cam-edit-canvas');
+    var cv = $(camEdit.ids.canvas);
     var b = cv.getBoundingClientRect();
     return { x: ev.clientX - b.left, y: ev.clientY - b.top };
   }
@@ -1917,7 +1926,7 @@
     var e = camEdit;
     if (!e.view) return;
     ev.preventDefault();
-    var cv = $('cam-edit-canvas');
+    var cv = $(camEdit.ids.canvas);
     cv.setPointerCapture(ev.pointerId);
     var p = camEditPos(ev);
     if (e.mode === 'crop') {
@@ -1989,7 +1998,7 @@
     camEdit.mode = '';
     camEdit.base = null;
     camEdit.drawing = null;
-    $('cam-edit').style.display = 'none';
+    $(camEdit.ids.layer).style.display = 'none';
   }
 
   function camEditDone() {
@@ -2031,10 +2040,14 @@
     }
     var dataUrl = out.toDataURL('image/jpeg', 0.9);
     camEditCancel();
-    $('camera-scan').style.display = 'block';
-    $('recog-input').value = '';
-    $('recog-note').style.display = 'none';
-    setCamImage(dataUrl);
+    if (camEdit.onApply) {
+      camEdit.onApply(dataUrl);
+    } else {
+      $('camera-scan').style.display = 'block';
+      $('recog-input').value = '';
+      $('recog-note').style.display = 'none';
+      setCamImage(dataUrl);
+    }
   }
 
   // ---------------- 分步引导 ----------------
@@ -3568,21 +3581,51 @@
     if (e.target === $('zoom-overlay')) $('zoom-overlay').style.display = 'none';
   });
 
-  // 拍照批改作业（数学）：判分 → 错题本 + 训练营联动
+  // ---------------- 批改作业（独立入口） ----------------
+
+  var hwRotateDeg = 0;
+
+  function hwSetImage(src) {
+    var img = $('hw-img');
+    img.src = src;
+    img.style.display = 'block';
+    img.style.transform = 'rotate(0deg)';
+    hwRotateDeg = 0;
+    $('hw-btn-rotate').style.display = 'flex';
+    $('hw-btn-crop').style.display = 'flex';
+    $('hw-btn-annotate').style.display = 'flex';
+    $('hw-btn-grade').style.display = 'flex';
+    $('hw-guide').style.display = 'none';
+    $('hw-grade-card').style.display = 'none';
+    detectBlur(src);
+  }
+
+  function hwHandleImage(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      camResize(String(reader.result), 1280, 0.9, function (small) {
+        $('hw-scan').style.display = 'none';
+        hwSetImage(small);
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // 批改作业：AI 读题 + 本地引擎判分 → 错题本 + 训练营联动（功能与之前一致）
   function homeworkGrade() {
-    var img = $('camera-img');
+    var img = $('hw-img');
     if (!img.src || img.style.display === 'none') return;
     var dataUrl = String(img.src);
     var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-    $('camera-scan').textContent = '📝 小狐正在批改作业，请稍等…';
-    $('camera-scan').style.display = 'block';
+    $('hw-scan').style.display = 'block';
     $('hw-grade-card').style.display = 'none';
     fetch(getApiBase() + '/api/math/homework-grade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: base64, code: getCode() })
     }).then(function (r) { return r.json(); }).then(function (j) {
-      $('camera-scan').style.display = 'none';
+      $('hw-scan').style.display = 'none';
       if (!j.ok) { alert(j.error || '批改失败，稍后再试'); return; }
       var box = $('hw-grade-list');
       box.innerHTML = '';
@@ -3606,14 +3649,56 @@
       $('hw-grade-card').style.display = 'block';
       if (j.wrongCount > 0) alert('批改完成！有 ' + j.wrongCount + ' 道错题已经放进错题本啦 📕');
     }).catch(function () {
-      $('camera-scan').style.display = 'none';
+      $('hw-scan').style.display = 'none';
       alert('网络开了小差，稍后再试');
     });
   }
 
-  $('btn-homework-grade').addEventListener('click', homeworkGrade);
-  $('btn-hw-to-wrong').addEventListener('click', function () { showView('wrong'); });
-  $('btn-hw-to-camp').addEventListener('click', function () { camp.subject = 'math'; showView('camp'); });
+  $('hw-btn-camera').addEventListener('click', function () { $('hw-file').click(); });
+  $('hw-btn-album').addEventListener('click', function () { $('hw-alb-file').click(); });
+  $('hw-file').addEventListener('change', function (e) { hwHandleImage(e.target.files[0]); });
+  $('hw-alb-file').addEventListener('change', function (e) { hwHandleImage(e.target.files[0]); });
+  $('hw-btn-rotate').addEventListener('click', function () {
+    hwRotateDeg = (hwRotateDeg + 90) % 360;
+    $('hw-img').style.transform = 'rotate(' + hwRotateDeg + 'deg)';
+  });
+  $('hw-btn-crop').addEventListener('click', function () {
+    camEditStart('crop',
+      { box: 'hw-box', canvas: 'hw-edit-canvas', layer: 'hw-edit', img: 'hw-img', tools: 'hw-edit-tools' },
+      function (dataUrl) { hwSetImage(dataUrl); },
+      function () { return hwRotateDeg; });
+  });
+  $('hw-btn-annotate').addEventListener('click', function () {
+    camEditStart('annotate',
+      { box: 'hw-box', canvas: 'hw-edit-canvas', layer: 'hw-edit', img: 'hw-img', tools: 'hw-edit-tools' },
+      function (dataUrl) { hwSetImage(dataUrl); },
+      function () { return hwRotateDeg; });
+  });
+  $('hw-btn-grade').addEventListener('click', homeworkGrade);
+  $('hw-to-wrong').addEventListener('click', function () { showView('wrong'); });
+  $('hw-to-camp').addEventListener('click', function () { camp.subject = 'math'; showView('camp'); });
+  // 批改视图编辑工具（复用 camEdit 状态机）
+  $('hw-pen-red').addEventListener('click', function () {
+    camEdit.color = '#FF3B30';
+    $('hw-pen-red').classList.add('on');
+    $('hw-pen-yellow').classList.remove('on');
+  });
+  $('hw-pen-yellow').addEventListener('click', function () {
+    camEdit.color = '#FFD60A';
+    $('hw-pen-yellow').classList.add('on');
+    $('hw-pen-red').classList.remove('on');
+  });
+  $('hw-annotate-undo').addEventListener('click', function () { camEdit.strokes.pop(); camEditRender(); });
+  $('hw-annotate-clear').addEventListener('click', function () { camEdit.strokes = []; camEditRender(); });
+  $('hw-edit-cancel').addEventListener('click', camEditCancel);
+  $('hw-edit-done').addEventListener('click', camEditDone);
+  (function () {
+    var cv = $('hw-edit-canvas');
+    cv.addEventListener('pointerdown', camEditDown);
+    cv.addEventListener('pointermove', camEditMove);
+    cv.addEventListener('pointerup', camEditUp);
+    cv.addEventListener('pointercancel', camEditUp);
+  })();
 
   // 拍照编辑：裁剪 / 标注
   $('btn-crop').addEventListener('click', function () { camEditStart('crop'); });
