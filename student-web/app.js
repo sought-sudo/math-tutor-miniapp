@@ -3422,6 +3422,7 @@
   document.querySelectorAll('.feature').forEach(function (el) {
     el.addEventListener('click', function () {
       if (el.dataset.go === 'guide') newPractice();
+      else if (el.dataset.go === 'homework') showView('homework');
       else if (el.dataset.go === 'camp') { camp.subject = currentSubjectTab; showView('camp'); }
       else if (el.dataset.go === 'map') { showView('map'); }
       else if (el.dataset.go === 'english') showHomeSubject('english');

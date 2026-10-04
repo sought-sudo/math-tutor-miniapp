@@ -62,6 +62,9 @@
         <div class="card feature" data-go="camera">
           <div class="f-icon f-orange">📷</div><div class="f-title">拍照识题</div><div class="f-desc">拍一拍，小助手来教你</div>
         </div>
+        <div class="card feature" data-go="homework">
+          <div class="f-icon f-orange">📝</div><div class="f-title">批改作业</div><div class="f-desc">拍作业，小狐帮你判对错</div>
+        </div>
         <div class="card feature" data-go="guide">
           <div class="f-icon f-blue">🧮</div><div class="f-title">每日练习</div><div class="f-desc">闯一关，慢慢变厉害</div>
         </div>
@@ -717,16 +720,16 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
-  <script src="curriculum.js?v=20261004c" onerror="window.__curriculumFailed = true"></script>
-  <script src="mcq.js?v=20261004c" onerror="window.__mcqFailed = true"></script>
+  <script src="curriculum.js?v=20261004d" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js?v=20261004d" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题；?v= 版本号防浏览器缓存旧脚本 -->
-  <script src="solver.js?v=20261004c" onerror="window.__solverFailed = true"></script>
+  <script src="solver.js?v=20261004d" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
       function boot() {
         var s = document.createElement('script');
-        s.src = 'app.js?v=20261004c';
+        s.src = 'app.js?v=20261004d';
         document.head.appendChild(s);
       }
       function fail() {
