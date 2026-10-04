@@ -191,6 +191,7 @@ textarea { resize: vertical; min-height: 72px; }
 .f-green { background: #DFF5EE; }
 .f-pink { background: #FFE3EC; }
 .f-purple { background: #EDE7FF; }
+.f-teal { background: #D9F3F0; }
 .f-title { font-size: 16px; font-weight: 800; margin-top: 10px; }
 .f-desc { font-size: 12px; color: #999; margin-top: 2px; }
 
@@ -905,3 +906,19 @@ textarea { resize: vertical; min-height: 72px; }
   color: #5A3FA0; font-size: 13px; line-height: 1.8; margin: 10px 0;
 }
 .btn-block { width: 100%; }
+
+/* 能量条（小狐等级） */
+.energy-wrap { margin-top: 10px; }
+.energy-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: #8a5a00; font-weight: 700; }
+.energy-track { height: 10px; background: rgba(255,255,255,0.55); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+.energy-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #FFC53D, #FF6B6B, #8A5FD6); transition: width 0.4s ease; }
+.energy-sub { font-size: 11px; color: #9a6a10; margin-top: 4px; }
+
+/* 知识地图 */
+.map-legend { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+.lg { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; }
+.lg-green { background: #DFF5EE; color: #0E8A6D; }
+.lg-yellow { background: #FFF4E0; color: #B26A00; }
+.lg-red { background: #FFECEC; color: #D64545; }
+.lg-gray { background: #F2EDE2; color: #8a7a5a; }
+.kmap-node:hover circle { filter: brightness(1.06); }

@@ -68,9 +68,23 @@
     cheer: { eyes: EYES.happy, mouth: MOUTHS.open, extra: EXTRAS.cheer }
   };
 
-  function svg(expr) {
+  function svg(expr, level) {
     var e = EXPR[expr] || EXPR.greet;
+    var lvl = level || 0;
+    // 等级配件：≥60 披风+星冠，≥30 小黄帽，≥10 红领巾（画序：披风最底，再身体，最后配件）
+    var cape = lvl >= 60
+      ? '<path d="M14 66 Q60 122 106 66 Q60 92 14 66 Z" fill="#8A5FD6" opacity="0.9"/>'
+      : '';
+    var scarf = lvl >= 10
+      ? '<path d="M44 99 Q60 110 76 99 L60 104 Z" fill="#FF5A5A"/>'
+      : '';
+    var hat = lvl >= 30
+      ? '<path d="M36 37 Q60 6 84 37 Q60 25 36 37 Z" fill="#FFC53D"/>' +
+        '<ellipse cx="60" cy="37" rx="28" ry="5.5" fill="#FFB400"/>'
+      : '';
+    var crown = lvl >= 60 ? star(60, 16, 1.5) : '';
     return '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">' +
+      cape +
       '<path d="M30 44 L18 14 L48 30 Z" fill="#FF9F1C"/>' +
       '<path d="M90 44 L102 14 L72 30 Z" fill="#FF9F1C"/>' +
       '<path d="M33 39 L26 22 L45 32 Z" fill="#FFD9B3"/>' +
@@ -81,6 +95,7 @@
       '<circle cx="87" cy="76" r="7" fill="#FF9E8A" opacity="0.65"/>' +
       '<ellipse cx="60" cy="70" rx="6" ry="4.5" fill="#5B3A1E"/>' +
       e.eyes + e.mouth + e.extra +
+      scarf + hat + crown +
       '</svg>';
   }
 
@@ -107,10 +122,11 @@
     },
     EXPRESSIONS: EXPR_KEYS,
     // 渲染到容器；el 可为元素或 id；保留容器原有类名，只更新 mascot-* 表情类
-    render: function (el, expr, size) {
+    // level：伙伴能量（亲密度 bond），决定配件（≥10 领巾 / ≥30 黄帽 / ≥60 披风星冠）
+    render: function (el, expr, size, level) {
       if (typeof el === 'string') el = document.getElementById(el);
       if (!el) return;
-      el.innerHTML = svg(expr);
+      el.innerHTML = svg(expr, level);
       EXPR_KEYS.forEach(function (e) {
         el.classList.remove('mascot-' + e);
       });

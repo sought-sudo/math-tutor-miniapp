@@ -21,6 +21,11 @@
             <span id="hero-bond">👋 初识</span>
             <button class="sound-btn" id="btn-sound" title="声音开关">🔊</button>
           </div>
+          <div class="energy-wrap" id="energy-wrap">
+            <div class="energy-head"><span id="energy-level">👋 初识</span><span id="energy-num">能量 0</span></div>
+            <div class="energy-track"><div class="energy-fill" id="energy-fill" style="width:0%"></div></div>
+            <div class="energy-sub" id="energy-sub">和小狐多多互动，能量会慢慢长大</div>
+          </div>
           <div class="hero-badges" id="hero-badges"></div>
         </div>
         <div class="hero-icon" id="hero-mascot"></div>
@@ -55,6 +60,9 @@
         </div>
         <div class="card feature" data-go="camp">
           <div class="f-icon f-purple">🎯</div><div class="f-title">训练营</div><div class="f-desc">测一测，把薄弱点补起来</div>
+        </div>
+        <div class="card feature" data-go="map">
+          <div class="f-icon f-teal">🗺️</div><div class="f-title">知识地图</div><div class="f-desc">点亮你学会的知识点</div>
         </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
@@ -394,6 +402,21 @@
       </div>
     </section>
 
+    <!-- 知识地图 -->
+    <section id="view-map" class="view" style="display:none">
+      <div class="card map-card">
+        <h2>🗺️ 我的知识地图</h2>
+        <div class="map-legend">
+          <span class="lg lg-green">✓ 已掌握</span>
+          <span class="lg lg-yellow">学习中</span>
+          <span class="lg lg-red">待加强</span>
+          <span class="lg lg-gray">🌫 待探索</span>
+        </div>
+        <div id="kmap-box"></div>
+        <div class="note">点一点圆点，马上练一道那个知识点的题！练得越多，地图越亮 ✨</div>
+      </div>
+    </section>
+
     <!-- 徽章墙 -->
     <div class="badge-wall" id="badge-wall" style="display:none">
       <div class="bw-mask" id="bw-mask"></div>
@@ -427,6 +450,7 @@
   <script src="js/voice.js"></script>
   <script src="js/mascot.js"></script>
   <script src="js/rewards.js"></script>
+  <script src="js/kmap.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。

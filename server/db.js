@@ -198,8 +198,9 @@ function getEventsSince(userId, sinceIso) {
 // ---------------- 掌握度计算 ----------------
 // 纯函数（便于单测）：指数时间衰减（半衰期 7 天，近期表现权重高）+ 拉普拉斯平滑
 // 输出按分数升序（薄弱在前）：[{ knowledge_point, score(0-100), attempts, lastAt }]
-function computeMastery(events) {
-  const now = Date.now();
+// nowMs：衰减基准时间（成长曲线按历史日期重放时传当天，默认当前时间）
+function computeMastery(events, nowMs) {
+  const now = nowMs || Date.now();
   const map = {};
   (events || []).forEach((ev) => {
     const k = ev.knowledge_point;
@@ -238,6 +239,40 @@ function getMastery(userId) {  if (!db) return [];
       "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct')"
     ).all(userId);
     return computeMastery(rows || []);
+  } catch (e) {
+    return [];
+  }
+}
+
+// 掌握度成长趋势：按天重放 computeMastery，得到每天"当时"的整体均分
+// 返回 [{date:'MM-DD', avg(0-100|null), count(当日有效知识点数)}]，长度 = days（旧数据不足的天 avg 为 null）
+function getMasteryTrend(userId, days) {
+  if (!db) return [];
+  const n = Math.max(2, Math.min(60, days || 14));
+  try {
+    const pad = (x) => (x < 10 ? '0' : '') + x;
+    const start = new Date(Date.now() - (n - 1) * 86400000);
+    start.setHours(0, 0, 0, 0);
+    const rows = db.prepare(
+      "SELECT event_type, knowledge_point, created_at FROM learning_events " +
+      "WHERE user_id = ? AND event_type IN ('answer_correct','answer_wrong','deformation_correct') " +
+      "AND created_at >= ? ORDER BY created_at"
+    ).all(userId, start.toISOString()) || [];
+    const out = [];
+    let idx = 0;
+    for (let i = 0; i < n; i++) {
+      const dayStart = new Date(start.getTime() + i * 86400000);
+      const dayEnd = new Date(dayStart.getTime() + 86400000);
+      while (idx < rows.length && new Date(rows[idx].created_at) < dayEnd) idx++;
+      const m = idx > 0 ? computeMastery(rows.slice(0, idx), dayEnd.getTime()) : [];
+      const avg = m.length ? Math.round(m.reduce((s, x) => s + x.score, 0) / m.length) : null;
+      out.push({
+        date: pad(dayStart.getMonth() + 1) + '-' + pad(dayStart.getDate()),
+        avg: avg,
+        count: m.length
+      });
+    }
+    return out;
   } catch (e) {
     return [];
   }
@@ -490,6 +525,7 @@ module.exports = {
   getTodayEvents: getTodayEvents,
   getEventsSince: getEventsSince,
   getMastery: getMastery,
+  getMasteryTrend: getMasteryTrend,
   computeMastery: computeMastery,
   questionIdOf: questionIdOf,
   createUser: createUser,

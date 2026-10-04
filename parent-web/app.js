@@ -122,6 +122,58 @@
     }).catch(function () {});
   }
 
+  // 掌握度成长曲线（近 14 天 SVG 折线）
+  function loadTrend(code) {
+    api('/api/mastery/trend/' + encodeURIComponent(code) + '?days=14').then(function (res) {
+      if (!res.ok) return;
+      var box = $('trendbox');
+      var trend = (res.trend || []).filter(function (d) { return d.avg !== null; });
+      if (trend.length < 2) {
+        box.innerHTML = '<div class="empty">练习几天后，这里会出现孩子的成长曲线</div>';
+        return;
+      }
+      var W = 340, H = 150, padL = 26, padR = 10, padT = 12, padB = 26;
+      var iw = W - padL - padR, ih = H - padT - padB;
+      // y 轴范围：50-100 区间放大差异；低于 50 时从 30 起
+      var minV = Math.min.apply(null, trend.map(function (d) { return d.avg; }));
+      var lo = minV < 50 ? 30 : 50;
+      var hi = 100;
+      var pts = trend.map(function (d, i) {
+        var x = padL + (trend.length === 1 ? iw / 2 : (i / (trend.length - 1)) * iw);
+        var y = padT + (1 - (d.avg - lo) / (hi - lo)) * ih;
+        return { x: x, y: y, d: d };
+      });
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">';
+      // 网格线 60/80/100
+      [lo, (lo + hi) / 2, hi].forEach(function (v) {
+        var y = padT + (1 - (v - lo) / (hi - lo)) * ih;
+        svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="#F0E8D8" stroke-width="1"/>' +
+          '<text x="' + (padL - 4) + '" y="' + (y + 4) + '" text-anchor="end" font-size="9" fill="#BBB">' + v + '</text>';
+      });
+      // 折线 + 区域
+      var line = pts.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+      var area = padL + ',' + (padT + ih) + ' ' + line + ' ' + (W - padR) + ',' + (padT + ih);
+      svg += '<polygon points="' + area + '" fill="rgba(53,208,170,0.12)"/>';
+      svg += '<polyline points="' + line + '" fill="none" stroke="#14A98C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+      pts.forEach(function (p) {
+        svg += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3.5" fill="#14A98C"><title>' + p.d.date + ' · 掌握度 ' + p.d.avg + '</title></circle>';
+      });
+      // 日期标签：最多 5 个
+      var step = Math.ceil(pts.length / 5);
+      pts.forEach(function (p, i) {
+        if (i % step !== 0 && i !== pts.length - 1) return;
+        svg += '<text x="' + p.x.toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="#999">' + p.d.date + '</text>';
+      });
+      svg += '</svg>';
+      var first = trend[0].avg, last = trend[trend.length - 1].avg;
+      var delta = last - first;
+      var summary = delta > 0
+        ? '<span style="color:#14A98C;font-weight:800">↑ 上升 ' + delta + ' 分</span>'
+        : (delta < 0 ? '<span style="color:#FF8A00">↓ 回落 ' + (-delta) + ' 分（掌握度有起伏是正常的）</span>' : '保持稳定');
+      box.innerHTML = svg + '<div style="text-align:center;font-size:12px;color:#888;margin-top:4px">' + summary + '</div>';
+    }).catch(function () {});
+  }
+
   // 训练营卡：入学诊断 / 课表进度 / 结课报告
   function loadCamp(code) {
     api('/api/camp/plan/' + encodeURIComponent(code)).then(function (res) {
@@ -425,6 +477,7 @@
         localStorage.setItem(LS_CODE, code);
         render();
         loadMastery(code);
+        loadTrend(code);
         loadCamp(code);
         // 行为日志：家长查看报告/沟通脚本
         fetch(apiBase + '/api/event', {

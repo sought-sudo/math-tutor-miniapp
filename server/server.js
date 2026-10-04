@@ -759,6 +759,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 掌握度成长趋势：近 N 天每天"当时"的整体均分（供家长端画折线；需放在 /api/mastery/ 之前匹配）
+    if (req.method === 'GET' && req.url.indexOf('/api/mastery/trend/') === 0) {
+      const clean = req.url.split('?')[0];
+      const userId = decodeURIComponent((clean.split('/').pop() || ''));
+      if (!userId) throw new Error('缺少用户 id');
+      let days = 14;
+      try {
+        days = Number(new URL(req.url, 'http://x').searchParams.get('days')) || 14;
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      send(res, 200, { ok: true, userId: userId, days: days, trend: db.getMasteryTrend(userId, days) });
+      return;
+    }
+
     // 掌握度：各知识点分数（薄弱在前）
     if (req.method === 'GET' && req.url.indexOf('/api/mastery/') === 0) {
       const userId = decodeURIComponent((req.url.split('/').pop() || '').split('?')[0]);

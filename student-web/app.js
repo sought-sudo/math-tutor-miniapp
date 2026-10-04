@@ -217,6 +217,29 @@
   function bondIcon(bond) {
     return bond >= 60 ? '🏆' : bond >= 30 ? '🌟' : bond >= 10 ? '🤝' : '👋';
   }
+  // 能量等级阈值（与 bondLevel 一致）：当前级起点 → 下一级门槛
+  var BOND_STEPS = [
+    { min: 0, name: '初识', next: 10 },
+    { min: 10, name: '朋友', next: 30 },
+    { min: 30, name: '好伙伴', next: 60 },
+    { min: 60, name: '最佳拍档', next: null }
+  ];
+  function bondStep(bond) {
+    var s = BOND_STEPS[0];
+    BOND_STEPS.forEach(function (x) { if (bond >= x.min) s = x; });
+    return s;
+  }
+  // hero 能量条：bond 进度到下一级 + 等级文案
+  function renderEnergy(bond) {
+    var step = bondStep(bond);
+    var pct = step.next ? Math.min(100, Math.round(((bond - step.min) / (step.next - step.min)) * 100)) : 100;
+    $('energy-level').textContent = bondIcon(bond) + ' ' + bondLevel(bond);
+    $('energy-num').textContent = step.next ? ('能量 ' + bond + ' / ' + step.next) : ('能量 ' + bond + ' · 满格！');
+    $('energy-fill').style.width = Math.max(6, pct) + '%';
+    $('energy-sub').textContent = step.next
+      ? '再攒 ' + (step.next - bond) + ' 点能量，小狐就会换上新装扮！'
+      : '小狐已是最强装扮，和它继续加油吧！';
+  }
 
   // 亲密度 +n；每日首次互动额外 +2（连续陪伴）
   function addBond(n) {
@@ -499,7 +522,7 @@
     div.innerHTML = '<div class="bubble-avatar" data-mascot="1"></div><div class="bubble-text">小狐正在打字…</div>';
     $('chat-bubbles').appendChild(div);
     if (window.Mascot) {
-      Mascot.render(div.querySelector('[data-mascot]'), 'think', 30);
+      Mascot.render(div.querySelector('[data-mascot]'), 'think', 30, compGet().bond || 0);
     }
     scrollChat();
   }
@@ -518,7 +541,7 @@
     });
     $('chat-bubbles').appendChild(div);
     if (window.Mascot) {
-      Mascot.render(div.querySelector('[data-mascot]'), Mascot.mapState(chat.state || 'GREETING'), 30);
+      Mascot.render(div.querySelector('[data-mascot]'), Mascot.mapState(chat.state || 'GREETING'), 30, compGet().bond || 0);
     }
     scrollChat();
   }
@@ -639,7 +662,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp'].forEach(function (v) {
+    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
@@ -652,6 +675,27 @@
     if (name === 'parent') refreshParent();
     if (name === 'camera') cameraOnShow();
     if (name === 'camp') refreshCamp();
+    if (name === 'map') refreshMap();
+  }
+
+  // ---------------- 知识地图 ----------------
+
+  function refreshMap() {
+    refreshMastery(function () {
+      KMap.render($('kmap-box'), masteryCache, practiceKnowledge);
+    });
+  }
+
+  // 从地图点击知识点 → 定向练一道该知识点的题（概念题走选择题库）
+  function practiceKnowledge(k) {
+    if (!k) return;
+    beginPracticeSession();
+    var difficulty = pickDifficulty();
+    if (window.MCQ) {
+      applyResult(window.MCQ.generateMcqByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+    } else {
+      applyResult(S.generateByKnowledge(k, difficulty), { retry: false, task: 'practice' });
+    }
   }
 
   // ---------------- 首页 ----------------
@@ -678,9 +722,10 @@
     }
     $('home-sub').textContent = sub;
     $('hero-bond').textContent = bondIcon(c.bond || 0) + ' ' + bondLevel(c.bond || 0);
+    renderEnergy(c.bond || 0);
     refreshTaskCard(s.today);
     if (window.Mascot) {
-      Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64);
+      Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64, c.bond || 0);
     }
     $('home-today').textContent = s.today;
     $('home-acc').textContent = s.accuracy === null ? '--' : Math.round(s.accuracy * 100) + '%';
@@ -715,7 +760,7 @@
 
   function showBadgeToast(badge) {
     if (!$('badge-toast')) return;
-    if (window.Mascot) Mascot.render($('badge-toast-mascot'), 'cheer', 44);
+    if (window.Mascot) Mascot.render($('badge-toast-mascot'), 'cheer', 44, compGet().bond || 0);
     $('badge-toast-icon').textContent = badge.icon;
     $('badge-toast-title').textContent = '解锁新徽章：' + badge.name + '！';
     $('badge-toast-text').textContent = badge.desc;
@@ -766,7 +811,7 @@
       }
     }
     if (window.Mascot) {
-      Mascot.render($('task-mascot'), complete ? 'cheer' : 'encourage', 44);
+      Mascot.render($('task-mascot'), complete ? 'cheer' : 'encourage', 44, compGet().bond || 0);
     }
   }
 
@@ -776,13 +821,22 @@
     if (!window.Rewards) return;
     var list = $('bw-list');
     list.innerHTML = '';
+    // 未解锁徽章的条件进度（让孩子知道还差多少）
+    var activeWrongs = getWrongs().filter(function (w) { return w.status === 'active'; }).length;
+    var streak = Rewards.streak ? Rewards.streak() : 0;
+    var PROGRESS = {
+      first_win: '做对第一道题就能点亮 ✨',
+      wrong_clear: activeWrongs > 0 ? '还差 ' + activeWrongs + ' 道待复习错题' : '错题都复习完就能点亮',
+      variant_hero: '挑战变形题答对即点亮 🧩',
+      streak_3: '🔥 已连续练习 ' + streak + ' / 3 天'
+    };
     Object.keys(Rewards.BADGES).forEach(function (id) {
       var b = Rewards.BADGES[id];
       var earned = Rewards.badges().indexOf(id) > -1;
       var div = document.createElement('div');
       div.className = 'bw-item' + (earned ? ' earned' : '');
       div.innerHTML = '<div class="bw-icon">' + (earned ? b.icon : '🔒') + '</div>' +
-        '<div class="bw-name">' + b.name + '</div><div class="bw-desc">' + b.desc + '</div>';
+        '<div class="bw-name">' + b.name + '</div><div class="bw-desc">' + (earned ? b.desc : (PROGRESS[id] || b.desc)) + '</div>';
       list.appendChild(div);
     });
     // 伙伴等级徽章（亲密度）
@@ -795,7 +849,7 @@
       '<div class="bw-name">' + bondLevel(bond) + '（亲密度 ' + bond + '）</div>' +
       '<div class="bw-desc">' + (next ? '再获得 ' + (next - bond) + ' 点亲密度，升级 ' + bondLevel(next) : '已是最高等级：最佳拍档！') + '</div>';
     list.appendChild(div2);
-    if (window.Mascot) Mascot.render($('bw-mascot'), 'proud', 48);
+    if (window.Mascot) Mascot.render($('bw-mascot'), 'proud', 48, compGet().bond || 0);
     $('badge-wall').style.display = 'block';
   }
 
@@ -1939,7 +1993,7 @@
     $('guide-result').style.display = 'block';
     $('guide-result').className = 'card result-card ' + (correct ? 'ok' : 'no');
     if (window.Mascot) {
-      Mascot.render($('result-icon'), correct ? 'cheer' : 'comfort', 56);
+      Mascot.render($('result-icon'), correct ? 'cheer' : 'comfort', 56, compGet().bond || 0);
     } else {
       $('result-icon').textContent = correct ? '🎉' : '📕';
     }
@@ -2928,6 +2982,6 @@
   refreshMastery();
   initUnitSelect();
   refreshHome();
-  if (window.Mascot) Mascot.render($('chat-avatar'), 'greet', 34);
+  if (window.Mascot) Mascot.render($('chat-avatar'), 'greet', 34, compGet().bond || 0);
   showView('home');
 })();
