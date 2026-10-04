@@ -1,0 +1,67 @@
+// server/subjects/chinese/characters-seed.js — 三年级语文常用生字种子（grade=3）
+// 字段：char / pinyin / strokes（规范笔画数）/ radicals（部首）/ words（组词）/ grade / audio_url
+
+'use strict';
+
+const SEED = [
+  { char: '晨', pinyin: 'chén', strokes: 11, radicals: '日', words: '早晨、清晨' },
+  { char: '球', pinyin: 'qiú', strokes: 11, radicals: '王', words: '皮球、地球' },
+  { char: '汉', pinyin: 'hàn', strokes: 5, radicals: '氵', words: '汉字、汉族' },
+  { char: '装', pinyin: 'zhuāng', strokes: 12, radicals: '衣', words: '服装、装扮' },
+  { char: '读', pinyin: 'dú', strokes: 10, radicals: '讠', words: '读书、朗读' },
+  { char: '影', pinyin: 'yǐng', strokes: 15, radicals: '彡', words: '影子、电影' },
+  { char: '粗', pinyin: 'cū', strokes: 11, radicals: '米', words: '粗心、粗细' },
+  { char: '察', pinyin: 'chá', strokes: 14, radicals: '宀', words: '观察、考察' },
+  { char: '掌', pinyin: 'zhǎng', strokes: 12, radicals: '手', words: '手掌、掌声' },
+  { char: '赏', pinyin: 'shǎng', strokes: 12, radicals: '贝', words: '欣赏、赏花' },
+  { char: '闻', pinyin: 'wén', strokes: 9, radicals: '门', words: '新闻、闻到' },
+  { char: '陪', pinyin: 'péi', strokes: 10, radicals: '阝', words: '陪伴、陪同' },
+  { char: '娇', pinyin: 'jiāo', strokes: 9, radicals: '女', words: '娇嫩、撒娇' },
+  { char: '舞', pinyin: 'wǔ', strokes: 14, radicals: '夕', words: '跳舞、舞蹈' },
+  { char: '奏', pinyin: 'zòu', strokes: 9, radicals: '大', words: '演奏、节奏' },
+  { char: '趣', pinyin: 'qù', strokes: 15, radicals: '走', words: '有趣、兴趣' },
+  { char: '港', pinyin: 'gǎng', strokes: 12, radicals: '氵', words: '海港、港口' },
+  { char: '贵', pinyin: 'guì', strokes: 9, radicals: '贝', words: '宝贵、贵重' },
+  { char: '靠', pinyin: 'kào', strokes: 15, radicals: '非', words: '依靠、靠近' },
+  { char: '镜', pinyin: 'jìng', strokes: 16, radicals: '钅', words: '镜子、眼镜' },
+  { char: '横', pinyin: 'héng', strokes: 15, radicals: '木', words: '横线、横竖' },
+  { char: '跨', pinyin: 'kuà', strokes: 13, radicals: '足', words: '跨步、跨过' },
+  { char: '县', pinyin: 'xiàn', strokes: 7, radicals: '厶', words: '县城、县长' },
+  { char: '设', pinyin: 'shè', strokes: 6, radicals: '讠', words: '设计、建设' },
+  { char: '验', pinyin: 'yàn', strokes: 10, radicals: '马', words: '试验、经验' },
+  { char: '武', pinyin: 'wǔ', strokes: 8, radicals: '止', words: '武术、武功' },
+  { char: '断', pinyin: 'duàn', strokes: 11, radicals: '斤', words: '断开、判断' },
+  { char: '旅', pinyin: 'lǚ', strokes: 10, radicals: '方', words: '旅行、旅游' },
+  { char: '防', pinyin: 'fáng', strokes: 6, radicals: '阝', words: '防止、防水' },
+  { char: '归', pinyin: 'guī', strokes: 5, radicals: '彐', words: '回归、归来' },
+  { char: '货', pinyin: 'huò', strokes: 8, radicals: '贝', words: '货物、货车' },
+  { char: '售', pinyin: 'shòu', strokes: 11, radicals: '口', words: '出售、售票' },
+  { char: '查', pinyin: 'chá', strokes: 9, radicals: '木', words: '检查、查字典' },
+  { char: '测', pinyin: 'cè', strokes: 9, radicals: '氵', words: '测试、测量' },
+  { char: '简', pinyin: 'jiǎn', strokes: 13, radicals: '竹', words: '简单、简介' },
+  { char: '朴', pinyin: 'pǔ', strokes: 6, radicals: '木', words: '朴实、朴素' },
+  { char: '谦', pinyin: 'qiān', strokes: 12, radicals: '讠', words: '谦虚、谦让' },
+  { char: '愉', pinyin: 'yú', strokes: 12, radicals: '忄', words: '愉快、愉悦' },
+  { char: '宽', pinyin: 'kuān', strokes: 10, radicals: '宀', words: '宽容、宽广' },
+  { char: '固', pinyin: 'gù', strokes: 8, radicals: '囗', words: '固定、牢固' },
+  { char: '阶', pinyin: 'jiē', strokes: 6, radicals: '阝', words: '台阶、阶级' },
+  { char: '际', pinyin: 'jì', strokes: 7, radicals: '阝', words: '国际、边际' },
+  { char: '险', pinyin: 'xiǎn', strokes: 9, radicals: '阝', words: '危险、冒险' },
+  { char: '杂', pinyin: 'zá', strokes: 6, radicals: '木', words: '杂技、复杂' },
+  { char: '确', pinyin: 'què', strokes: 12, radicals: '石', words: '正确、确实' },
+  { char: '误', pinyin: 'wù', strokes: 9, radicals: '讠', words: '错误、误会' },
+  { char: '普', pinyin: 'pǔ', strokes: 12, radicals: '日', words: '普通、普通话' },
+  { char: '希', pinyin: 'xī', strokes: 7, radicals: '巾', words: '希望、希罕' },
+  { char: '暗', pinyin: 'àn', strokes: 13, radicals: '日', words: '黑暗、暗示' },
+  { char: '醒', pinyin: 'xǐng', strokes: 16, radicals: '酉', words: '醒来、提醒' }
+];
+
+module.exports = SEED.map((c) => ({
+  char: c.char,
+  pinyin: c.pinyin,
+  strokes: c.strokes,
+  radicals: c.radicals,
+  words: c.words,
+  grade: 3,
+  audio_url: ''
+}));

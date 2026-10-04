@@ -1266,6 +1266,141 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---------------- 语文学科（阶段 3 MVP，专用接口，不影响数学/英语） ----------------
+
+    // 生字表：GET /api/chinese/characters?grade=3
+    if (req.method === 'GET' && req.url.indexOf('/api/chinese/characters') === 0) {
+      let grade = 3;
+      let shuffle = false;
+      try {
+        const sp = new URL(req.url, 'http://x').searchParams;
+        grade = Number(sp.get('grade')) || 3;
+        shuffle = sp.get('shuffle') === '1';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      let rows = db.listChineseCharacters(grade);
+      if (shuffle) {
+        rows = rows.slice().sort(() => Math.random() - 0.5);
+      }
+      send(res, 200, { ok: true, grade: grade, characters: rows });
+      return;
+    }
+
+    // 听写判题：POST { expected, answer, code? }（错误不直接给字，给部首/组词线索）
+    if (req.method === 'POST' && req.url === '/api/chinese/dictation') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.expected || body.answer === undefined) throw new Error('缺少参数 expected / answer');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      const cnEval = subjectService.getEvaluator('chinese');
+      const r = cnEval.dictationCheck(body.expected, body.answer);
+      db.logEvent({
+        userId: body.code,
+        eventType: r.correct ? 'answer_correct' : 'answer_wrong',
+        knowledgePoint: 'char-dictation',
+        subjectId: 'chinese'
+      });
+      const detail = r.correct ? db.getChineseCharByChar(String(body.expected).trim().charAt(0)) : null;
+      send(res, 200, {
+        ok: true,
+        correct: r.correct,
+        feedback: r.feedback,
+        level: r.level,
+        charDetail: detail ? { pinyin: detail.pinyin, strokes: detail.strokes, radicals: detail.radicals, words: detail.words } : null
+      });
+      return;
+    }
+
+    // 古诗：GET /api/chinese/poems?grade=3
+    if (req.method === 'GET' && req.url.indexOf('/api/chinese/poems') === 0) {
+      let grade = '';
+      try {
+        grade = new URL(req.url, 'http://x').searchParams.get('grade') || '';
+      } catch (e) {
+        // 忽略参数解析失败
+      }
+      const cnPoems = require('./subjects/chinese/poems-seed');
+      send(res, 200, { ok: true, poems: cnPoems.listPoems(grade) });
+      return;
+    }
+
+    // 阅读引导：POST { passageId?, answer, code? } —— 只引导追问，永不返回标准答案
+    if (req.method === 'POST' && req.url === '/api/chinese/reading') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (body.answer === undefined) throw new Error('缺少参数 answer');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      const cnEval = subjectService.getEvaluator('chinese');
+      const r = cnEval.readingGuide(body.answer);
+      if (body.answer && String(body.answer).trim()) {
+        db.logEvent({
+          userId: body.code,
+          eventType: 'answer_correct',
+          knowledgePoint: 'reading-comprehension',
+          subjectId: 'chinese'
+        });
+      }
+      send(res, 200, { ok: true, guide: r.guide, hasAnswer: r.hasAnswer });
+      return;
+    }
+
+    // 写作建议：POST { title?, content, code? } —— 只建议不评分（本地规则兜底 + 可选 LLM）
+    if (req.method === 'POST' && req.url.indexOf('/api/chinese/writing/suggest') === 0) {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.content) throw new Error('缺少参数 content');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      const cnEval = subjectService.getEvaluator('chinese');
+      let suggestions = cnEval.writingSuggestLocal(body.content).suggestions;
+      // 配了 LLM 则用写作专用提示词生成个性化建议；校验不过回退本地
+      if (LLM_BASE_URL && LLM_API_KEY) {
+        try {
+          const cnPrompts = subjectService.getPrompt('chinese');
+          const content = await chat(
+            [
+              { role: 'system', content: cnPrompts.CN_WRITING_SYSTEM },
+              { role: 'user', content: '题目：' + (body.title || '未命名') + '\n作文内容：\n' + String(body.content).slice(0, 600) }
+            ],
+            LLM_MODEL
+          );
+          const j = parseJson(content);
+          if (j && Array.isArray(j.suggestions) && j.suggestions.length >= 2 && j.suggestions.length <= 3) {
+            const clean = j.suggestions.filter((s) => typeof s === 'string' && s.trim().length && s.length <= 40);
+            if (clean.length >= 2) suggestions = clean.map((s) => (s.length > 30 ? s.slice(0, 29) + '…' : s));
+          }
+        } catch (e) {
+          // LLM 失败保留本地建议
+        }
+      }
+      send(res, 200, { ok: true, suggestions: suggestions, scored: false });
+      return;
+    }
+
+    // 朗读评测占位：POST { text, recording?, code? }
+    if (req.method === 'POST' && req.url === '/api/chinese/read-aloud') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.text && !body.recording) throw new Error('缺少 text 或 recording');
+      if (!llmRateLimit(res, 'chat', body.code)) return;
+      if (body.recording && process.env.SPEECH_API_KEY && process.env.SPEECH_API_URL) {
+        try {
+          const resp = await fetch(process.env.SPEECH_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + process.env.SPEECH_API_KEY
+            },
+            body: JSON.stringify({ audio_base64: body.recording, text: body.text || '' }),
+            signal: AbortSignal.timeout(10000)
+          });
+          const j = await resp.json().catch(() => ({}));
+          send(res, 200, { ok: true, evaluated: true, score: j.score, line: '已收到朗读，继续加油 📢' });
+        } catch (e) {
+          send(res, 200, { ok: true, evaluated: false, line: '已收到朗读，继续加油 📢' });
+        }
+        return;
+      }
+      send(res, 200, { ok: true, evaluated: false, line: '已收到朗读，继续加油 📢' });
+      return;
+    }
+
     // 学科清单（多学科架构：math 可用，english/chinese 开发中）
     if (req.method === 'GET' && req.url === '/api/subjects') {
       send(res, 200, { ok: true, subjects: subjectService.listSubjects() });

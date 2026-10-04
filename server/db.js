@@ -182,6 +182,28 @@ function init() {
     } catch (e) {
       // 词库种子加载失败不阻塞启动
     }
+    // 语文生字表（阶段 3）
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS chinese_characters (' +
+      '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+      '  char TEXT NOT NULL UNIQUE,' +
+      '  pinyin TEXT NOT NULL,' +
+      '  strokes INTEGER,' +
+      '  radicals TEXT,' +
+      '  words TEXT,' +
+      '  grade INTEGER NOT NULL DEFAULT 3,' +
+      '  audio_url TEXT' +
+      ')'
+    );
+    try {
+      const cseed = require('./subjects/chinese/characters-seed');
+      const cins = db.prepare('INSERT OR IGNORE INTO chinese_characters (char, pinyin, strokes, radicals, words, grade, audio_url) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      cseed.forEach((c) => {
+        try { cins.run(c.char, c.pinyin, c.strokes, c.radicals, c.words, c.grade || 3, c.audio_url || ''); } catch (e) {}
+      });
+    } catch (e) {
+      // 生字种子加载失败不阻塞启动
+    }
     console.log('[db] 行为日志已就绪：server/math_tutor.db');
   } catch (e) {
     console.error('[db] 初始化失败：' + e.message);
@@ -276,6 +298,29 @@ function getEnglishWordByWord(word) {
   if (!db) return null;
   try {
     return db.prepare('SELECT word, meaning, phonetic, category, grade, audio_url FROM english_vocabulary WHERE word = ? COLLATE NOCASE').get(String(word || '').trim()) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ---------------- 语文生字（chinese_characters） ----------------
+
+function listChineseCharacters(grade) {
+  if (!db) return [];
+  try {
+    const rows = grade
+      ? db.prepare('SELECT char, pinyin, strokes, radicals, words, grade, audio_url FROM chinese_characters WHERE grade = ? ORDER BY id').all(Number(grade))
+      : db.prepare('SELECT char, pinyin, strokes, radicals, words, grade, audio_url FROM chinese_characters ORDER BY id').all();
+    return rows || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getChineseCharByChar(ch) {
+  if (!db) return null;
+  try {
+    return db.prepare('SELECT char, pinyin, strokes, radicals, words, grade, audio_url FROM chinese_characters WHERE char = ?').get(String(ch || '').trim()) || null;
   } catch (e) {
     return null;
   }
@@ -652,6 +697,8 @@ module.exports = {
   getSubjectByCode: getSubjectByCode,
   listEnglishVocabulary: listEnglishVocabulary,
   getEnglishWordByWord: getEnglishWordByWord,
+  listChineseCharacters: listChineseCharacters,
+  getChineseCharByChar: getChineseCharByChar,
   questionIdOf: questionIdOf,
   createUser: createUser,
   getUserByPhone: getUserByPhone,

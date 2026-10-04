@@ -662,7 +662,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english'].forEach(function (v) {
+    ['home', 'camera', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english', 'chinese'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
@@ -677,6 +677,200 @@
     if (name === 'camp') refreshCamp();
     if (name === 'map') refreshMap();
     if (name === 'english') refreshEnglish();
+    if (name === 'chinese') refreshChinese();
+  }
+
+  // ---------------- 语文学科（阶段 3 MVP） ----------------
+
+  var cn = {
+    chars: [],        // 生字表
+    current: null,    // 当前生字卡
+    dictTarget: null, // 听写目标字
+    task: null
+  };
+  var CN_PRAISE = ['真棒！✨', '你真用心！🌟', '了不起！🚀', '继续加油！🎉'];
+
+  function cnFetch(path, method, body) {
+    return fetch(getApiBase() + path, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json(); });
+  }
+
+  function cnTaskGet() {
+    var t = storeGet('stu_cn_task', null);
+    var today = dateStr();
+    if (!t || t.date !== today) {
+      t = { date: today, chars: 0, dictation: 0, poem: 0 };
+      storeSet('stu_cn_task', t);
+    }
+    return t;
+  }
+
+  function cnTaskBump(key) {
+    cn.task = cnTaskGet();
+    cn.task[key] = (cn.task[key] || 0) + 1;
+    storeSet('stu_cn_task', cn.task);
+    renderCnTask();
+  }
+
+  function renderCnTask() {
+    var t = cnTaskGet();
+    var done = (t.chars >= 3 ? 1 : 0) + (t.dictation >= 2 ? 1 : 0) + (t.poem >= 1 ? 1 : 0);
+    $('cn-task-progress').textContent = '已完成 ' + done + ' / 3';
+    $('cn-task-fill').style.width = Math.round((done / 3) * 100) + '%';
+    $('cn-task-text').textContent = '认 ' + Math.min(3, t.chars) + '/3 字 · 听写 ' + Math.min(2, t.dictation) + '/2 个 · 读 ' + Math.min(1, t.poem) + '/1 首';
+    if (done >= 3 && window.Mascot) Mascot.render($('cn-task-mascot'), 'cheer', 44, compGet().bond || 0);
+  }
+
+  function cnShowPanel(name) {
+    $('cn-home-panel').style.display = name === 'home' ? 'block' : 'none';
+    $('cn-chars-panel').style.display = name === 'chars' ? 'block' : 'none';
+    $('cn-poems-panel').style.display = name === 'poems' ? 'block' : 'none';
+    $('cn-reading-panel').style.display = name === 'reading' ? 'block' : 'none';
+    $('cn-writing-panel').style.display = name === 'writing' ? 'block' : 'none';
+    window.scrollTo(0, 0);
+  }
+
+  function refreshChinese() {
+    cnShowPanel('home');
+    if (window.Mascot) Mascot.render($('cn-mascot'), 'greet', 60, compGet().bond || 0);
+    if (window.Mascot) Mascot.render($('cn-task-mascot'), 'encourage', 44, compGet().bond || 0);
+    renderCnTask();
+  }
+
+  // ---- 字词学习 + 听写 ----
+  function cnLoadChars() {
+    cnShowPanel('chars');
+    cnFetch('/api/chinese/characters?grade=3').then(function (j) {
+      if (!j.ok) return;
+      cn.chars = j.characters || [];
+      renderCnCharList();
+    }).catch(function () {});
+  }
+
+  function renderCnCharList() {
+    var box = $('cn-char-list');
+    box.innerHTML = '';
+    cn.chars.forEach(function (c) {
+      var div = document.createElement('div');
+      div.className = 'en-word-item';
+      div.innerHTML = '<span class="ew" style="min-width:44px;font-size:22px">' + esc(c.char) + '</span>' +
+        '<span class="ep">' + esc(c.pinyin) + '</span><button class="btn btn-ghost btn-sm">🔊</button>';
+      div.addEventListener('click', function () {
+        cn.current = c;
+        if (window.TTS) TTS.speak(c.char + '，' + c.words.split('、')[0]);
+        cnTaskBump('chars');
+        $('cn-char-card').style.display = 'block';
+        $('cn-char-big').textContent = c.char;
+        $('cn-char-pinyin').textContent = c.pinyin + ' · ' + c.strokes + ' 画 · 部首 ' + c.radicals;
+        $('cn-char-detail').style.display = 'none';
+      });
+      box.appendChild(div);
+    });
+  }
+
+  function cnStartDictation() {
+    if (!cn.current && cn.chars.length) cn.current = cn.chars[0];
+    if (!cn.current) return;
+    cn.dictTarget = cn.current;
+    $('cn-dictation-card').style.display = 'block';
+    $('cn-dict-pinyin').textContent = '拼音：' + cn.current.pinyin;
+    $('cn-dict-input').value = '';
+    $('cn-dict-feedback').style.display = 'none';
+    $('cn-dict-input').focus();
+  }
+
+  function cnSubmitDictation() {
+    var answer = $('cn-dict-input').value.trim();
+    if (!answer) return;
+    var expected = cn.dictTarget ? cn.dictTarget.char : '';
+    cnFetch('/api/chinese/dictation', 'POST', { expected: expected, answer: answer, code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      var fb = $('cn-dict-feedback');
+      fb.style.display = 'block';
+      if (j.correct) {
+        fb.className = 'en-feedback good';
+        fb.textContent = pick(CN_PRAISE) + ' "' + expected + '" 写对啦！';
+        if (window.TTS) TTS.playCorrect();
+        cnTaskBump('dictation');
+      } else {
+        fb.className = 'en-feedback meh';
+        fb.textContent = j.feedback + (j.charDetail ? '（提示：' + j.charDetail.strokes + ' 画，部首 ' + j.charDetail.radicals + '，可组词 ' + j.charDetail.words + '）' : '');
+      }
+    }).catch(function () { alert('网络开了小差'); });
+  }
+
+  // ---- 古诗诵读 ----
+  function cnLoadPoems() {
+    cnShowPanel('poems');
+    cnFetch('/api/chinese/poems?grade=3').then(function (j) {
+      if (!j.ok) return;
+      var box = $('cn-poem-list');
+      box.innerHTML = '';
+      (j.poems || []).forEach(function (p) {
+        var div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = '<div class="label">' + esc(p.title) + ' · ' + esc(p.dynasty) + ' · ' + esc(p.author) + '</div>' +
+          '<div class="poem-lines">' + p.lines.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>' +
+          '<div class="result-row"><button class="btn btn-primary btn-sm cn-read-btn">🔊 跟小狐读</button></div>' +
+          '<div class="note">' + esc(p.note) + '</div>';
+        div.querySelector('.cn-read-btn').addEventListener('click', function () {
+          if (window.TTS) TTS.speak(p.lines.join(''));
+          cnTaskBump('poem');
+        });
+        box.appendChild(div);
+      });
+    }).catch(function () {});
+  }
+
+  // ---- 阅读引导（永不给标准答案） ----
+  function cnOpenReading() {
+    cnShowPanel('reading');
+    var passage = {
+      text: '早晨，小蚂蚁出门找食物。它在草丛里发现了一粒大米，可是大米太大了，自己搬不动。小蚂蚁没有放弃，它跑回家叫来了许多小伙伴。大家一起抬，喊着口号，终于把大米搬回了家。',
+      question: '小蚂蚁是怎么把大米搬回家的？你觉得它哪里做得好？'
+    };
+    $('cn-reading-passage').textContent = passage.text;
+    $('cn-reading-question').textContent = '❓ ' + passage.question;
+    $('cn-reading-input').value = '';
+    $('cn-reading-guide').style.display = 'none';
+  }
+
+  function cnSubmitReading() {
+    var answer = $('cn-reading-input').value.trim();
+    cnFetch('/api/chinese/reading', 'POST', { answer: answer, code: getCode() }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      var g = $('cn-reading-guide');
+      g.textContent = '🦊 ' + j.guide;
+      g.style.display = 'block';
+    }).catch(function () { alert('网络开了小差'); });
+  }
+
+  // ---- 写作小建议（不打分） ----
+  function cnSubmitWriting() {
+    var content = $('cn-writing-input').value.trim();
+    if (!content) { alert('先写几句话，小狐才能给建议哦 ✍️'); return; }
+    cnFetch('/api/chinese/writing/suggest', 'POST', {
+      title: $('cn-writing-title').value.trim(),
+      content: content,
+      code: getCode()
+    }).then(function (j) {
+      if (!j.ok) { alert(j.error || '网络开了小差'); return; }
+      var box = $('cn-writing-suggestions');
+      box.innerHTML = '';
+      (j.suggestions || []).forEach(function (s, i) {
+        var div = document.createElement('div');
+        div.className = 'report-text';
+        div.textContent = (i + 1) + '. ' + s;
+        box.appendChild(div);
+      });
+      var note = document.createElement('div');
+      note.className = 'empty';
+      note.textContent = '小建议不打分，你觉得有用就试试 🦊';
+      box.appendChild(note);
+    }).catch(function () { alert('网络开了小差'); });
   }
 
   // ---------------- 英语学科（阶段 2 MVP） ----------------
@@ -3031,6 +3225,27 @@
     refreshEnglish();
   });
   $('btn-en-home').addEventListener('click', function () { refreshEnglish(); });
+
+  // 语文学科按钮
+  $('cn-go-chars').addEventListener('click', cnLoadChars);
+  $('cn-go-poems').addEventListener('click', cnLoadPoems);
+  $('cn-go-reading').addEventListener('click', cnOpenReading);
+  $('cn-go-writing').addEventListener('click', function () { cnShowPanel('writing'); });
+  $('btn-cn-char-say').addEventListener('click', function () {
+    if (cn.current) TTS.speak(cn.current.char + '，' + cn.current.words.split('、')[0]);
+  });
+  $('btn-cn-char-detail').addEventListener('click', function () {
+    var c = cn.current;
+    if (!c) return;
+    $('cn-char-detail').textContent = c.strokes + ' 画 · 部首 ' + c.radicals + ' · 组词：' + c.words;
+    $('cn-char-detail').style.display = 'block';
+  });
+  $('btn-cn-to-dictation').addEventListener('click', cnStartDictation);
+  $('btn-cn-dict-submit').addEventListener('click', cnSubmitDictation);
+  $('cn-dict-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') cnSubmitDictation(); });
+  $('btn-cn-reading-submit').addEventListener('click', cnSubmitReading);
+  $('btn-cn-writing-submit').addEventListener('click', cnSubmitWriting);
+  $('btn-cn-home').addEventListener('click', function () { refreshChinese(); });
   $('btn-camp-plan').addEventListener('click', campGeneratePlan);
   $('btn-diag-submit').addEventListener('click', function () {
     var v = $('diag-input').value.trim();

@@ -7,8 +7,49 @@
 
 - [x] **阶段 1：多学科骨架（数据层 + 学科模块目录 + 学科路由）** — 2026-10-04 完成
 - [x] **阶段 2：英语学科 MVP（词库/听音/跟读/拼写/对话 + 评测占位）** — 2026-10-04 完成
-- [ ] 阶段 3：语文学科实装 + 英语发音评测接厂商 + 小程序端补齐（英语入口）
-- [ ] 阶段 4：前端学科切换深化（按学科的知识地图/训练营/家长端报告）
+- [x] **阶段 3：语文学科 MVP（生字/听写/古诗/阅读引导/写作建议 + 朗读评测占位）** — 2026-10-04 完成
+- [ ] 阶段 4：前端学科切换深化（按学科的知识地图/训练营/家长端报告）+ 小程序端补齐（英语/语文入口）+ 发音评测接具体厂商
+
+---
+
+## 阶段 3 交付清单（已完成，数学/英语零破坏）
+
+### 数据层（server/db.js）
+- [x] 新表 `chinese_characters(id, char UNIQUE, pinyin, strokes, radicals, words, grade, audio_url)`
+- [x] 种子生字 `subjects/chinese/characters-seed.js`：50 个三年级常用字（含笔画数/部首/组词），启动时 INSERT OR IGNORE
+- [x] `listChineseCharacters(grade?)` / `getChineseCharByChar(char)`
+- [x] 古诗数据文件 `subjects/chinese/poems-seed.js`：6 首三年级必背（咏柳/春日/望天门山/饮湖上初晴后雨/乞巧/嫦娥，全文+作者+朝代+诗意）——数据文件不建表，是否入库留阶段 4
+- [x] 语文行为事件落 learning_events（subject_id='chinese'）→ 语文掌握度自动积累
+
+### chinese 四件套（server/subjects/chinese/）
+- [x] `knowledgeGraph.js`：17 个知识点（code/name/dimension∈word|sentence|reading|writing）——识字写字/查字典/组词（word）、句子完整/比喻拟人/修改病句/口语交际（sentence）、古诗诵读/阅读理解/联系上下文猜词/主要内容（reading）、日记/看图写话/开头结尾/写具体（writing）
+- [x] `prompts.js`：硬约束落地——三年级伙伴小狐、**先朗读再理解不直接给中心思想**、**阅读先问"你从哪句话看出来的？"**、**作文只给建议不打分不说"写得不好"**、鼓励一句话≤**25 字**；`CN_WRITING_SYSTEM` 写作专用提示词（只查开头中间结尾/跑题/错别字/通顺；不评分不排名不比较；输出 2~3 条每条≤30 字）
+- [x] `stateMachine.js`：READ_ALOUD→WORD_PRACTICE→SENTENCE_PRACTICE→READING_GUIDE→EXPRESSION→WRITING_SUGGEST→REVIEW 七状态（每状态 enter/goal/allowed/forbidden/exit）+ step 引擎（含 start_reading/start_expression 显式进入 action）
+- [x] `evaluator.js`：dictationCheck（写错给部首/笔画提示**不直接给字**）、readingGuide（**任何答案都追问"哪句话看出来的"，永不输出标准答案/中心思想**）、writingSuggestLocal（规则引擎：长度/结构/重复词检测 → 2~3 条每条≤30 字，先肯定优点）
+
+### 接口（server/server.js，数学/英语路由零改动）
+- [x] `GET /api/chinese/characters?grade=3` 生字表（?shuffle=1 随机供听写）
+- [x] `POST /api/chinese/dictation` 听写判题（correct/feedback/charDetail）
+- [x] `GET /api/chinese/poems?grade=3` 古诗全文
+- [x] `POST /api/chinese/reading` 阅读引导（响应里**无标准答案字段**）
+- [x] `POST /api/chinese/writing/suggest` 写作建议（本地规则兜底 + LLM 按写作提示词生成，输出校验 2~3 条/≤30字/无评分字样，不过回退本地）
+- [x] `POST /api/chinese/read-aloud` 朗读评测占位（SPEECH_API_KEY+SPEECH_API_URL 均配置才调外部，否则占位；不用 DeepSeek）
+- [x] subjectService：chinese AVAILABLE 翻 true；通用路由对 chinese 提示"请使用语文入口"
+
+### 前端（student-web，网页端；小程序阶段 4 补齐）
+- [x] 首页第 8 张功能卡「📖 语文」（正好 4 行×2 列对齐）+ view-chinese 五面板
+- [x] 语文首页：小狐问候 + 今日语文任务卡（认 3 字/听写 2 个/读 1 首，localStorage 计数）
+- [x] 字词：生字卡（大字+拼音+笔画+部首，笔画组词默认折叠）→ 听写（显示拼音输入汉字，错给提示不给字，对给庆祝）
+- [x] 古诗：6 首诗卡逐句展示 + 🔊 中文朗读
+- [x] 阅读引导：短文+问题 → 作答 → 追问"哪句话让你这么想的"（界面无标准答案）
+- [x] 写作小建议：粘贴作文 → 2~3 条建议（界面标注"小建议，不打分"）
+- [x] 小狐贯穿语文场景（greet/encourage/cheer + 语文话术），中文朗读复用现有 TTS.speak
+
+### 验证记录
+- `scripts/check-chinese.js` 全绿（50 生字/听写边界/阅读引导永不含标准答案/写作建议 2~3 条≤30 字/七状态机/提示词五硬约束/古诗 6 首）+ 内置"晨字听写+阅读引导"模拟流程打印
+- 数学 7 套 + 英语 1 套单测全回归通过（check-english 的"chinese 开发中"断言同步更新为已可用）
+- curl 十项实测：subjects 三科全 available、生字表、听写错/对（对的返回 charDetail）、古诗 6 首、阅读引导追问、写作建议（LLM 生成且"先肯定+不打分"）、朗读占位、数学 /tutor 正常（answer=81）、英语拼写正常
+- 浏览器实测：语文首页 → 生字卡（晨，笔画组词折叠）→ 听写"尘"提示/"晨"庆祝 → 古诗 6 卡 24 句 → 阅读引导追问 → 写作建议 3 条+不打分标注
 
 ---
 

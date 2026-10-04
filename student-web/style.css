@@ -193,6 +193,7 @@ textarea { resize: vertical; min-height: 72px; }
 .f-purple { background: #EDE7FF; }
 .f-teal { background: #D9F3F0; }
 .f-cyan { background: #DFF0FF; }
+.f-rose { background: #FFE9E9; }
 .f-title { font-size: 16px; font-weight: 800; margin-top: 10px; }
 .f-desc { font-size: 12px; color: #999; margin-top: 2px; }
 
@@ -959,3 +960,8 @@ textarea { resize: vertical; min-height: 72px; }
 .en-turn .en-zh { font-size: 11px; color: #999; margin-top: 4px; }
 .en-turn .en-hint { font-size: 11px; color: #14A98C; margin-top: 4px; }
 #en-spell-input { margin: 10px 0; }
+
+/* ---------------- 语文学科 ---------------- */
+.cn-char-big { font-size: 52px; font-weight: 800; color: #C2452D; line-height: 1.2; }
+.poem-lines { font-size: 16px; color: #555; line-height: 2; text-align: center; margin: 8px 0; }
+.cn-writing-wrap textarea, #cn-writing-input, #cn-reading-input { margin: 8px 0; }

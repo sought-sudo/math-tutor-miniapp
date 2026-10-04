@@ -92,7 +92,8 @@ assert(g.turns.length >= 4 && g.turns[0].who === 'fox' && g.turns[0].en.length <
 // 7. 学科路由
 console.log('学科路由');
 assert(subjectService.isAvailable('english') === true, 'english 可用');
-assert(subjectService.isAvailable('chinese') === false, 'chinese 仍为开发中');
+assert(subjectService.isAvailable('chinese') === true, 'chinese 也已可用（阶段 3）');
+assert(subjectService.subjectRouteMessage('chinese').indexOf('语文') > -1, '通用路由对 chinese 给语文专属引导');
 assert(subjectService.subjectRouteMessage('english').indexOf('英语') > -1, '通用路由对 english 给专属引导（不误入数学讲解）');
 assert(subjectService.subjectRouteMessage('math') === '', 'math 走原逻辑无提示');
 assert(subjectService.getStateMachine('english').STATE_ORDER.length === 7, 'subjectService 能取到英语状态机');

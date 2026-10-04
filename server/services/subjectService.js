@@ -15,11 +15,16 @@ const englishPrompts = require('../subjects/english/prompts');
 const englishStateMachine = require('../subjects/english/stateMachine');
 const englishEvaluator = require('../subjects/english/evaluator');
 
+const chineseKnowledge = require('../subjects/chinese/knowledgeGraph');
+const chinesePrompts = require('../subjects/chinese/prompts');
+const chineseStateMachine = require('../subjects/chinese/stateMachine');
+const chineseEvaluator = require('../subjects/chinese/evaluator');
+
 // 各学科在"通用 AI 路由"（/tutor /tutor-chat /variant /ocr）不可用时的专属提示
 const SUBJECT_MESSAGES = {
   math: '',
   english: '英语练习请使用英语入口 🎤（首页 → 英语）',
-  chinese: '该学科正在开发中 🚧 目前可以先学数学哦'
+  chinese: '语文练习请使用语文入口 📖（首页 → 语文）'
 };
 
 const MODULES = {
@@ -44,11 +49,11 @@ const MODULES = {
   chinese: {
     code: 'chinese',
     name: '语文',
-    AVAILABLE: false,
-    knowledgeGraph: require('../subjects/chinese/knowledgeGraph'),
-    prompts: require('../subjects/chinese/prompts'),
-    stateMachine: require('../subjects/chinese/stateMachine'),
-    evaluator: require('../subjects/chinese/evaluator')
+    AVAILABLE: true,
+    knowledgeGraph: chineseKnowledge,
+    prompts: chinesePrompts,
+    stateMachine: chineseStateMachine,
+    evaluator: chineseEvaluator
   }
 };
 

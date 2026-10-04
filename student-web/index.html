@@ -67,6 +67,9 @@
         <div class="card feature" data-go="english">
           <div class="f-icon f-cyan">🔤</div><div class="f-title">英语</div><div class="f-desc">Listen & say with 小狐</div>
         </div>
+        <div class="card feature" data-go="chinese">
+          <div class="f-icon f-rose">📖</div><div class="f-title">语文</div><div class="f-desc">读一读，写一写</div>
+        </div>
         <div class="card feature" data-go="parent">
           <div class="f-icon f-pink">📊</div><div class="f-title">家长端</div><div class="f-desc">让爸妈看看我的进步</div>
         </div>
@@ -507,6 +510,98 @@
 
       <div class="result-row" style="margin-top:10px">
         <button class="btn btn-ghost" id="btn-en-home">← 回英语首页</button>
+      </div>
+    </section>
+
+    <!-- 语文学科（阶段 3 MVP） -->
+    <section id="view-chinese" class="view" style="display:none">
+      <!-- 语文首页 -->
+      <div id="cn-home-panel">
+        <div class="card en-hero">
+          <div class="en-hero-mascot" id="cn-mascot"></div>
+          <div>
+            <div class="en-hero-title">你好，我是小狐！🦊</div>
+            <div class="en-hero-sub" id="cn-hero-sub">一起读课文、写生字吧！</div>
+          </div>
+        </div>
+        <div class="card task-card" id="cn-task-card">
+          <div class="task-head">
+            <div class="task-mascot" id="cn-task-mascot"></div>
+            <div class="task-info">
+              <div class="task-title">📋 今日语文任务</div>
+              <div class="task-text" id="cn-task-text">认 3 个字 · 听写 2 个 · 读 1 首</div>
+            </div>
+          </div>
+          <div class="task-track"><div class="task-fill" id="cn-task-fill"></div></div>
+          <div class="task-progress" id="cn-task-progress">已完成 0 / 3</div>
+        </div>
+        <div class="grid">
+          <div class="card feature" id="cn-go-chars"><div class="f-icon f-rose">📝</div><div class="f-title">字词学习</div><div class="f-desc">认字 + 听写</div></div>
+          <div class="card feature" id="cn-go-poems"><div class="f-icon f-rose">🎋</div><div class="f-title">古诗诵读</div><div class="f-desc">大声读出来</div></div>
+          <div class="card feature" id="cn-go-reading"><div class="f-icon f-rose">📖</div><div class="f-title">阅读引导</div><div class="f-desc">找找依据在哪句</div></div>
+          <div class="card feature" id="cn-go-writing"><div class="f-icon f-rose">✍️</div><div class="f-title">写作小建议</div><div class="f-desc">只建议，不打分</div></div>
+        </div>
+        <div class="card tip"><div class="tip-title">💡 语文小贴士</div><div class="tip-text">读课文时先出声读一遍，很多答案就藏在句子里。</div></div>
+      </div>
+
+      <!-- 字词学习（READ_ALOUD → WORD_PRACTICE） -->
+      <div id="cn-chars-panel" style="display:none">
+        <div class="en-state-bar">📝 字词学一学</div>
+        <div class="card en-current" id="cn-char-card" style="display:none">
+          <div class="cn-char-big" id="cn-char-big"></div>
+          <div class="en-phonetic" id="cn-char-pinyin"></div>
+          <div class="en-meaning" id="cn-char-detail" style="display:none"></div>
+          <div class="result-row">
+            <button class="btn btn-primary" id="btn-cn-char-say">🔊 听读音</button>
+            <button class="btn btn-ghost" id="btn-cn-char-detail">👀 看笔画组词</button>
+          </div>
+          <button class="btn btn-blue btn-block" id="btn-cn-to-dictation">✏️ 开始听写这个字</button>
+        </div>
+        <div class="card">
+          <div class="label">生字卡（点一点切换）</div>
+          <div id="cn-char-list"></div>
+        </div>
+        <div class="card" id="cn-dictation-card" style="display:none">
+          <div class="cn-spell-meaning" id="cn-dict-pinyin"></div>
+          <div class="label">看拼音，把这个字写出来：</div>
+          <input id="cn-dict-input" type="text" placeholder="写一个汉字" autocomplete="off">
+          <button class="btn btn-primary btn-block" id="btn-cn-dict-submit">提交听写</button>
+          <div class="en-feedback" id="cn-dict-feedback" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 古诗诵读（READ_ALOUD） -->
+      <div id="cn-poems-panel" style="display:none">
+        <div class="en-state-bar">📢 大声读一读</div>
+        <div id="cn-poem-list"></div>
+      </div>
+
+      <!-- 阅读引导（READING_GUIDE） -->
+      <div id="cn-reading-panel" style="display:none">
+        <div class="en-state-bar">📖 阅读引导</div>
+        <div class="card">
+          <div class="label">📖 短文</div>
+          <div class="report-text" id="cn-reading-passage"></div>
+          <div class="label" id="cn-reading-question"></div>
+          <textarea id="cn-reading-input" rows="3" placeholder="写下你的想法（可以只写一句话）"></textarea>
+          <button class="btn btn-primary btn-block" id="btn-cn-reading-submit">告诉小狐我的想法</button>
+          <div class="script-box" id="cn-reading-guide" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 写作小建议（WRITING_SUGGEST） -->
+      <div id="cn-writing-panel" style="display:none">
+        <div class="en-state-bar">✍️ 写作小建议（不打分）</div>
+        <div class="card">
+          <input id="cn-writing-title" type="text" placeholder="作文题目（可不填）">
+          <textarea id="cn-writing-input" rows="6" placeholder="把你的作文或写话粘贴到这里…"></textarea>
+          <button class="btn btn-primary btn-block" id="btn-cn-writing-submit">请小狐给几条小建议</button>
+          <div id="cn-writing-suggestions"></div>
+        </div>
+      </div>
+
+      <div class="result-row" style="margin-top:10px">
+        <button class="btn btn-ghost" id="btn-cn-home">← 回语文首页</button>
       </div>
     </section>
 
