@@ -289,7 +289,7 @@ function serveStatic(res, urlPath, dir, prefix) {  let rel = decodeURIComponent(
 const LANDING = [
   '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">',
   '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-  '<title>数学小助手</title><style>',
+  '<title>小狐学堂</title><style>',
   'body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#FFF8EC;margin:0;color:#333}',
   '.wrap{max-width:520px;margin:8vh auto;padding:0 20px}',
   'h1{text-align:center;font-size:26px;color:#FF8A00}',
@@ -299,7 +299,7 @@ const LANDING = [
   'a .i{font-size:30px;margin-right:10px}',
   'a .s{display:block;font-size:12px;color:#999;font-weight:400;margin-top:4px}',
   '</style></head><body><div class="wrap">',
-  '<h1>🦁 数学小助手</h1><p>请选择入口</p>',
+  '<h1>🦊 小狐学堂</h1><p>请选择入口</p>',
   '<a href="/student/"><span class="i">🧮</span>学生端<span class="s">练习、拍照识题、错题本（孩子用）</span></a>',
   '<a href="/parent/"><span class="i">📊</span>家长端<span class="s">查看孩子学习进度（家长用）</span></a>',
   '<p>两个入口都是纯网页，浏览器直接打开即可，不需要微信开发者工具。</p>',

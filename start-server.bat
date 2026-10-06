@@ -1,5 +1,5 @@
 @echo off
-rem 数学小助手 · 一键启动后端
+rem 小狐学堂 · 一键启动后端
 rem 双击本文件即可启动服务，启动后：
 rem   入口页  http://127.0.0.1:8787/
 rem   学生端  http://127.0.0.1:8787/student
@@ -21,7 +21,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo 正在启动数学辅导后端 ...
+echo 正在启动小狐学堂后端 ...
 node server.js
 echo.
 echo 服务已停止。

@@ -1480,7 +1480,7 @@
     var h = new Date().getHours();
     var greet = h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
     var s = getStats();
-    $('home-greet').textContent = greet + '，小数学家！';
+    $('home-greet').textContent = greet + '，小学霸！';
     // 伙伴记忆：个性化问候
     var visit = companionVisit();
     var c = visit.c;
@@ -2677,7 +2677,7 @@
     if (correct) {
       praise = guide.wrongTimes > 0
         ? pick(['调整后答对了！你学会了检查，太棒了！🌟', '第二次就做对了，这个检查习惯真厉害！👏', '你停下来想了想就做对了，这就是进步！🚀'])
-        : pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小数学家，继续加油！🚀']);
+        : pick(['太棒了！🎉', '你真厉害！🌟', '算得又快又准！⚡', '小学霸，继续加油！🚀']);
     } else {
       praise = '没关系，错题已经帮你记进错题本啦，下次一定能做对！💪';
     }
