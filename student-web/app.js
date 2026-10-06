@@ -677,7 +677,7 @@
 
   function showView(name) {
     currentView = name;
-    ['home', 'camera', 'homework', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english', 'chinese'].forEach(function (v) {
+    ['home', 'camera', 'homework', 'wrong', 'parent', 'guide', 'chat', 'camp', 'map', 'english', 'chinese', 'pet'].forEach(function (v) {
       $('view-' + v).style.display = v === name ? 'block' : 'none';
     });
     $('bottom-nav').style.display = (name === 'guide' || name === 'chat') ? 'none' : 'flex';
