@@ -200,8 +200,11 @@ function handleSync(body) {
     child.streak = data.streak || 0;
   } else if (type === 'unit') {
     child.unit = data.unit || '';
+    if (data.edition !== undefined) child.unitEdition = String(data.edition || '');
   } else if (type === 'companion') {
     child.companion = { bond: data.bond || 0, streak: data.streak || 0 };
+  } else if (type === 'pet') {
+    child.pet = { exp: data.exp || 0, stage: data.stage || 0, name: data.name || '蛋蛋', gender: data.gender || '' };
   } else {
     throw new Error('未知同步类型：' + type);
   }
@@ -1111,8 +1114,10 @@ const server = http.createServer(async (req, res) => {
           stars: child.stars || 0,
           streak: child.streak || 0,
           unit: child.unit || '',
+          unitEdition: child.unitEdition || '',
           unitLabel: child.unit ? curriculum.unitLabel(child.unit) : '',
-          companion: child.companion || { bond: 0, streak: 0 }
+          companion: child.companion || { bond: 0, streak: 0 },
+          pet: child.pet || { exp: 0, stage: 0, name: '蛋蛋', gender: '' }
         }
       });
       return;
@@ -1134,17 +1139,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     // 学生端共用 utils/solver.js 解题引擎
-    if (req.url === '/student/solver.js') {
+    if (req.url.split('?')[0] === '/student/solver.js') {
       serveUtilFile(res, SOLVER_FILE);
       return;
     }
     // 学生端共用 utils/curriculum.js 教材目录
-    if (req.url === '/student/curriculum.js') {
+    if (req.url.split('?')[0] === '/student/curriculum.js') {
       serveUtilFile(res, CURRICULUM_FILE);
       return;
     }
     // 学生端共用 utils/mcq.js 选择题题型库
-    if (req.url === '/student/mcq.js') {
+    if (req.url.split('?')[0] === '/student/mcq.js') {
       serveUtilFile(res, MCQ_FILE);
       return;
     }

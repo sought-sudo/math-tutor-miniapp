@@ -343,6 +343,12 @@
   // ---------------- 教材同步单元选择 ----------------
 
   var currentUnit = storeStr('stu_unit', '');
+  // 教材版本：''=全部 / renjiao=人教版 / beishida=北师大版（默认按当前单元自动识别）
+  var currentEdition = storeStr('stu_edition', (function () {
+    if (currentUnit.indexOf('S') === 0) return 'beishida';
+    if (currentUnit.indexOf('A') === 0 || currentUnit.indexOf('B') === 0) return 'renjiao';
+    return '';
+  })());
 
   function unitKnowledgePool() {
     if (!currentUnit || !window.Curriculum) return null;
@@ -356,11 +362,15 @@
     sel.innerHTML = '';
     var allOpt = document.createElement('option');
     allOpt.value = '';
-    allOpt.textContent = '全部知识点（按薄弱点智能出题）';
+    allOpt.textContent = currentEdition === 'beishida' ? '北师大全部单元（按薄弱点智能出题）' : currentEdition === 'renjiao' ? '人教版全部单元（按薄弱点智能出题）' : '全部知识点（按薄弱点智能出题）';
     sel.appendChild(allOpt);
     if (window.Curriculum && window.Curriculum.CURRICULUM) {
       var books = {};
       window.Curriculum.CURRICULUM.forEach(function (u) {
+        var match = currentEdition === 'renjiao' ? u.book.indexOf('人教版') > -1
+          : currentEdition === 'beishida' ? u.book.indexOf('北师大') > -1
+          : true;
+        if (!match) return;
         (books[u.book] = books[u.book] || []).push(u);
       });
       Object.keys(books).forEach(function (book) {
@@ -376,6 +386,10 @@
       });
     }
     sel.value = currentUnit;
+    // 版本 chips 高亮
+    document.querySelectorAll('#unit-edition-chips .w-chip').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.edition === currentEdition);
+    });
   }
 
   // 从候选知识点池中按薄弱加权选一个（无掌握度数据则随机）
@@ -642,6 +656,7 @@
     if (window.TTS) TTS.playCorrect();
     refreshMastery(); // 会话结束后刷新掌握度
     addBond(2); // 对话完成，伙伴亲近 +2
+    if (window.Pet) { Pet.addExp(3, 'dialogue'); petSync(); }
   }
 
   function renderQuickReplies(list) {
@@ -708,9 +723,12 @@
 
   function cnTaskBump(key) {
     cn.task = cnTaskGet();
+    var before = (cn.task.chars >= 3 ? 1 : 0) + (cn.task.dictation >= 2 ? 1 : 0) + (cn.task.poem >= 1 ? 1 : 0);
     cn.task[key] = (cn.task[key] || 0) + 1;
     storeSet('stu_cn_task', cn.task);
     renderCnTask();
+    var after = (cn.task.chars >= 3 ? 1 : 0) + (cn.task.dictation >= 2 ? 1 : 0) + (cn.task.poem >= 1 ? 1 : 0);
+    if (window.Pet && after >= 3 && before < 3) { Pet.addExp(8, 'task'); petSync(); }
   }
 
   function renderCnTask() {
@@ -909,9 +927,12 @@
 
   function enTaskBump(key) {
     en.task = enTaskGet();
+    var before = (en.task.listen >= 3 ? 1 : 0) + (en.task.repeat >= 2 ? 1 : 0) + (en.task.spell >= 2 ? 1 : 0);
     en.task[key] = (en.task[key] || 0) + 1;
     storeSet('stu_en_task', en.task);
     renderEnTask();
+    var after = (en.task.listen >= 3 ? 1 : 0) + (en.task.repeat >= 2 ? 1 : 0) + (en.task.spell >= 2 ? 1 : 0);
+    if (window.Pet && after >= 3 && before < 3) { Pet.addExp(8, 'task'); petSync(); }
   }
 
   function renderEnTask() {
@@ -1193,7 +1214,67 @@
     }).catch(function () { alert('网络开了小差'); });
   }
 
-  // ---------------- 每日学习计划（最多 2 科，15~25 分钟） ----------------
+  // ---------------- 虚拟宠物小鸡 ----------------
+
+  function renderPet() {
+    if (!window.Pet) return;
+    Pet.render($('pet-corner'), 44);
+    var d = Pet.data();
+    var corner = $('pet-corner');
+    corner.textContent = Pet.STAGES[d.stage].emoji;
+    corner.title = '我的小鸡 · ' + Pet.STAGES[d.stage].name + '（' + d.exp + ' 成长值）';
+  }
+
+  function refreshPetHouse() {
+    if (!window.Pet) return;
+    var d = Pet.data();
+    var info = Pet.stageInfo();
+    Pet.render($('pet-mascot'), 120);
+    $('pet-name').textContent = d.name + ' · ' + info.name;
+    $('pet-fill').style.width = Math.max(4, info.progress) + '%';
+    $('pet-stage-label').textContent = info.next
+      ? '成长值 ' + d.exp + ' / ' + info.next.min + '（还差 ' + (info.next.min - d.exp) + ' 升级 ' + info.next.name + '）'
+      : '成长值 ' + d.exp + ' · 已达最高阶段 🎉';
+    // 里程碑
+    var box = $('pet-milestones');
+    box.innerHTML = '';
+    Pet.STAGES.forEach(function (st, i) {
+      var earned = d.stage >= i;
+      var div = document.createElement('div');
+      div.className = 'pm-item' + (earned ? ' earned' : '');
+      var pct = d.exp >= st.min ? 100 : Math.round((d.exp / st.min) * 100);
+      div.innerHTML = '<span class="pm-icon">' + (earned ? st.emoji : '🔒') + '</span>' +
+        '<span style="min-width:84px">' + st.name + '</span>' +
+        '<span class="pm-bar"><span class="pm-fill" style="width:' + pct + '%"></span></span>' +
+        '<span style="min-width:64px">' + st.min + ' 成长值</span>';
+      box.appendChild(div);
+    });
+    // 互动语
+    var say = $('pet-say');
+    if (Pet.isSleeping()) say.textContent = '💤 Zzz… 好想你呀，今天也来学习吧！';
+    else if (d.stage === 0) say.textContent = '蛋里的我在等你学习哦，做对题目我就能破壳！';
+    else say.textContent = pick(['和我一起加油呀！', '今天也努力学习了吗？', '有你的陪伴我每天都在长大！']);
+    // 破壳性别选择卡
+    $('pet-gender-card').style.display = (d.stage >= 1 && !d.gender) ? 'block' : 'none';
+    renderPet();
+  }
+
+  // 升级庆祝（Pet.onLevelUp 回调）
+  function onPetLevelUp(pet, stage, reason) {
+    var info = Pet.STAGES[stage];
+    showBadgeToast({ icon: info.emoji, name: '小鸡升级啦！', desc: '「' + (pet.name || '蛋蛋') + '」进化成 ' + info.name + '！' });
+    if (window.TTS) TTS.playUnlock();
+    renderPet();
+    if (currentView === 'pet') refreshPetHouse();
+    petSync();
+  }
+
+  function petSync() {
+    var d = Pet.data();
+    syncSend('pet', { exp: d.exp, stage: d.stage, name: d.name, gender: d.gender });
+  }
+
+  
 
   function renderDailyPlan(mathToday, prefix) {
     if (!window.DailyPlan) return;
@@ -1419,6 +1500,7 @@
     $('hero-bond').textContent = bondIcon(c.bond || 0) + ' ' + bondLevel(c.bond || 0);
     renderEnergy(c.bond || 0);
     renderDailyPlan(s.today);
+    renderPet();
     refreshTaskCard(s.today);
     if (window.Mascot) {
       Mascot.render($('hero-mascot'), Rewards && Rewards.streak() >= 3 ? 'cheer' : 'greet', 64, c.bond || 0);
@@ -1503,6 +1585,7 @@
         c.taskRewardedDate = t;
         compSet(c);
         Rewards.addStars(3);
+        if (window.Pet) { Pet.addExp(8, 'task'); petSync(); }
         showBadgeToast({ icon: '🎯', name: '今日任务', desc: '完成闯关目标，+3 颗星！' });
       }
     }
@@ -2653,6 +2736,8 @@
       syncSend('wrong', { problem: item.problem, myAnswer: item.myAnswer, rightAnswer: item.rightAnswer, knowledge: item.knowledge, times: item.times, errorType: item.errorType || '' });
     }
 
+    // 宠物小鸡：答对 +2 成长值
+    if (window.Pet && correct) Pet.addExp(2, 'answer');
     // 奖励：每日打卡 + 星星（变形题成功 +2），答对播放轻音效
     if (window.Rewards) {
       Rewards.checkIn();
@@ -3248,6 +3333,7 @@
         if (!j.ok) { alert(j.error || '网络开了小差'); return; }
         storeSet('stu_camp_result_' + getCode(), j.result);
         camp.finalResult = j.result;
+        if (window.Pet) { Pet.addExp(20, 'camp-final'); petSync(); }
         campShowPanel('report');
         renderCampFinal(j.result);
       }).catch(function () {
@@ -3853,12 +3939,59 @@
     if (window.TTS) TTS.speak($('guide-problem').textContent);
   });
   if (window.Rewards) Rewards.onBadge(showBadgeToast);
+  if (window.Pet) {
+    Pet.onLevelUp = onPetLevelUp;
+    $('pet-corner').addEventListener('click', function () { showView('pet'); refreshPetHouse(); });
+    $('pet-mascot').addEventListener('click', function () {
+      // 摸头互动：随机小动效
+      var m = $('pet-mascot');
+      m.style.transition = 'transform 0.15s';
+      m.style.transform = 'scale(1.08) rotate(-3deg)';
+      setTimeout(function () { m.style.transform = ''; }, 200);
+      $('pet-say').textContent = pick(['好舒服呀～', '最喜欢你啦！', '咕咕咕～']);
+      if (window.TTS) TTS.playCorrect();
+    });
+    $('btn-pet-rename').addEventListener('click', function () {
+      var d = Pet.data();
+      var name = prompt('给小鸡起个名字（最多 8 个字）：', d.name || '');
+      if (name !== null) { Pet.setName(name); refreshPetHouse(); }
+    });
+    $('btn-pet-gender-f').addEventListener('click', function () {
+      Pet.setGender('female'); refreshPetHouse();
+      showBadgeToast({ icon: '🌸', name: '小鸡出壳啦', desc: '一只可爱的小母鸡诞生了！' });
+    });
+    $('btn-pet-gender-m').addEventListener('click', function () {
+      Pet.setGender('male'); refreshPetHouse();
+      showBadgeToast({ icon: '💙', name: '小鸡出壳啦', desc: '一只神气的小公鸡诞生了！' });
+    });
+    renderPet();
+  }
 
   // 教材单元选择
   $('unit-select').addEventListener('change', function () {
     currentUnit = this.value;
     storeSetStr('stu_unit', currentUnit);
-    syncSend('unit', { unit: currentUnit });
+    syncSend('unit', { unit: currentUnit, edition: currentEdition });
+  });
+
+  // 教材版本切换：过滤单元下拉，当前单元不属于该版本则清空
+  document.querySelectorAll('#unit-edition-chips .w-chip').forEach(function (b) {
+    b.addEventListener('click', function () {
+      currentEdition = b.dataset.edition;
+      storeSetStr('stu_edition', currentEdition);
+      if (currentUnit && window.Curriculum && window.Curriculum.CURRICULUM) {
+        var u = window.Curriculum.unitById(currentUnit);
+        var inEdition = currentEdition === 'renjiao' ? u && u.book.indexOf('人教版') > -1
+          : currentEdition === 'beishida' ? u && u.book.indexOf('北师大') > -1
+          : true;
+        if (!inEdition) {
+          currentUnit = '';
+          storeSetStr('stu_unit', '');
+        }
+      }
+      initUnitSelect();
+      syncSend('unit', { unit: currentUnit, edition: currentEdition });
+    });
   });
 
   // 徽章墙

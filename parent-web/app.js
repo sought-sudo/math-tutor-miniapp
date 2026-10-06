@@ -99,6 +99,35 @@
     '长方形面积': '"长乘宽"算出来的是哪一块地方？单位写对了吗？'
   };
 
+  // 小鸡成长卡
+  function renderPetCard(current) {
+    var card = $('pet-card');
+    var box = $('petbox');
+    if (!card || !box) return;
+    var pet = current.pet;
+    if (!pet || (!pet.exp && !pet.stage)) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'block';
+    var STAGES = [
+      { min: 0, name: '斑点蛋', emoji: '🥚' },
+      { min: 30, name: '破壳雏鸡', emoji: '🐣' },
+      { min: 100, name: '毛茸小鸡', emoji: '🐤' },
+      { min: 250, name: '成年鸡', emoji: '🐔' },
+      { min: 500, name: '智慧鸡', emoji: '🐔‍🎓' }
+    ];
+    var stage = STAGES[pet.stage] || STAGES[0];
+    var next = STAGES[pet.stage + 1] || null;
+    var progress = next ? Math.min(100, Math.round(((pet.exp - stage.min) / (next.min - stage.min)) * 100)) : 100;
+    box.innerHTML =
+      '<div class="krow"><div class="kname">' + stage.emoji + ' ' + esc(pet.name || '蛋蛋') + '（' + stage.name + '）</div>' +
+      '<div class="ktrack"><div class="kfill good" style="width:' + Math.max(4, progress) + '%"></div></div>' +
+      '<div class="kcount">' + pet.exp + ' 成长值</div></div>' +
+      '<div class="empty">' + (next ? '还差 ' + (next.min - pet.exp) + ' 成长值就变成 ' + next.name + ' 啦' : '已达最高阶段') +
+      '。孩子每做对一题小鸡都会长大一点。</div>';
+  }
+
   // 分科学习概览 + 掌握度按学科分组
   function loadBySubject(code) {
     // 1) 概览行（/api/report 的 bySubject）
@@ -500,6 +529,7 @@
         current = {
           name: res.child.name,
           code: code,
+          pet: res.child.pet || null,
           records: res.child.records || [],
           wrongs: res.child.wrongs || [],
           stars: res.child.stars || 0,
@@ -509,6 +539,7 @@
         };
         localStorage.setItem(LS_CODE, code);
         render();
+        renderPetCard(current);
         loadBySubject(code);
         loadCamp(code);
         // 行为日志：家长查看报告/沟通脚本

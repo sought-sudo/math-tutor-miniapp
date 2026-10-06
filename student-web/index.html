@@ -29,6 +29,7 @@
           <div class="hero-badges" id="hero-badges"></div>
         </div>
         <div class="hero-icon" id="hero-mascot"></div>
+        <button class="pet-corner" id="pet-corner" title="我的小鸡">🥚</button>
       </div>
       <div class="subject-tabs" id="subject-tabs">
         <button class="stab on" data-subject="math" id="stab-math">🔢 数学</button>
@@ -87,6 +88,11 @@
 
       <div class="card unit-card">
         <div class="label">📖 练习单元（教材同步）</div>
+        <div class="edition-chips" id="unit-edition-chips">
+          <button class="w-chip on" data-edition="">全部</button>
+          <button class="w-chip" data-edition="renjiao">人教版</button>
+          <button class="w-chip" data-edition="beishida">北师大版</button>
+        </div>
         <select id="unit-select"></select>
         <div class="note">选一个单元，练习就会集中在这个单元的知识点；选"全部"则按你的薄弱点智能出题。</div>
       </div>
@@ -211,6 +217,34 @@
         <div class="result-row">
           <button class="btn btn-primary" id="hw-to-wrong">📕 去错题本复习</button>
           <button class="btn btn-blue" id="hw-to-camp">🎯 去训练营补漏</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 宠物小屋 -->
+    <section id="view-pet" class="view" style="display:none">
+      <div class="card pet-house">
+        <div class="pet-mascot" id="pet-mascot" title="点我互动"></div>
+        <div class="pet-name-row" id="pet-name-row">
+          <span class="pet-name" id="pet-name">蛋蛋</span>
+          <button class="btn btn-ghost btn-sm" id="btn-pet-rename">✏️ 改名</button>
+        </div>
+        <div class="pet-say" id="pet-say"></div>
+        <div class="pet-track-wrap">
+          <div class="pet-track"><div class="pet-fill" id="pet-fill" style="width:0%"></div></div>
+          <div class="pet-stage-label" id="pet-stage-label"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label">🐣 成长里程碑（学习点亮）</div>
+        <div id="pet-milestones"></div>
+        <div class="note">做对题目、完成每日任务、训练营结课都能让小鸡成长；小鸡只会长大，不会后退哦。</div>
+      </div>
+      <div class="card" id="pet-gender-card" style="display:none">
+        <div class="label">🎉 恭喜！蛋壳裂开了！选一颗你喜欢的蛋孵出小鸡：</div>
+        <div class="result-row">
+          <button class="btn btn-primary" id="btn-pet-gender-f">🌸 粉壳蛋（母鸡）</button>
+          <button class="btn btn-blue" id="btn-pet-gender-m">💙 蓝壳蛋（公鸡）</button>
         </div>
       </div>
     </section>
@@ -728,16 +762,17 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
-  <script src="curriculum.js?v=20261004e" onerror="window.__curriculumFailed = true"></script>
-  <script src="mcq.js?v=20261004e" onerror="window.__mcqFailed = true"></script>
+  <script src="js/pet.js"></script>
+  <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
+  <script src="mcq.js" onerror="window.__mcqFailed = true"></script>
   <!-- solver.js 优先同目录加载（直接双击本文件时走该路径）；失败则从后端拉取。
        两个分支都等引擎就绪后再加载 app.js，避免时序问题；?v= 版本号防浏览器缓存旧脚本 -->
-  <script src="solver.js?v=20261004e" onerror="window.__solverFailed = true"></script>
+  <script src="solver.js" onerror="window.__solverFailed = true"></script>
   <script>
     (function () {
       function boot() {
         var s = document.createElement('script');
-        s.src = 'app.js?v=20261004e';
+        s.src = 'app.js?v=20261004f';
         document.head.appendChild(s);
       }
       function fail() {
