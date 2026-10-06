@@ -92,6 +92,29 @@
       tone(523, 0, 0.12, 0.06);
       tone(659, 0.12, 0.12, 0.06);
       tone(784, 0.24, 0.2, 0.06);
+    },
+    // 敲蛋"咚咚"（低频双击）
+    playKnock: function () {
+      if (muted) return;
+      try { ensureAudio(); } catch (e) { return; }
+      tone(180, 0, 0.08, 0.1);
+      tone(150, 0.12, 0.1, 0.1);
+    },
+    // 破壳"咔嚓+啾"（噪声感短音 + 上滑啾声）
+    playCrack: function () {
+      if (muted) return;
+      try { ensureAudio(); } catch (e) { return; }
+      tone(320, 0, 0.05, 0.09);
+      tone(240, 0.07, 0.05, 0.09);
+      tone(880, 0.16, 0.1, 0.07);
+      tone(1170, 0.26, 0.14, 0.07);
+    },
+    // 喂食"咕咕"（两声下滑咕声）
+    playPeck: function () {
+      if (muted) return;
+      try { ensureAudio(); } catch (e) { return; }
+      tone(420, 0, 0.07, 0.08);
+      tone(340, 0.1, 0.09, 0.08);
     }
   };
 })();

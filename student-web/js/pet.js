@@ -143,7 +143,7 @@
     var sleeping = isSleeping();
     var eyes = sleeping
       ? '<path d="M50 60 Q54 64 58 60 M66 60 Q70 64 74 60" stroke="#5B3A1E" stroke-width="3" fill="none" stroke-linecap="round"/>'
-      : '<circle cx="52" cy="60" r="4.5" fill="#3A2A1A"/><circle cx="72" cy="60" r="4.5" fill="#3A2A1A"/>' +
+      : '<circle class="pet-eye" cx="52" cy="60" r="4.5" fill="#3A2A1A"/><circle class="pet-eye" cx="72" cy="60" r="4.5" fill="#3A2A1A"/>' +
         '<circle cx="53.5" cy="58.5" r="1.6" fill="#fff"/><circle cx="73.5" cy="58.5" r="1.6" fill="#fff"/>';
     return '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">' +
       '<ellipse cx="60" cy="88" rx="34" ry="22" fill="#FFD54F"/>' +
@@ -160,7 +160,7 @@
     var sleeping = isSleeping();
     var eyes = sleeping
       ? '<path d="M48 56 Q53 61 58 56 M64 56 Q69 61 74 56" stroke="#5B3A1E" stroke-width="3" fill="none" stroke-linecap="round"/>'
-      : '<circle cx="52" cy="55" r="5" fill="#3A2A1A"/><circle cx="72" cy="55" r="5" fill="#3A2A1A"/>' +
+      : '<circle class="pet-eye" cx="52" cy="55" r="5" fill="#3A2A1A"/><circle class="pet-eye" cx="72" cy="55" r="5" fill="#3A2A1A"/>' +
         '<circle cx="53.5" cy="53" r="1.8" fill="#fff"/><circle cx="73.5" cy="53" r="1.8" fill="#fff"/>';
     // 毛茸小鸡：绒毛边 + 小翅膀
     return '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">' +
@@ -180,7 +180,7 @@
     var sleeping = isSleeping();
     var eyes = sleeping
       ? '<path d="M48 50 Q53 55 58 50 M64 50 Q69 55 74 50" stroke="#5B3A1E" stroke-width="3" fill="none" stroke-linecap="round"/>'
-      : '<circle cx="52" cy="49" r="5" fill="#3A2A1A"/><circle cx="72" cy="49" r="5" fill="#3A2A1A"/>' +
+      : '<circle class="pet-eye" cx="52" cy="49" r="5" fill="#3A2A1A"/><circle class="pet-eye" cx="72" cy="49" r="5" fill="#3A2A1A"/>' +
         '<circle cx="53.5" cy="47" r="1.8" fill="#fff"/><circle cx="73.5" cy="47" r="1.8" fill="#fff"/>';
     var comb = male
       ? '<path d="M46 24 Q50 12 58 20 Q62 8 70 16 Q76 10 78 22 Q70 18 62 22 Q54 16 46 24 Z" fill="#E53935"/>'
@@ -211,7 +211,7 @@
     var glasses = '<circle cx="52" cy="49" r="7" fill="none" stroke="#37474F" stroke-width="2"/>' +
       '<circle cx="72" cy="49" r="7" fill="none" stroke="#37474F" stroke-width="2"/>' +
       '<path d="M59 49 L65 49" stroke="#37474F" stroke-width="2"/>';
-    var halo = '<ellipse cx="60" cy="10" rx="26" ry="6" fill="none" stroke="#FFD84D" stroke-width="3" opacity="0.9"/>';
+    var halo = '<ellipse cx="60" cy="10" rx="26" ry="6" fill="none" stroke="#FFD84D" stroke-width="3" opacity="0.9" class="pet-halo-spin"/>';
     return base.replace('<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">',
       '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">' + halo) +
       '<g opacity="0.95">' + glasses + '</g>' + hat;
@@ -219,14 +219,18 @@
 
   function svg() {
     var v = get();
+    var inner;
     switch (v.stage) {
-      case 0: return svgEgg();
-      case 1: return svgHatched();
-      case 2: return svgChick();
-      case 3: return svgAdult(v.gender !== 'female');
-      case 4: return svgWise(v.gender !== 'female');
-      default: return svgEgg();
+      case 0: inner = svgEgg(); break;
+      case 1: inner = svgHatched(); break;
+      case 2: inner = svgChick(); break;
+      case 3: inner = svgAdult(v.gender !== 'female'); break;
+      case 4: inner = svgWise(v.gender !== 'female'); break;
+      default: inner = svgEgg();
     }
+    // 呼吸生命感：内层 g 挂 pet-live（render 里的定时器负责眨眼/小动作）
+    return inner.replace('<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">',
+      '<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" class="pet-live">');
   }
 
   var Pet = {
@@ -249,8 +253,44 @@
       var s = size || 48;
       el.style.width = s + 'px';
       el.style.height = s + 'px';
+      if (typeof startLiving === 'function') startLiving(el);
     }
   };
+
+  // ---------------- 生命感定时器（眨眼 + 随机小动作） ----------------
+  var liveTimers = {};
+  function startLiving(el) {
+    if (!el || !el.id) return;
+    var key = el.id;
+    if (liveTimers[key]) { clearTimeout(liveTimers[key].blink); clearInterval(liveTimers[key].action); }
+    // 眨眼：随机 3~6s 一次，闭 0.16s（睡觉不眨）
+    (function scheduleBlink() {
+      liveTimers[key] = liveTimers[key] || {};
+      liveTimers[key].blink = setTimeout(function () {
+        if (!Pet.isSleeping()) {
+          var eyes = el.querySelectorAll('.pet-eye');
+          eyes.forEach(function (e) { e.classList.add('pet-blink'); });
+          setTimeout(function () { eyes.forEach(function (e) { e.classList.remove('pet-blink'); }); }, 170);
+        }
+        scheduleBlink();
+      }, 2800 + Math.floor(Math.random() * 3200));
+    })();
+    // 小动作：随机 6~10s 触发摇晃/跳/扇翅（蛋=摇晃）
+    (function scheduleAction() {
+      liveTimers[key] = liveTimers[key] || {};
+      liveTimers[key].action = setInterval(function () {
+        var v = Pet.data();
+        if (Pet.isSleeping()) return;
+        var acts = v.stage === 0 ? ['pet-wobble'] : ['pet-hop', 'pet-flap', 'pet-wobble'];
+        var cls = acts[Math.floor(Math.random() * acts.length)];
+        var target = el.querySelector('.pet-live');
+        if (!target) return;
+        target.classList.remove('pet-wobble', 'pet-hop', 'pet-flap');
+        target.classList.add(cls);
+        setTimeout(function () { target.classList.remove(cls); }, 900);
+      }, 6000 + Math.floor(Math.random() * 4000));
+    })();
+  }
 
   window.Pet = Pet;
 })();

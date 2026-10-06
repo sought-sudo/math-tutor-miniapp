@@ -224,6 +224,10 @@
     <!-- 宠物小屋 -->
     <section id="view-pet" class="view" style="display:none">
       <div class="card pet-house">
+        <div class="pet-sun"></div>
+        <div class="pet-cloud c1"></div>
+        <div class="pet-cloud c2"></div>
+        <div class="pet-grass"></div>
         <div class="pet-mascot" id="pet-mascot" title="点我互动"></div>
         <div class="pet-name-row" id="pet-name-row">
           <span class="pet-name" id="pet-name">蛋蛋</span>
@@ -234,6 +238,7 @@
           <div class="pet-track"><div class="pet-fill" id="pet-fill" style="width:0%"></div></div>
           <div class="pet-stage-label" id="pet-stage-label"></div>
         </div>
+        <button class="btn btn-ghost btn-sm" id="btn-pet-feed" style="margin-top:8px">🌽 喂一口</button>
       </div>
       <div class="card">
         <div class="label">🐣 成长里程碑（学习点亮）</div>
@@ -762,6 +767,7 @@
   <script src="js/rewards.js"></script>
   <script src="js/kmap.js"></script>
   <script src="js/dailyPlan.js"></script>
+  <link rel="stylesheet" href="pet.css">
   <script src="js/pet.js"></script>
   <script src="curriculum.js" onerror="window.__curriculumFailed = true"></script>
   <script src="mcq.js" onerror="window.__mcqFailed = true"></script>

@@ -1216,12 +1216,50 @@
 
   // ---------------- 虚拟宠物小鸡 ----------------
 
+  // 粒子：type = heart | confetti | feather | corn；在 (x,y) 视口坐标爆出
+  function spawnParticles(type, x, y, count) {
+    var icons = { heart: '💖', confetti: ['🎉', '✨', '🎊'], feather: '🪶', corn: '🌽' };
+    var n = count || 6;
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement('span');
+      var icon = icons[type];
+      if (Array.isArray(icon)) icon = icon[i % icon.length];
+      el.textContent = icon || '✨';
+      el.className = type === 'confetti' ? 'pet-particle' : 'pet-particle';
+      if (type === 'confetti') { el.className = 'pet-confetti'; el.style.background = ['#FF8A80', '#FFD54F', '#66BB6A', '#5C6BC0'][i % 4]; el.style.left = (x - 30 + Math.random() * 60) + 'px'; el.style.top = y + 'px'; }
+      else {
+        el.style.left = (x - 10 + Math.random() * 20) + 'px';
+        el.style.top = (y - 10) + 'px';
+        el.style.setProperty('--dx', ((Math.random() - 0.5) * 70) + 'px');
+        el.style.setProperty('--dy', (-40 - Math.random() * 40) + 'px');
+      }
+      document.body.appendChild(el);
+      (function (node) { setTimeout(function () { node.remove(); }, 1600); })(el);
+    }
+  }
+
+  // 小鸡升级庆祝序列：金光 + 彩纸雨 + 形象弹出
+  function petCelebrate() {
+    var m = $('pet-corner') || $('pet-mascot'); // 角标三科主页常驻可见
+    if (m) {
+      var b = m.getBoundingClientRect();
+      spawnParticles('confetti', b.left + b.width / 2, b.top);
+      var glow = document.createElement('div');
+      glow.className = 'pet-glow';
+      m.style.position = 'relative';
+      m.appendChild(glow);
+      setTimeout(function () { glow.remove(); }, 1100);
+      m.classList.add('pet-pop');
+      setTimeout(function () { m.classList.remove('pet-pop'); }, 700);
+    }
+    if (window.TTS) TTS.playCrack();
+  }
+
   function renderPet() {
     if (!window.Pet) return;
-    Pet.render($('pet-corner'), 44);
     var d = Pet.data();
+    Pet.render($('pet-corner'), 44);
     var corner = $('pet-corner');
-    corner.textContent = Pet.STAGES[d.stage].emoji;
     corner.title = '我的小鸡 · ' + Pet.STAGES[d.stage].name + '（' + d.exp + ' 成长值）';
   }
 
@@ -1262,7 +1300,8 @@
   // 升级庆祝（Pet.onLevelUp 回调）
   function onPetLevelUp(pet, stage, reason) {
     var info = Pet.STAGES[stage];
-    showBadgeToast({ icon: info.emoji, name: '小鸡升级啦！', desc: '「' + (pet.name || '蛋蛋') + '」进化成 ' + info.name + '！' });
+    petCelebrate(); // 金光+彩纸+弹出+音效
+    showBadgeToast({ icon: info.emoji, name: stage === 1 ? '破壳啦！' : '小鸡升级啦！', desc: '「' + (pet.name || '蛋蛋') + '」进化成 ' + info.name + '！' });
     if (window.TTS) TTS.playUnlock();
     renderPet();
     if (currentView === 'pet') refreshPetHouse();
@@ -2736,8 +2775,12 @@
       syncSend('wrong', { problem: item.problem, myAnswer: item.myAnswer, rightAnswer: item.rightAnswer, knowledge: item.knowledge, times: item.times, errorType: item.errorType || '' });
     }
 
-    // 宠物小鸡：答对 +2 成长值
-    if (window.Pet && correct) Pet.addExp(2, 'answer');
+    // 宠物小鸡：答对 +2 成长值，角标跳一下
+    if (window.Pet && correct) {
+      Pet.addExp(2, 'answer');
+      var pc = $('pet-corner');
+      if (pc) { pc.classList.add('pet-hop'); setTimeout(function () { pc.classList.remove('pet-hop'); }, 600); }
+    }
     // 奖励：每日打卡 + 星星（变形题成功 +2），答对播放轻音效
     if (window.Rewards) {
       Rewards.checkIn();
@@ -3942,12 +3985,23 @@
   if (window.Pet) {
     Pet.onLevelUp = onPetLevelUp;
     $('pet-corner').addEventListener('click', function () { showView('pet'); refreshPetHouse(); });
-    $('pet-mascot').addEventListener('click', function () {
-      // 摸头互动：随机小动效
+    $('pet-mascot').addEventListener('click', function (ev) {
       var m = $('pet-mascot');
+      if (Pet.data().stage === 0) {
+        // 敲蛋壳：摇晃 + 咚咚音 + 少量成长值（孵化互动）
+        m.classList.add('pet-wobble');
+        setTimeout(function () { m.classList.remove('pet-wobble'); }, 750);
+        if (window.TTS) TTS.playKnock();
+        Pet.addExp(1, 'knock');
+        $('pet-say').textContent = '咚咚咚…里面有什么声音？';
+        renderPet();
+        return;
+      }
       m.style.transition = 'transform 0.15s';
       m.style.transform = 'scale(1.08) rotate(-3deg)';
       setTimeout(function () { m.style.transform = ''; }, 200);
+      var b = m.getBoundingClientRect();
+      spawnParticles('heart', b.left + b.width / 2, b.top + 10, 3);
       $('pet-say').textContent = pick(['好舒服呀～', '最喜欢你啦！', '咕咕咕～']);
       if (window.TTS) TTS.playCorrect();
     });
@@ -3963,6 +4017,21 @@
     $('btn-pet-gender-m').addEventListener('click', function () {
       Pet.setGender('male'); refreshPetHouse();
       showBadgeToast({ icon: '💙', name: '小鸡出壳啦', desc: '一只神气的小公鸡诞生了！' });
+    });
+    $('btn-pet-feed').addEventListener('click', function (ev) {
+      var m = $('pet-mascot');
+      var b = m.getBoundingClientRect();
+      var corn = document.createElement('span');
+      corn.className = 'pet-corn';
+      corn.textContent = '🌽';
+      corn.style.left = (b.left + b.width / 2 - 8) + 'px';
+      corn.style.top = (b.top + 20) + 'px';
+      document.body.appendChild(corn);
+      setTimeout(function () {
+        corn.remove();
+        $('pet-say').textContent = pick(['真好吃！咕咕咕～', '谢谢你喂我！', '饱饱的，学习更有劲！']);
+        if (window.TTS) TTS.playPeck();
+      }, 950);
     });
     renderPet();
   }
